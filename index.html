@@ -3521,18 +3521,23 @@
       const iframeCalc = document.getElementById('iframeCalc');
       const iframeKanban = document.getElementById('iframeKanban');
       let refiLoaded = false, calcLoaded = false, kanbanLoaded = false;
+      // Se suma como query param a cada iframe para que el navegador siempre
+      // pida la version nueva del archivo despues de un deploy, en vez de
+      // servir una copia vieja cacheada. Subir este numero en cada cambio a
+      // kanban_clientes.html / refi_buscador.html / calculadora_proximo_credito.html.
+      const ASSET_VERSION = 3;
 
       function cargarIframeSiHaceFalta(view) {
         if (view === 'view-refi' && !refiLoaded) {
-          iframeRefi.src = 'refi_buscador.html';
+          iframeRefi.src = 'refi_buscador.html?v=' + ASSET_VERSION;
           refiLoaded = true;
         }
         if (view === 'view-calc' && !calcLoaded) {
-          iframeCalc.src = 'calculadora_proximo_credito.html';
+          iframeCalc.src = 'calculadora_proximo_credito.html?v=' + ASSET_VERSION;
           calcLoaded = true;
         }
         if (view === 'view-kanban' && !kanbanLoaded) {
-          iframeKanban.src = 'kanban_clientes.html';
+          iframeKanban.src = 'kanban_clientes.html?v=' + ASSET_VERSION;
           kanbanLoaded = true;
         }
       }
