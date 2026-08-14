@@ -1957,7 +1957,8 @@
       <button class="sidebar-item" data-view="view-mensajes"><span class="si-icon">💬</span><span class="si-label">Envío de Mensajes</span></button>
       <button class="sidebar-item" data-view="view-refi"><span class="si-icon">🔍</span><span class="si-label">Buscador de Refinanciaciones</span></button>
       <button class="sidebar-item" data-view="view-calc"><span class="si-icon">🧮</span><span class="si-label">Calculadora de Próximo Crédito</span></button>
-      <button class="sidebar-item" data-view="view-kanban"><span class="si-icon">🗂️</span><span class="si-label">Kanban de Cartera</span></button>
+      <button class="sidebar-item" data-view="view-kanban" data-mode="kanban"><span class="si-icon">🗂️</span><span class="si-label">Kanban de Cartera</span></button>
+      <button class="sidebar-item" data-view="view-calendario" data-target="view-kanban" data-mode="calendar"><span class="si-icon">📅</span><span class="si-label">Calendario</span></button>
     </nav>
     <div class="sidebar-backup">
       <button class="sidebar-backup-btn" id="btnToggleTheme">🌙 Modo oscuro</button>
@@ -3536,16 +3537,25 @@
         }
       }
 
-      function setAppView(view) {
+      function setAppView(btn) {
+        const view = btn.dataset.view;
+        const target = btn.dataset.target || view;
+        const mode = btn.dataset.mode || null;
         document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
-        const el = document.getElementById(view);
+        const el = document.getElementById(target);
         if (el) el.classList.add('active');
         items.forEach(b => b.classList.toggle('active', b.dataset.view === view));
-        cargarIframeSiHaceFalta(view);
+        const wasLoaded = kanbanLoaded;
+        cargarIframeSiHaceFalta(target);
+        if (target === 'view-kanban' && mode) {
+          const sendMode = () => iframeKanban.contentWindow.postMessage({ type: 'cm-kanban-mode', mode }, '*');
+          if (wasLoaded) sendMode();
+          else iframeKanban.addEventListener('load', sendMode, { once: true });
+        }
         try { localStorage.setItem('appActiveView_v1', view); } catch (e) { }
       }
 
-      items.forEach(btn => btn.addEventListener('click', () => setAppView(btn.dataset.view)));
+      items.forEach(btn => btn.addEventListener('click', () => setAppView(btn)));
 
       function collapseSidebar() {
         sidebar.classList.add('collapsed');
@@ -3562,7 +3572,8 @@
 
       try {
         const saved = localStorage.getItem('appActiveView_v1');
-        if (saved && document.getElementById(saved)) setAppView(saved);
+        const savedBtn = saved && Array.from(items).find(b => b.dataset.view === saved);
+        if (savedBtn) setAppView(savedBtn);
         if (localStorage.getItem('sidebarCollapsed_v1') === '1') collapseSidebar();
       } catch (e) { }
     })();
