@@ -1,0 +1,3739 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Panel Cash Market — Comisiones, Cobros & Envíos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase/config.js"></script>
+  <script src="supabase/kv.js"></script>
+  <style>
+    :root {
+      --bg: #080B0F;
+      --card: #111823;
+      --card-2: #0E141C;
+      --border: #20293480;
+      --border-strong: #2A3542;
+      --text: #EDF1F5;
+      --text-dim: #8B98A9;
+      --text-faint: #5A6675;
+      --gold: #F2B544;
+      --gold-dim: #F2B54433;
+      --teal: #33D6C0;
+      --teal-dim: #33D6C033;
+      --coral: #FF6B5E;
+      --coral-dim: #FF6B5E33;
+      --blue: #5B8DEF;
+      --blue-dim: #5B8DEF33;
+      --radius: 16px;
+    }
+
+    :root[data-theme="light"] {
+      --bg: #F2F4F7;
+      --card: #FFFFFF;
+      --card-2: #EEF1F5;
+      --border: #D9E0E8A0;
+      --border-strong: #CBD4DD;
+      --text: #16212D;
+      --text-dim: #56677A;
+      --text-faint: #8B98A9;
+      --gold: #B8860B;
+      --gold-dim: #F2B54426;
+      --teal: #0E9C87;
+      --teal-dim: #0E9C8722;
+      --coral: #E2564A;
+      --coral-dim: #E2564A22;
+      --blue: #3B6FD1;
+      --blue-dim: #3B6FD122;
+    }
+
+    [data-theme="light"] body {
+      background: radial-gradient(circle at 15% 0%, #EAF1F0 0%, transparent 45%),
+        radial-gradient(circle at 90% 10%, #EAF0F7 0%, transparent 40%), var(--bg);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: radial-gradient(circle at 15% 0%, #101823 0%, transparent 45%),
+        radial-gradient(circle at 90% 10%, #14201f 0%, transparent 40%), var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      padding: 28px 5vw 80px;
+    }
+
+    .num {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    button {
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    input,
+    select {
+      font-family: inherit;
+    }
+
+    header {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .header-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--teal);
+      box-shadow: 0 0 8px var(--teal);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: .35;
+      }
+    }
+
+    h1 {
+      font-family: 'Sora', sans-serif;
+      font-weight: 800;
+      font-size: clamp(24px, 3.2vw, 36px);
+      letter-spacing: -.02em;
+      line-height: 1.05;
+    }
+
+    header .sub {
+      color: var(--text-dim);
+      font-size: 14px;
+      margin-top: 8px;
+      max-width: 480px;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+    }
+
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      background: var(--card-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px 10px;
+    }
+
+    .field-inline {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .field-inline label {
+      font-size: 11px;
+      color: var(--text-faint);
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
+    }
+
+    .field-inline input {
+      background: var(--card);
+      border: 1px solid var(--border-strong);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 12px;
+      width: 140px;
+    }
+
+    .toolbar-hint {
+      font-size: 10.5px;
+      color: var(--text-faint);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .date-chip {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-dim);
+      border: 1px solid var(--border-strong);
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: var(--card-2);
+      white-space: nowrap;
+    }
+
+    .import-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #081015;
+      background: linear-gradient(135deg, var(--gold), #f7cf7c);
+      border: none;
+      padding: 10px 18px;
+      border-radius: 10px;
+      box-shadow: 0 4px 18px -4px var(--gold-dim);
+      transition: transform .15s;
+    }
+
+    .import-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .import-status {
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-faint);
+    }
+
+    .import-status.ok {
+      color: var(--teal);
+    }
+
+    .import-status.err {
+      color: var(--coral);
+    }
+
+    .dup-section {
+      background: linear-gradient(155deg, var(--card) 0%, var(--card-2) 100%);
+      border: 1px solid var(--coral-dim);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-top: 24px;
+    }
+
+    .dup-section h3 {
+      font-family: 'Sora', sans-serif;
+      font-size: 15px;
+      color: var(--coral);
+      margin-bottom: 4px;
+    }
+
+    .dup-section .dup-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+    }
+
+    .dup-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 12px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .dup-row:first-of-type {
+      border-top: none;
+    }
+
+    .dup-pair {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 13px;
+    }
+
+    .dup-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dup-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--blue-dim);
+      color: var(--blue);
+    }
+
+    .dup-tag.new {
+      background: var(--teal-dim);
+      color: var(--teal);
+    }
+
+    .dup-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .dup-actions button {
+      font-size: 11.5px;
+      font-weight: 600;
+      border: 1px solid var(--border-strong);
+      background: var(--card-2);
+      color: var(--text);
+      padding: 7px 12px;
+      border-radius: 8px;
+    }
+
+    .dup-actions button:hover {
+      border-color: var(--text-dim);
+    }
+
+    .dup-actions button[data-act="replace"] {
+      color: var(--gold);
+      border-color: var(--gold-dim);
+    }
+
+    .dup-actions button[data-act="keepboth"] {
+      color: var(--teal);
+      border-color: var(--teal-dim);
+    }
+
+    .section-title {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin: 52px 0 20px;
+    }
+
+    .section-title h2 {
+      font-family: 'Sora', sans-serif;
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: -.01em;
+    }
+
+    .section-title span {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-faint);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .section-title .right-tools {
+      margin-left: auto;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+    }
+
+    @media(max-width:980px) {
+      .hero-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media(max-width:560px) {
+      .hero-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .gauge-card {
+      background: linear-gradient(155deg, var(--card) 0%, var(--card-2) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .gauge-card .tag {
+      align-self: flex-start;
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 6px;
+    }
+
+    .gauge-wrap {
+      position: relative;
+      width: 150px;
+      height: 150px;
+      margin: 6px 0 4px;
+    }
+
+    .gauge-wrap svg {
+      transform: rotate(-90deg);
+    }
+
+    .gauge-track {
+      fill: none;
+      stroke: #1B2430;
+      stroke-width: 11;
+    }
+
+    .gauge-fill {
+      fill: none;
+      stroke-width: 11;
+      stroke-linecap: round;
+      transition: stroke-dashoffset .8s cubic-bezier(.22, 1, .36, 1);
+    }
+
+    .gauge-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gauge-center .pct {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 26px;
+    }
+
+    .gauge-center .lbl {
+      font-size: 10px;
+      color: var(--text-faint);
+      margin-top: 2px;
+      text-align: center;
+      letter-spacing: .05em;
+    }
+
+    .gauge-foot {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    .gauge-foot b {
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .stat-card .tag {
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .stat-card .value {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 28px;
+      margin: 14px 0 6px;
+    }
+
+    .stat-card .note {
+      font-size: 12.5px;
+      color: var(--text-dim);
+    }
+
+    .stat-card .accent-bar {
+      height: 3px;
+      border-radius: 3px;
+      background: var(--border-strong);
+      margin-top: 14px;
+      overflow: hidden;
+    }
+
+    .stat-card .accent-bar i {
+      display: block;
+      height: 100%;
+      border-radius: 3px;
+      transition: width .6s ease;
+    }
+
+    .comm-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    @media(max-width:900px) {
+      .comm-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media(max-width:560px) {
+      .comm-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .comm-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px;
+    }
+
+    .comm-card .head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 8px;
+    }
+
+    .comm-card .head .name {
+      font-family: 'Sora', sans-serif;
+      font-weight: 600;
+      font-size: 14.5px;
+    }
+
+    .badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10.5px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      letter-spacing: .03em;
+      white-space: nowrap;
+    }
+
+    .badge.ok {
+      background: var(--teal-dim);
+      color: var(--teal);
+    }
+
+    .badge.no {
+      background: #5A667530;
+      color: var(--text-faint);
+    }
+
+    .comm-card .amount {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 22px;
+      margin-bottom: 12px;
+    }
+
+    .tiers {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .tier {
+      flex: 1;
+      min-width: 70px;
+      text-align: center;
+      padding: 7px 4px;
+      border-radius: 8px;
+      border: 1px solid var(--border-strong);
+      font-size: 10.5px;
+      color: var(--text-faint);
+      font-family: 'JetBrains Mono', monospace;
+      background: transparent;
+      transition: all .15s;
+    }
+
+    .tier:hover {
+      border-color: var(--gold);
+      color: var(--text);
+    }
+
+    .tier.hit {
+      background: var(--gold-dim);
+      border-color: var(--gold);
+      color: var(--gold);
+      font-weight: 600;
+    }
+
+    .tier.fixed {
+      cursor: default;
+      flex: 1;
+    }
+
+    .route-filter-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--card-2);
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      padding: 6px 12px;
+    }
+
+    .route-filter-top label {
+      font-size: 11px;
+      color: var(--text-faint);
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
+    }
+
+    .route-filter-top select {
+      background: var(--card);
+      border: 1px solid var(--border-strong);
+      color: var(--text);
+      border-radius: 7px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .edit-cat-btn {
+      background: none;
+      border: 1px solid var(--border-strong);
+      color: var(--text-faint);
+      border-radius: 7px;
+      width: 26px;
+      height: 26px;
+      font-size: 12px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .edit-cat-btn:hover {
+      color: var(--gold);
+      border-color: var(--gold);
+    }
+
+    .cat-edit-overlay {
+      position: fixed;
+      inset: 0;
+      background: #05080cb0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+
+    .cat-edit-modal {
+      background: var(--card);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 560px;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .cat-edit-modal h3 {
+      font-family: 'Sora', sans-serif;
+      font-size: 17px;
+      margin-bottom: 4px;
+    }
+
+    .cat-edit-modal .sub {
+      color: var(--text-dim);
+      font-size: 12.5px;
+      margin-bottom: 18px;
+    }
+
+    .cat-edit-row {
+      display: grid;
+      grid-template-columns: 1fr 90px 120px 30px;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .cat-edit-row input {
+      background: var(--card-2);
+      border: 1px solid var(--border-strong);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12.5px;
+      font-family: 'Inter', sans-serif;
+      width: 100%;
+    }
+
+    .cat-edit-row input.num {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .cat-edit-row .row-del {
+      background: none;
+      border: none;
+      color: var(--coral);
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .cat-edit-col-labels {
+      display: grid;
+      grid-template-columns: 1fr 90px 120px 30px;
+      gap: 8px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--text-faint);
+      margin-bottom: 8px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .cat-edit-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 18px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .cat-edit-add-btn {
+      background: none;
+      border: 1px dashed var(--border-strong);
+      color: var(--text-dim);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      width: 100%;
+      margin-top: 6px;
+    }
+
+    .cat-edit-add-btn:hover {
+      border-color: var(--teal);
+      color: var(--teal);
+    }
+
+    .cat-edit-save-cancel {
+      display: flex;
+      gap: 10px;
+    }
+
+    .cat-edit-btn-save {
+      background: linear-gradient(135deg, var(--gold), #f7cf7c);
+      color: #081015;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 9px;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .cat-edit-btn-cancel {
+      background: none;
+      border: 1px solid var(--border-strong);
+      color: var(--text-dim);
+      padding: 10px 18px;
+      border-radius: 9px;
+      font-size: 13px;
+    }
+
+    .hint {
+      font-size: 10.5px;
+      color: var(--text-faint);
+      margin-top: 10px;
+      font-style: italic;
+    }
+
+    .route-select-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    select#routeSelect {
+      background: var(--card-2);
+      color: var(--text);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 12.5px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .route-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 26px;
+    }
+
+    .route-card .rname {
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      margin-bottom: 18px;
+    }
+
+    .route-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-bottom: 20px;
+    }
+
+    @media(max-width:700px) {
+      .route-metrics {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .route-metric .lbl {
+      font-size: 10.5px;
+      color: var(--text-faint);
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 6px;
+    }
+
+    .route-metric .val {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 19px;
+    }
+
+    .route-bar-track {
+      height: 10px;
+      background: #1B2430;
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .route-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--blue), var(--teal));
+      transition: width .8s ease;
+    }
+
+    .route-empty {
+      color: var(--text-faint);
+      font-size: 13px;
+      padding: 20px 0;
+      text-align: center;
+    }
+
+    .pagos-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 20px;
+    }
+
+    @media(max-width:900px) {
+      .pagos-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .progress-card,
+    .list-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+
+    .stack-track {
+      height: 20px;
+      border-radius: 99px;
+      background: #1B2430;
+      overflow: hidden;
+      display: flex;
+      margin: 16px 0 14px;
+      border: 1px solid var(--border-strong);
+    }
+
+    .stack-seg {
+      height: 100%;
+      transition: width .6s ease;
+    }
+
+    .falta-callout {
+      background: linear-gradient(135deg, var(--coral-dim), transparent);
+      border: 1px solid #FF6B5E4d;
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin-bottom: 18px;
+    }
+
+    .obj-manual-row {
+      display: flex;
+      gap: 8px;
+      margin: 10px 0 16px;
+    }
+
+    .obj-manual-row input {
+      flex: 1;
+      background: var(--card-2);
+      border: 1px solid var(--border-strong);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      outline: none;
+    }
+
+    .obj-manual-row input:focus {
+      border-color: var(--teal);
+    }
+
+    .btn-obj-set {
+      background: var(--teal-dim);
+      color: var(--teal);
+      border: 1px solid var(--teal-dim);
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: 12.5px;
+      padding: 9px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn-obj-set:hover {
+      background: var(--teal);
+      color: #04140f;
+    }
+
+    .falta-lbl {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 6px;
+    }
+
+    .falta-val {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--coral);
+    }
+
+    .falta-pct {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px 22px;
+      margin-bottom: 22px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12.5px;
+      color: var(--text-dim);
+    }
+
+    .legend-item .sw {
+      width: 9px;
+      height: 9px;
+      border-radius: 3px;
+    }
+
+    .legend-item b {
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      margin-left: 2px;
+    }
+
+    .scale-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .scale-row:last-child {
+      border-bottom: none;
+    }
+
+    .scale-row .lv {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-dim);
+      width: 70px;
+    }
+
+    .scale-row .meta {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-dim);
+      flex: 1;
+      text-align: right;
+      padding-right: 14px;
+    }
+
+    .scale-row .scale-falta {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--coral);
+      font-size: 11.5px;
+      text-align: right;
+      width: 130px;
+      padding-right: 14px;
+    }
+
+    .scale-row .status {
+      font-size: 10.5px;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 3px 9px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .scale-row .status.pend {
+      color: var(--coral);
+      background: var(--coral-dim);
+    }
+
+    .scale-row .status.done {
+      color: var(--teal);
+      background: var(--teal-dim);
+    }
+
+    .list-card h3,
+    .progress-card h3 {
+      font-family: 'Sora', sans-serif;
+      font-size: 14.5px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .list-card .sub,
+    .progress-card .sub {
+      font-size: 12px;
+      color: var(--text-faint);
+      margin-bottom: 16px;
+    }
+
+    .pago-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 10px;
+    }
+
+    .pago-row:last-child {
+      border-bottom: none;
+    }
+
+    .pago-name {
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .pago-name .n {
+      color: var(--text-faint);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      margin-right: 8px;
+    }
+
+    .pago-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .pago-amt {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .pago-tag {
+      font-size: 10px;
+      background: var(--teal-dim);
+      color: var(--teal);
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-left: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .pago-tag.off {
+      background: #5A667530;
+      color: var(--text-faint);
+    }
+
+    .del-btn {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      border: 1px solid var(--border-strong);
+      background: transparent;
+      color: var(--text-faint);
+      font-size: 13px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .15s;
+    }
+
+    .del-btn:hover {
+      background: var(--coral-dim);
+      border-color: var(--coral);
+      color: var(--coral);
+    }
+
+    .list-scroll {
+      max-height: 330px;
+      overflow-y: auto;
+      padding-right: 6px;
+    }
+
+    .list-scroll::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    .list-scroll::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: 99px;
+    }
+
+    .add-pago-form {
+      display: grid;
+      grid-template-columns: 1fr 110px 90px auto;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    @media(max-width:520px) {
+      .add-pago-form {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .add-pago-form input {
+      background: var(--card-2);
+      border: 1px solid var(--border-strong);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 9px 10px;
+      font-size: 12.5px;
+    }
+
+    .add-pago-form input::placeholder {
+      color: var(--text-faint);
+    }
+
+    .add-pago-form button {
+      background: var(--teal);
+      color: #06201c;
+      border: none;
+      border-radius: 8px;
+      font-size: 12.5px;
+      font-weight: 700;
+      padding: 9px 12px;
+      transition: filter .15s;
+    }
+
+    .add-pago-form button:hover {
+      filter: brightness(1.1);
+    }
+
+    .add-pago-form .chk-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      color: var(--text-dim);
+    }
+
+    footer {
+      margin-top: 60px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 11.5px;
+      color: var(--text-faint);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ===== Estilos del panel "Envío de Mensajes" (scopeados a #view-mensajes) ===== */
+    #view-mensajes {
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+    }
+
+    #view-mensajes .container {
+      max-width: 1200px;
+      margin: auto;
+    }
+
+    #view-mensajes .msg-header {
+      margin-bottom: 24px;
+    }
+
+    #view-mensajes .msg-header h2 {
+      font-family: 'Sora', sans-serif;
+      font-weight: 800;
+      font-size: clamp(22px, 2.6vw, 30px);
+      letter-spacing: -.02em;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    #view-mensajes .msg-header .sub {
+      color: var(--text-dim);
+      font-size: 13px;
+      max-width: 520px;
+    }
+
+    #view-mensajes .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    #view-mensajes .tab-btn {
+      padding: 11px 20px;
+      border: 1px solid var(--border-strong);
+      border-radius: 10px;
+      cursor: pointer;
+      background: var(--card-2);
+      color: var(--text-dim);
+      font-weight: 600;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      transition: .15s;
+    }
+
+    #view-mensajes .tab-btn:hover {
+      border-color: var(--teal);
+      color: var(--text);
+    }
+
+    #view-mensajes .tab-btn.active {
+      background: var(--teal);
+      border-color: var(--teal);
+      color: #06201c;
+    }
+
+    #view-mensajes .panel {
+      display: none;
+    }
+
+    #view-mensajes .panel.active {
+      display: block;
+    }
+
+    #view-mensajes .card {
+      background: var(--card);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    #view-mensajes .card-header {
+      padding: 15px 20px;
+      color: var(--text);
+      font-weight: 700;
+      font-family: 'Sora', sans-serif;
+      font-size: 14.5px;
+      text-align: left;
+      background: var(--card-2);
+      border-bottom: 1px solid var(--border);
+      border-left: 3px solid var(--border-strong);
+    }
+
+    #view-mensajes .card-header.bg-azul {
+      border-left-color: var(--blue);
+    }
+
+    #view-mensajes .card-header.bg-verde {
+      border-left-color: var(--teal);
+    }
+
+    #view-mensajes .card-body {
+      padding: 20px;
+    }
+
+    #view-mensajes .grid-carga {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 760px) {
+      #view-mensajes .grid-carga {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    #view-mensajes label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      font-size: 11px;
+      color: var(--text-faint);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    #view-mensajes textarea,
+    #view-mensajes input,
+    #view-mensajes select {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border: 1px solid var(--border-strong);
+      background: var(--card-2);
+      color: var(--text);
+      border-radius: 10px;
+      box-sizing: border-box;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    #view-mensajes textarea:focus,
+    #view-mensajes input:focus,
+    #view-mensajes select:focus {
+      outline: none;
+      border-color: var(--teal);
+    }
+
+    #view-mensajes textarea::placeholder,
+    #view-mensajes input::placeholder {
+      color: var(--text-faint);
+    }
+
+    #view-mensajes .tpl-preview {
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--text-dim);
+      background: var(--card-2);
+      border: 1px solid var(--border-strong);
+      border-left: 3px solid var(--teal);
+      padding: 12px 14px;
+      border-radius: 10px;
+      height: 100px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      font-family: 'Inter', sans-serif;
+    }
+
+    #view-mensajes .btn {
+      padding: 12px 16px;
+      border: none;
+      border-radius: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: .15s;
+      font-family: 'Inter', sans-serif;
+    }
+
+    #view-mensajes .btn-azul {
+      background: var(--blue);
+      color: white;
+      width: 100%;
+    }
+
+    #view-mensajes .btn-azul:hover {
+      filter: brightness(1.1);
+    }
+
+    #view-mensajes .btn-verde {
+      background: linear-gradient(135deg, var(--teal), #29b8a6);
+      color: #06201c;
+      width: 100%;
+      font-size: 16px;
+      box-shadow: 0 6px 20px var(--teal-dim);
+    }
+
+    #view-mensajes .btn-verde:hover:not(:disabled) {
+      filter: brightness(1.06);
+    }
+
+    #view-mensajes .btn-verde:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    #view-mensajes .btn-rojo {
+      background: var(--coral-dim);
+      color: var(--coral);
+      border: 1px solid var(--coral-dim);
+      width: auto;
+    }
+
+    #view-mensajes .btn-rojo:hover {
+      background: transparent;
+    }
+
+    #view-mensajes table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    #view-mensajes th {
+      background: var(--card-2);
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 10.5px;
+      color: var(--text-faint);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      font-family: 'JetBrains Mono', monospace;
+      border-bottom: 1px solid var(--border-strong);
+    }
+
+    #view-mensajes td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    #view-mensajes tbody tr:hover td {
+      background: var(--card-2);
+    }
+
+    #view-mensajes .enviado {
+      background: var(--teal-dim) !important;
+    }
+
+    #view-mensajes .badge-estado {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: .02em;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+
+    #view-mensajes .badge-ok {
+      background: var(--teal-dim);
+      color: var(--teal);
+    }
+
+    #view-mensajes .badge-pending {
+      background: var(--gold-dim);
+      color: var(--gold);
+    }
+
+    #view-mensajes .badge-invalid {
+      background: var(--coral-dim);
+      color: var(--coral);
+    }
+
+    #view-mensajes .btn-del-cliente {
+      background: none;
+      border: none;
+      color: var(--text-faint);
+      font-size: 15px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 6px;
+      transition: color .15s, background .15s;
+    }
+
+    #view-mensajes .btn-del-cliente:hover {
+      color: var(--coral);
+      background: var(--coral-dim);
+    }
+
+    #view-mensajes .progress-container {
+      background: var(--card);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    #view-mensajes .delay-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    #view-mensajes .delay-row input {
+      margin-bottom: 0;
+    }
+
+    #view-mensajes .envio-status {
+      margin-top: 10px;
+      font-size: 12.5px;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+      min-height: 16px;
+    }
+
+    #view-mensajes .msg-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 640px) {
+      #view-mensajes .msg-stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    #view-mensajes .mini-stat {
+      background: var(--card-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    #view-mensajes .mini-num {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    #view-mensajes .mini-lbl {
+      font-size: 10px;
+      color: var(--text-faint);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    #view-mensajes .mini-stat.teal .mini-num {
+      color: var(--teal);
+    }
+
+    #view-mensajes .mini-stat.gold .mini-num {
+      color: var(--gold);
+    }
+
+    #view-mensajes .mini-stat.coral .mini-num {
+      color: var(--coral);
+    }
+
+    #view-mensajes .progress-bar {
+      height: 10px;
+      background: var(--card-2);
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 4px 0 16px;
+    }
+
+    #view-mensajes .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--teal), #7de8db);
+      box-shadow: 0 0 12px var(--teal-dim);
+      transition: width 0.5s;
+    }
+
+    #view-mensajes .tpl-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 4px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #view-mensajes .tpl-row:last-child {
+      border-bottom: none;
+    }
+
+    #view-mensajes .tpl-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    #view-mensajes .tpl-name {
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 13.5px;
+      color: var(--text);
+    }
+
+    #view-mensajes .tpl-snippet {
+      font-size: 11.5px;
+      color: var(--text-faint);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 380px;
+    }
+
+    #view-mensajes .tpl-row .btn-rojo {
+      padding: 8px 14px;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    /* ===== Sidebar de navegación (colapsable) ===== */
+    html {
+      background: var(--bg);
+    }
+
+    body {
+      display: flex;
+      padding: 0;
+      min-height: 100vh;
+    }
+
+    .app-shell {
+      display: flex;
+      width: 100%;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: var(--card);
+      border-right: 1px solid var(--border-strong);
+      display: flex;
+      flex-direction: column;
+      transition: width .18s ease, padding .18s ease, opacity .12s ease;
+      overflow: hidden;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .sidebar.collapsed {
+      width: 0;
+      border-right: none;
+    }
+
+    .sidebar-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 22px 18px 18px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .sidebar-brand {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      letter-spacing: .1em;
+      color: var(--teal);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar-collapse-btn {
+      background: var(--card-2);
+      border: 1px solid var(--border-strong);
+      color: var(--text-dim);
+      border-radius: 8px;
+      width: 30px;
+      height: 30px;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-collapse-btn:hover {
+      color: var(--teal);
+      border-color: var(--teal);
+    }
+
+    .sidebar-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 14px 12px;
+      white-space: nowrap;
+    }
+
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: none;
+      border: 1px solid transparent;
+      color: var(--text-dim);
+      text-align: left;
+      font-family: 'Inter', sans-serif;
+      font-size: 13.5px;
+      font-weight: 600;
+      padding: 12px 14px;
+      border-radius: 10px;
+    }
+
+    .sidebar-item:hover {
+      background: var(--card-2);
+      color: var(--text);
+    }
+
+    .sidebar-item.active {
+      background: var(--teal-dim);
+      color: var(--teal);
+      border-color: var(--teal-dim);
+    }
+
+    .si-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-backup {
+      margin-top: auto;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-strong);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .sidebar-backup-btn {
+      background: none;
+      border: 1px solid var(--border-strong);
+      color: var(--text-faint);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .sidebar-backup-btn:hover {
+      border-color: var(--teal);
+      color: var(--teal);
+    }
+
+    .sidebar-open-btn {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 40;
+      background: var(--card);
+      border: 1px solid var(--border-strong);
+      color: var(--text-dim);
+      border-radius: 10px;
+      width: 38px;
+      height: 38px;
+      font-size: 15px;
+      box-shadow: 0 4px 18px -4px #00000080;
+      display: none;
+    }
+
+    .sidebar-open-btn.visible {
+      display: block;
+    }
+
+    .sidebar-open-btn:hover {
+      color: var(--teal);
+      border-color: var(--teal);
+    }
+
+    .content-area {
+      flex: 1;
+      min-width: 0;
+      padding: 28px 5vw 80px;
+    }
+
+    .app-view {
+      display: none;
+    }
+
+    .app-view.active {
+      display: block;
+    }
+
+    .view-iframe-wrap {
+      background: var(--card);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      overflow: hidden;
+      height: calc(100vh - 56px);
+    }
+
+    .view-iframe-wrap iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #fff;
+    }
+
+    @media (max-width: 900px) {
+      .sidebar {
+        position: fixed;
+        z-index: 50;
+        box-shadow: 0 0 0 100vw #00000080;
+      }
+      .content-area { padding: 28px 20px 80px; }
+    }
+
+    .auth-gate {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      z-index: 100;
+    }
+    .auth-box {
+      width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 32px;
+      background: var(--card);
+      border: 1px solid var(--border-strong);
+      border-radius: 14px;
+    }
+    .auth-brand {
+      font-family: 'Sora', sans-serif;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: .04em;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .auth-brand .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--gold);
+      display: inline-block;
+    }
+    .auth-sub { color: var(--text-dim); font-size: 13px; margin: 0 0 6px; }
+    .auth-box input {
+      background: var(--card-2);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+    }
+    .auth-box input:focus { outline: 1px solid var(--gold); }
+    .auth-box button {
+      margin-top: 4px;
+      background: var(--gold);
+      color: #1a1305;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .auth-box button:disabled { opacity: .6; cursor: default; }
+    .auth-error { color: var(--coral); font-size: 12.5px; min-height: 16px; }
+  </style>
+</head>
+
+<body>
+
+<div id="authGate" class="auth-gate">
+  <form id="authForm" class="auth-box">
+    <div class="auth-brand"><span class="dot"></span>PANEL CASH MARKET</div>
+    <p class="auth-sub">Iniciá sesión para continuar</p>
+    <input type="email" id="authEmail" placeholder="Email" autocomplete="username" required>
+    <input type="password" id="authPassword" placeholder="Contraseña" autocomplete="current-password" required>
+    <button type="submit" id="authSubmit">Entrar</button>
+    <div id="authError" class="auth-error"></div>
+  </form>
+</div>
+
+<div class="app-shell" id="appShell" style="display:none">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <div class="sidebar-brand"><span class="dot"></span>PANEL CASH MARKET</div>
+      <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Ocultar menú">⟨⟨</button>
+    </div>
+    <nav class="sidebar-menu" id="sidebarMenu">
+      <button class="sidebar-item active" data-view="view-comisiones"><span class="si-icon">📊</span><span class="si-label">Sueldo & Cobros</span></button>
+      <button class="sidebar-item" data-view="view-mensajes"><span class="si-icon">💬</span><span class="si-label">Envío de Mensajes</span></button>
+      <button class="sidebar-item" data-view="view-refi"><span class="si-icon">🔍</span><span class="si-label">Buscador de Refinanciaciones</span></button>
+      <button class="sidebar-item" data-view="view-calc"><span class="si-icon">🧮</span><span class="si-label">Calculadora de Próximo Crédito</span></button>
+      <button class="sidebar-item" data-view="view-kanban"><span class="si-icon">🗂️</span><span class="si-label">Kanban de Cartera</span></button>
+    </nav>
+    <div class="sidebar-backup">
+      <button class="sidebar-backup-btn" id="btnToggleTheme">🌙 Modo oscuro</button>
+      <button class="sidebar-backup-btn" id="btnExportarBackup" title="Descarga un archivo con todos los datos guardados en este navegador">⬇️ Exportar backup</button>
+      <button class="sidebar-backup-btn" id="btnImportarBackup" title="Restaura los datos desde un archivo de backup exportado antes">⬆️ Importar backup</button>
+      <input type="file" id="fileInputBackup" accept=".json" style="display:none">
+      <div id="backupStatus" style="font-size:10.5px;color:var(--text-faint);font-family:'JetBrains Mono',monospace;min-height:14px;"></div>
+      <button class="sidebar-backup-btn" id="btnLogout">🚪 Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <button class="sidebar-open-btn" id="sidebarOpenBtn" title="Mostrar menú">☰</button>
+
+  <main class="content-area">
+
+  <div id="view-comisiones" class="app-view active">
+
+  <header>
+    <div class="header-top">
+      <div>
+        <div class="eyebrow"><span class="dot"></span>PANEL EN VIVO · LOS HALCONES</div>
+        <h1>Comisiones & Cobros — Cobrador Telefónico</h1>
+        <div class="sub">Marcá las escalas alcanzadas, gestioná los pagos e importá el Excel actualizado cuando quieras.
+        </div>
+      </div>
+      <div class="header-meta">
+        <div class="date-chip" id="dateChip">Corte: —</div>
+        <button id="resetBtn" style="background:none;border:none;color:var(--text-faint);font-size:11px;font-family:'JetBrains Mono',monospace;text-decoration:underline;padding:0">↺ Restablecer datos</button>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="toolbar-group">
+        <label class="import-btn" style="background:linear-gradient(135deg, var(--teal), #7de8db)">
+          ⭱ Importar cobros
+          <input type="file" id="fileInputCobros" accept=".xlsx,.xls" style="display:none">
+        </label>
+        <label class="import-btn" style="background:linear-gradient(135deg, var(--blue), #9db9f5)">
+          ⭱ Importar objetivo mensual
+          <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
+        </label>
+      </div>
+
+      <div class="route-filter-top">
+        <label for="routeSelectTop">Ver recorrido:</label>
+        <select id="routeSelectTop"></select>
+      </div>
+
+      <div class="toolbar-group">
+        <div class="field-inline">
+          <label>Mi nombre (Cobrador):</label>
+          <input type="text" id="myCobradorInput" placeholder="ej: Nestor Challier">
+        </div>
+        <div class="field-inline">
+          <label>Recorrido (filtro de importación):</label>
+          <input type="text" id="myRecorridoInput" placeholder="ej: Recorrido 10">
+        </div>
+      </div>
+    </div>
+
+    <div class="toolbar-hint">Al importar cobros se usa el/los filtro(s) que completes (dejá vacío el que no quieras aplicar) · "Importar objetivo mensual" actualiza los recorridos disponibles arriba</div>
+    <div class="import-status" id="importStatus"></div>
+  </header>
+
+  <div class="dup-section" id="dupSection" style="display:none"></div>
+
+
+  <div class="hero-grid">
+    <div class="gauge-card">
+      <div class="tag">Comisión del mes</div>
+      <div class="gauge-wrap">
+        <svg viewBox="0 0 150 150" width="150" height="150">
+          <circle class="gauge-track" cx="75" cy="75" r="62" />
+          <circle class="gauge-fill" cx="75" cy="75" r="62" stroke="var(--gold)" stroke-dasharray="389.6"
+            stroke-dashoffset="389.6" id="g1" />
+        </svg>
+        <div class="gauge-center">
+          <div class="pct num" id="g1pct" style="color:var(--gold)">0%</div>
+          <div class="lbl">ALCANZADO</div>
+        </div>
+      </div>
+      <div class="gauge-foot" id="g1foot"></div>
+    </div>
+
+    <div class="gauge-card">
+      <div class="tag">Objetivo de pagos</div>
+      <div class="gauge-wrap">
+        <svg viewBox="0 0 150 150" width="150" height="150">
+          <circle class="gauge-track" cx="75" cy="75" r="62" />
+          <circle class="gauge-fill" cx="75" cy="75" r="62" stroke="var(--teal)" stroke-dasharray="389.6"
+            stroke-dashoffset="389.6" id="g2" />
+        </svg>
+        <div class="gauge-center">
+          <div class="pct num" id="g2pct" style="color:var(--teal)">0%</div>
+          <div class="lbl">ALCANZADO</div>
+        </div>
+      </div>
+      <div class="gauge-foot" id="g2foot"></div>
+    </div>
+
+    <div class="stat-card">
+      <div class="tag">Sueldo Fijo + Comisión</div>
+      <div class="value num" id="statSueldo">$0</div>
+      <div class="note" id="statSueldoNote">—</div>
+      <div class="accent-bar"><i id="statSueldoBar" style="width:0%;background:var(--gold)"></i></div>
+    </div>
+
+    <div class="stat-card">
+      <div class="tag">Total Cobrado</div>
+      <div class="value num" id="statCobrado">$0</div>
+      <div class="note" id="statCobradoNote">—</div>
+      <div class="accent-bar"><i id="statCobradoBar" style="width:0%;background:var(--teal)"></i></div>
+    </div>
+  </div>
+  <!-- PAGOS -->
+  <div class="section-title">
+    <h2>Seguimiento de campaña de pagos</h2><span>Registro editable & escala de objetivos</span>
+  </div>
+  <div class="pagos-grid">
+    <div class="progress-card">
+      <h3>Composición del objetivo</h3>
+      <div class="sub" id="objetivoSub">Objetivo total: $0</div>
+      <div class="obj-manual-row" id="objManualRow">
+        <input type="number" id="objManualInput" placeholder="Poner objetivo manualmente ($)">
+        <button id="objManualBtn" class="btn-obj-set">Fijar</button>
+      </div>
+      <div class="falta-callout" id="faltaCallout">
+        <div class="falta-lbl">Te falta para llegar al objetivo</div>
+        <div class="falta-val num" id="faltaVal">$0</div>
+        <div class="falta-pct" id="faltaPct">0% cobrado</div>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><span class="sw" style="background:var(--teal)"></span>Cobrado <b class="num"
+            id="legCobrado">$0</b></div>
+        <div class="legend-item"><span class="sw" style="background:var(--blue)"></span>Registrado sin cobrar <b
+            class="num" id="legReg">$0</b></div>
+        <div class="legend-item"><span class="sw"
+            style="background:#1B2430;border:1px solid var(--border-strong)"></span>Falta por registrar <b class="num"
+            id="legFalta">$0</b></div>
+      </div>
+      <div class="stack-track">
+        <div class="stack-seg" id="stackCobrado" style="width:0%;background:var(--teal)"></div>
+        <div class="stack-seg" id="stackReg" style="width:0%;background:var(--blue)"></div>
+      </div>
+      <div style="margin-top:22px">
+        <div
+          style="font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.08em;font-family:'JetBrains Mono',monospace;margin-bottom:6px">
+          Escala de metas</div>
+        <div id="scaleList"></div>
+      </div>
+    </div>
+
+    <div class="list-card">
+      <h3>Registro de pagos</h3>
+      <div class="sub" id="pagosSub">0 movimientos</div>
+      <div class="list-scroll" id="pagosList"></div>
+      <div class="add-pago-form">
+        <input type="text" id="newName" placeholder="Nombre / concepto">
+        <input type="number" id="newAmt" placeholder="Monto">
+        <label class="chk-wrap"><input type="checkbox" id="newCobrado"> Cobrado</label>
+        <button id="addPagoBtn">+ Agregar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMISIONES -->
+  <div class="section-title">
+    <h2>Comisiones por categoría</h2><span>Tocá una escala para marcarla como alcanzada (o dejarla sin marcar)</span>
+  </div>
+  <div class="comm-grid" id="commGrid"></div>
+  <div id="catEditRoot"></div>
+
+  <!-- RECORRIDO -->
+  <div class="section-title">
+    <h2>Cobros por recorrido</h2>
+    <div class="right-tools route-select-wrap">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-faint)">MOSTRAR</span>
+      <select id="routeSelect"></select>
+    </div>
+  </div>
+  <div class="route-card" id="routeCard"></div>
+
+
+  <footer>
+    <span>Fuente: Sueldo_Obej.xlsx — hojas "Sueldo", "cobros SB", "Dashboard Objetivos"</span>
+    <span id="footNote">Datos de ejemplo — importá tu Excel para actualizar</span>
+  </footer>
+
+  </div>
+
+  <div id="view-mensajes" class="app-view">
+    <div class="container">
+        <div class="msg-header">
+          <div class="eyebrow"><span class="dot"></span>ENVÍO MASIVO POR WHATSAPP</div>
+          <h2>Gestión de Mensajes</h2>
+          <div class="sub">Cargá la lista de clientes, elegí una plantilla y lanzá los envíos uno por uno.</div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('envio')">🚀 Envíos</button>
+            <button class="tab-btn" onclick="switchTab('config')">⚙️ Configurar Plantillas</button>
+        </div>
+
+        <div id="panelEnvio" class="panel active">
+            <div class="grid-carga">
+                <div class="card">
+                    <div class="card-header bg-azul">1. Cargar Clientes</div>
+                    <div class="card-body">
+                        <label>Nombre del Ejecutivo</label>
+                        <input type="text" id="ejecutivo" placeholder="Tu nombre">
+
+                        <label>Opción A: Subir Archivo Excel</label>
+                        <input type="file" id="fileExcel" accept=".xlsx, .xls">
+
+                        <label>Opción B: Pegar desde Excel</label>
+                        <textarea id="txtPegar" style="height: 60px;"
+                            placeholder="Nombre | Fecha | Monto | Tel"></textarea>
+
+                        <button class="btn btn-azul" onclick="procesarDatos()">📥 Cargar Datos</button>
+                        <button class="btn btn-azul" style="margin-top:8px" onclick="cargarDesdeKanban()">🗂️ Cargar desde Kanban (A contactar)</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header bg-verde">2. Seleccionar Mensaje</div>
+                    <div class="card-body">
+                        <label>Elegir Plantilla</label>
+                        <select id="selectorPlantillas"></select>
+                        <div id="previewPlantilla" class="tpl-preview">
+                            Selecciona una plantilla para ver la vista previa...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="seccionTabla" style="display: none;">
+                <div class="progress-container">
+                    <div class="msg-stats">
+                        <div class="mini-stat">
+                            <span class="mini-num num" id="countTotal">0</span>
+                            <span class="mini-lbl">Total</span>
+                        </div>
+                        <div class="mini-stat teal">
+                            <span class="mini-num num" id="countEnviados">0</span>
+                            <span class="mini-lbl">Enviados</span>
+                        </div>
+                        <div class="mini-stat gold">
+                            <span class="mini-num num" id="countPendientes">0</span>
+                            <span class="mini-lbl">Pendientes</span>
+                        </div>
+                        <div class="mini-stat coral">
+                            <span class="mini-num num" id="countInvalidos">0</span>
+                            <span class="mini-lbl">Inválidos</span>
+                        </div>
+                    </div>
+                    <div class="delay-row">
+                        <label style="margin-bottom:0">Intervalo entre envíos</label>
+                        <input type="number" id="intervaloEnvio" min="3" value="6" style="width:70px;margin-bottom:0">
+                        <span style="font-size:12px;color:var(--text-faint)">segundos (se puede cambiar mientras está enviando)</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="barraProgreso" class="progress-fill"></div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="btnAuto" class="btn btn-verde" style="flex: 1;" onclick="iniciarEnvioAutomatico()">🚀
+                            Iniciar envío automático</button>
+                        <button id="btnPausa" class="btn btn-azul" style="display:none;width:auto;padding:12px 18px" onclick="togglePausaEnvio()">⏸️ Pausar</button>
+                        <button class="btn btn-rojo" onclick="limpiarLista()">🗑️ Limpiar lista</button>
+                    </div>
+                    <div class="envio-status" id="envioStatus"></div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>Vencimiento</th>
+                            <th>Monto</th>
+                            <th>Teléfono</th>
+                            <th>Estado</th>
+                            <th style="width:34px"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpoTabla"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="panelConfig" class="panel">
+            <div class="card">
+                <div class="card-header bg-azul">Añadir Nueva Plantilla</div>
+                <div class="card-body">
+                    <label>Nombre de la Plantilla (Ej: Recordatorio 48hs)</label>
+                    <input type="text" id="newTempName" placeholder="Nombre corto">
+                    <label>Mensaje (Usa {cliente}, {fecha}, {monto}, {ejecutivo})</label>
+                    <textarea id="newTempText" style="height: 150px;"></textarea>
+                    <button class="btn btn-azul" onclick="guardarNuevaPlantilla()">💾 Guardar Plantilla</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">Plantillas Guardadas</div>
+                <div class="card-body" id="listaPlantillasEdit">
+                </div>
+            </div>
+        </div>
+    </div>
+  </div>
+
+  <div id="view-refi" class="app-view">
+    <div class="view-iframe-wrap">
+      <iframe id="iframeRefi" title="Buscador de Refinanciaciones"></iframe>
+    </div>
+  </div>
+
+  <div id="view-calc" class="app-view">
+    <div class="view-iframe-wrap">
+      <iframe id="iframeCalc" title="Calculadora de Próximo Crédito"></iframe>
+    </div>
+  </div>
+
+  <div id="view-kanban" class="app-view">
+    <div class="view-iframe-wrap">
+      <iframe id="iframeKanban" title="Kanban de Cartera"></iframe>
+    </div>
+  </div>
+
+  </main>
+</div>
+
+  <script>
+    /* ================= STATE ================= */
+    let state = {
+      categories: [],      // [{name, tiers:[{label, meta, bono, alcanzado}], selected:index|null, fixed:bool}]
+      routes: [],           // [{recorrido, objetivo, cobradas, pctFacturas, recObjetivo, recCobrado}]
+      selectedRoute: null,
+      objetivoTotal: 0,
+      payments: [],          // [{id, name, monto, estado}]
+      scaleRows: [],          // [{escala, meta}]
+      cutoffDate: '—',
+      myCobrador: '',
+      myRecorrido: '',
+      pendingDuplicates: []   // [{dupId, existingId, incoming:{name, monto, estado}}]
+    };
+
+    /* ============ DEFAULT / EXAMPLE DATA (from Sueldo_Obej.xlsx) ============ */
+    function loadDefaultData() {
+      state.categories = [
+        { name: 'Sueldo Fijo', fixed: true, tiers: [{ label: 'Base garantizada', meta: '-', bono: 545814, alcanzado: true }], selected: 0 },
+        {
+          name: 'Collection Rate', fixed: false, selected: 2, tiers: [
+            { label: 'Malo', meta: 0.78, bono: 222920 },
+            { label: 'Regular', meta: 0.83, bono: 401256 },
+            { label: 'Bueno', meta: 0.86, bono: 624176 }
+          ]
+        },
+        {
+          name: 'Prop. Medios de Pago', fixed: false, selected: null, tiers: [
+            { label: 'Malo', meta: 0.19, bono: 89725 },
+            { label: 'Regular', meta: 0.22, bono: 123485 },
+            { label: 'Bueno', meta: 0.24, bono: 167190 }
+          ]
+        },
+        {
+          name: 'Refinanciaciones', fixed: false, selected: 0, tiers: [
+            { label: 'Malo', meta: 8, bono: 86440 },
+            { label: 'Regular', meta: 7, bono: 123485 },
+            { label: 'Bueno', meta: 10, bono: 167190 }
+          ]
+        },
+        {
+          name: 'Mantención', fixed: false, selected: 0, tiers: [
+            { label: 'Más de 100%', meta: '-', bono: 125000 },
+            { label: 'Más de 90%', meta: '-', bono: 75000 }
+          ]
+        },
+        {
+          name: 'Bono por Conducta', fixed: false, selected: 0, tiers: [
+            { label: 'Sin quejas', meta: '-', bono: 150000 }
+          ]
+        }
+      ];
+
+      state.routes = [
+        { recorrido: 'Recorrido 10', objetivo: 356, cobradas: 19, pctFacturas: 5.34, recObjetivo: 68650351.23, recCobrado: 20865500 },
+        { recorrido: 'Recorrido 09', objetivo: 402, cobradas: 20, pctFacturas: 4.98, recObjetivo: 75989273.71, recCobrado: 3570600 },
+        { recorrido: 'Recorrido 16', objetivo: 380, cobradas: 14, pctFacturas: 3.68, recObjetivo: 63941547.84, recCobrado: 2949052 },
+        { recorrido: 'Recorrido 30', objetivo: 405, cobradas: 14, pctFacturas: 3.46, recObjetivo: 69674732.26, recCobrado: 3249880.53 },
+        { recorrido: 'Recorrido 99', objetivo: 382, cobradas: 13, pctFacturas: 3.40, recObjetivo: 51436864.68, recCobrado: 2750080 },
+        { recorrido: 'Recorrido 27', objetivo: 393, cobradas: 30, pctFacturas: 7.63, recObjetivo: 72049540.95, recCobrado: 5045700 }
+      ];
+      state.selectedRoute = 'Recorrido 10';
+
+      state.objetivoTotal = 68650351.23;
+      state.scaleRows = [
+        { escala: 0.70, meta: 48055245.861 },
+        { escala: 0.78, meta: 53547273.9594 },
+        { escala: 0.83, meta: 56979791.5209 },
+        { escala: 0.86, meta: 59039302.0578 },
+        { escala: 1.00, meta: 68650351.23 }
+      ];
+
+      state.payments = [
+        { id: 2, name: 'Ingresado SB', monto: 20865500, estado: 'Cobrado' },
+        { id: 3, name: 'Gomea Yasmin', monto: 235200, estado: null },
+        { id: 4, name: 'Baccino', monto: 154000, estado: null },
+        { id: 5, name: 'De Silva Ramirez', monto: 182000, estado: null },
+        { id: 6, name: 'Pezoa', monto: 176500, estado: null },
+        { id: 7, name: 'Guillermo Ithuralde', monto: 112000, estado: null },
+        { id: 8, name: 'Larrea', monto: 300000, estado: null },
+        { id: 9, name: 'Jose Domingo Godoy', monto: 313600, estado: null },
+        { id: 10, name: 'Carrizo Maria', monto: 259600, estado: null },
+        { id: 11, name: 'Jose Garay', monto: 147000, estado: null },
+        { id: 12, name: 'Lobo Juan', monto: 200400, estado: null },
+        { id: 13, name: 'Miguel David', monto: 210000, estado: null },
+        { id: 14, name: 'Tamara de Armas', monto: 295000, estado: null },
+        { id: 15, name: 'Rosa Ester Luna', monto: 80500, estado: null },
+        { id: 16, name: 'Martinez Agustin', monto: 500000, estado: null }
+      ];
+      state.cutoffDate = '06 JUL 2026';
+      state.myCobrador = state.myCobrador || 'Nestor Challier';
+    }
+
+    /* ================= PERSISTENCIA (Supabase kv_store) ================= */
+    const STORAGE_KEY = 'panelComisionesCobros_state_v1';
+
+    function saveState() {
+      kvSet(STORAGE_KEY, state).catch(e => console.error('No se pudo guardar en Supabase', e));
+    }
+
+    async function loadState() {
+      try {
+        const saved = await kvGet(STORAGE_KEY);
+        if (!saved || typeof saved !== 'object') return false;
+        state = Object.assign(state, saved);
+        return true;
+      } catch (e) {
+        console.error('No se pudo leer de Supabase', e);
+        return false;
+      }
+    }
+
+    /* ================= HELPERS ================= */
+    function fmt(n) {
+      if (n === null || n === undefined || isNaN(n)) n = 0;
+      return '$' + Math.round(n).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+    }
+    function tierLabel(t) {
+      if (t.meta === '-' || t.meta == null || t.meta === '') return t.label;
+      if (typeof t.meta === 'number' && t.meta <= 1) return t.label + ' · ' + Math.round(t.meta * 100) + '%';
+      return t.label + ' · ' + t.meta;
+    }
+    function catMax(cat) { return Math.max(...cat.tiers.map(t => t.bono)); }
+    function catSelectedBono(cat) { return cat.selected !== null && cat.selected !== undefined ? cat.tiers[cat.selected].bono : 0; }
+
+    /* ================= EDITOR DE ESCALAS ================= */
+    function openCatEditor(ci) {
+      const cat = state.categories[ci];
+      const root = document.getElementById('catEditRoot');
+      const draft = JSON.parse(JSON.stringify(cat.tiers)); // borrador editable, no toca el estado hasta Guardar
+
+      function renderModal() {
+        root.innerHTML = `
+      <div class="cat-edit-overlay" id="catEditOverlay">
+        <div class="cat-edit-modal">
+          <h3>Editar escalas · ${cat.name}</h3>
+          <div class="sub">${cat.fixed ? 'Monto fijo garantizado — solo se edita el importe.' : 'Definí el nombre, la meta y el monto de cada escala.'}</div>
+          <div class="cat-edit-col-labels"><span>Etiqueta / Meta</span><span>Meta (%)</span><span>Monto ($)</span><span></span></div>
+          <div id="catEditRows"></div>
+          ${cat.fixed ? '' : '<button type="button" class="cat-edit-add-btn" id="catEditAddRow">+ Agregar escala</button>'}
+          <div class="cat-edit-actions">
+            <div class="cat-edit-save-cancel">
+              <button type="button" class="cat-edit-btn-save" id="catEditSave">💾 Guardar</button>
+              <button type="button" class="cat-edit-btn-cancel" id="catEditCancel">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+        const rowsWrap = document.getElementById('catEditRows');
+        draft.forEach((t, ti) => {
+          const row = document.createElement('div');
+          row.className = 'cat-edit-row';
+          row.innerHTML = `
+        <input type="text" class="ce-label" value="${(t.label ?? '').toString().replace(/"/g, '&quot;')}" placeholder="Ej: Meta, Buena, Regular...">
+        <input type="text" class="ce-meta num" value="${t.meta ?? ''}" placeholder="Ej: 80 o -">
+        <input type="number" class="ce-bono num" value="${t.bono ?? 0}" step="1">
+        ${cat.fixed ? '' : '<button type="button" class="row-del" title="Eliminar escala">🗑️</button>'}
+      `;
+          row.querySelector('.ce-label').addEventListener('input', e => { draft[ti].label = e.target.value; });
+          row.querySelector('.ce-meta').addEventListener('input', e => {
+            const v = e.target.value.trim();
+            const n = Number(v.replace(',', '.'));
+            draft[ti].meta = (v !== '' && !isNaN(n)) ? n : v;
+          });
+          row.querySelector('.ce-bono').addEventListener('input', e => { draft[ti].bono = Number(e.target.value) || 0; });
+          const delBtn = row.querySelector('.row-del');
+          if (delBtn) {
+            delBtn.addEventListener('click', () => {
+              if (draft.length <= 1) { alert('Tiene que quedar al menos una escala.'); return; }
+              draft.splice(ti, 1);
+              renderModal();
+            });
+          }
+          rowsWrap.appendChild(row);
+        });
+
+        const addBtn = document.getElementById('catEditAddRow');
+        if (addBtn) {
+          addBtn.addEventListener('click', () => {
+            draft.push({ label: 'Nueva escala', meta: '-', bono: 0, alcanzado: false });
+            renderModal();
+          });
+        }
+
+        document.getElementById('catEditSave').addEventListener('click', () => saveCatEditor(ci, draft));
+        document.getElementById('catEditCancel').addEventListener('click', closeCatEditor);
+        document.getElementById('catEditOverlay').addEventListener('click', (e) => {
+          if (e.target.id === 'catEditOverlay') closeCatEditor();
+        });
+      }
+      renderModal();
+    }
+
+    function closeCatEditor() {
+      document.getElementById('catEditRoot').innerHTML = '';
+    }
+
+    function saveCatEditor(ci, draft) {
+      const cat = state.categories[ci];
+      const cleaned = draft
+        .map(t => ({ label: (t.label || '').toString().trim() || 'Escala', meta: t.meta, bono: Number(t.bono) || 0, alcanzado: !!t.alcanzado }))
+        .filter(t => cat.fixed ? true : true);
+      if (!cleaned.length) { alert('Tiene que haber al menos una escala.'); return; }
+      // conservar cuál escala estaba marcada como alcanzada, si sigue existiendo en la misma posición
+      const prevSelectedLabel = cat.selected !== null && cat.selected !== undefined ? cat.tiers[cat.selected].label : null;
+      cat.tiers = cleaned;
+      const newIdx = prevSelectedLabel !== null ? cleaned.findIndex(t => t.label === prevSelectedLabel) : -1;
+      cat.selected = newIdx !== -1 ? newIdx : (cat.fixed ? 0 : null);
+      closeCatEditor();
+      render();
+    }
+
+    /* ================= RENDER ================= */
+    function render() {
+      document.getElementById('dateChip').textContent = 'Corte: ' + state.cutoffDate;
+
+      // --- comisiones totals ---
+      let totalComision = 0, maxComision = 0;
+      state.categories.forEach(c => { totalComision += catSelectedBono(c); maxComision += catMax(c); });
+      const pctComision = maxComision > 0 ? (totalComision / maxComision * 100) : 0;
+      setGauge('g1', pctComision, 'var(--gold)');
+      document.getElementById('g1pct').textContent = pctComision.toFixed(1) + '%';
+      document.getElementById('g1foot').innerHTML = '<b class="num">' + fmt(totalComision) + '</b> de <b class="num">' + fmt(maxComision) + '</b> máx.';
+
+      document.getElementById('statSueldo').textContent = fmt(totalComision);
+      document.getElementById('statSueldoNote').textContent = state.categories.filter(c => catSelectedBono(c) > 0).length + ' de ' + state.categories.length + ' categorías con escala marcada';
+      document.getElementById('statSueldoBar').style.width = Math.min(pctComision, 100) + '%';
+
+      // --- comisiones grid ---
+      const grid = document.getElementById('commGrid');
+      grid.innerHTML = '';
+      state.categories.forEach((cat, ci) => {
+        const achieved = cat.selected !== null && cat.selected !== undefined;
+        const card = document.createElement('div');
+        card.className = 'comm-card';
+        const amount = achieved ? cat.tiers[cat.selected].bono : 0;
+        card.innerHTML = `
+      <div class="head">
+        <span class="name">${cat.name}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="badge ${achieved ? 'ok' : 'no'}">${achieved ? '✓ ' + cat.tiers[cat.selected].label : 'Sin alcanzar'}</span>
+          <button type="button" class="edit-cat-btn" data-ci="${ci}" title="Editar escalas">✏️</button>
+        </div>
+      </div>
+      <div class="amount" style="${achieved ? '' : 'color:var(--text-faint)'}">${fmt(amount)}</div>
+      <div class="tiers" data-ci="${ci}"></div>
+      ${cat.fixed ? '<div class="hint">Monto fijo garantizado</div>' : ''}
+    `;
+        card.querySelector('.edit-cat-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          openCatEditor(ci);
+        });
+        const tiersWrap = card.querySelector('.tiers');
+        cat.tiers.forEach((t, ti) => {
+          const btn = document.createElement('button');
+          btn.className = 'tier' + (cat.selected === ti ? ' hit' : '') + (cat.fixed ? ' fixed' : '');
+          btn.textContent = tierLabel(t);
+          btn.disabled = cat.fixed;
+          btn.addEventListener('click', () => {
+            cat.selected = (cat.selected === ti) ? null : ti;
+            render();
+          });
+          tiersWrap.appendChild(btn);
+        });
+        grid.appendChild(card);
+      });
+
+      // --- route selector + card ---
+      const sel = document.getElementById('routeSelect');
+      const selTop = document.getElementById('routeSelectTop');
+      const prevVal = state.selectedRoute;
+      [sel, selTop].forEach(s => { s.innerHTML = ''; });
+      state.routes.forEach(r => {
+        [sel, selTop].forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = r.recorrido; opt.textContent = r.recorrido;
+          if (r.recorrido === prevVal) opt.selected = true;
+          s.appendChild(opt);
+        });
+      });
+      const onRouteChange = (val) => { state.selectedRoute = val; render(); };
+      sel.onchange = () => onRouteChange(sel.value);
+      selTop.onchange = () => onRouteChange(selTop.value);
+
+      const routeCard = document.getElementById('routeCard');
+      const route = state.routes.find(r => r.recorrido === state.selectedRoute);
+      if (!route) {
+        routeCard.innerHTML = '<div class="route-empty">No hay datos de recorrido para mostrar.</div>';
+      } else {
+        const pctRec = route.recObjetivo > 0 ? (route.recCobrado / route.recObjetivo * 100) : 0;
+        routeCard.innerHTML = `
+      <div class="rname">${route.recorrido}</div>
+      <div class="route-metrics">
+        <div class="route-metric">
+          <div class="lbl">Facturas cobradas</div>
+          <div class="val">${route.cobradas} / ${route.objetivo} <span style="color:var(--text-faint);font-size:13px">(${route.pctFacturas.toFixed(2)}%)</span></div>
+          <div class="route-bar-track"><div class="route-bar-fill" style="width:${Math.min(route.pctFacturas, 100)}%"></div></div>
+        </div>
+        <div class="route-metric">
+          <div class="lbl">Recaudación</div>
+          <div class="val">${fmt(route.recCobrado)}</div>
+          <div style="font-size:11.5px;color:var(--text-dim);margin-top:2px">de ${fmt(route.recObjetivo)} objetivo</div>
+        </div>
+        <div class="route-metric">
+          <div class="lbl">% Recaudación alcanzada</div>
+          <div class="val" style="color:var(--teal)">${pctRec.toFixed(1)}%</div>
+          <div class="route-bar-track"><div class="route-bar-fill" style="width:${Math.min(pctRec, 100)}%;background:linear-gradient(90deg,var(--teal),var(--gold))"></div></div>
+        </div>
+      </div>
+    `;
+      }
+
+      // --- pagos calc ---
+      const totalRegistrado = state.payments.reduce((s, p) => s + p.monto, 0);
+      const totalCobrado = state.payments.filter(p => p.estado === 'Cobrado').reduce((s, p) => s + p.monto, 0);
+      const pendienteSinCobrar = totalRegistrado - totalCobrado;
+      const faltaRegistrar = Math.max(state.objetivoTotal - totalRegistrado, 0);
+      const pctObjetivo = state.objetivoTotal > 0 ? (totalRegistrado / state.objetivoTotal * 100) : 0;
+
+      setGauge('g2', pctObjetivo, 'var(--teal)');
+      document.getElementById('g2pct').textContent = pctObjetivo.toFixed(1) + '%';
+      document.getElementById('g2foot').innerHTML = '<b class="num">' + fmt(totalRegistrado) + '</b> de <b class="num">' + fmt(state.objetivoTotal) + '</b>';
+
+      document.getElementById('statCobrado').textContent = fmt(totalCobrado);
+      const pctOfReg = totalRegistrado > 0 ? (totalCobrado / totalRegistrado * 100) : 0;
+      document.getElementById('statCobradoNote').textContent = pctOfReg.toFixed(1) + '% de lo registrado (' + fmt(totalRegistrado) + ') ya está cobrado';
+      document.getElementById('statCobradoBar').style.width = Math.min(pctOfReg, 100) + '%';
+
+      document.getElementById('objetivoSub').textContent = 'Objetivo total: ' + fmt(state.objetivoTotal);
+      const objManualInput = document.getElementById('objManualInput');
+      if (document.activeElement !== objManualInput) {
+        objManualInput.value = state.objetivoTotal || '';
+      }
+      objManualInput.placeholder = state.objetivoManual ? 'Objetivo fijado manualmente' : 'Poner objetivo manualmente ($)';
+      const faltaObjetivo = Math.max(state.objetivoTotal - totalCobrado, 0);
+      const pctCobradoObj = state.objetivoTotal > 0 ? (totalCobrado / state.objetivoTotal * 100) : 0;
+      document.getElementById('faltaVal').textContent = fmt(faltaObjetivo);
+      document.getElementById('faltaPct').textContent = pctCobradoObj.toFixed(1) + '% cobrado hasta ahora';
+      if (faltaObjetivo <= 0) {
+        document.getElementById('faltaCallout').style.background = 'linear-gradient(135deg,var(--teal-dim),transparent)';
+        document.getElementById('faltaCallout').style.borderColor = '#33D6C04d';
+        document.getElementById('faltaVal').style.color = 'var(--teal)';
+        document.getElementById('faltaVal').textContent = '¡Objetivo alcanzado! +' + fmt(Math.abs(state.objetivoTotal - totalCobrado));
+      }
+      document.getElementById('legCobrado').textContent = fmt(totalCobrado);
+      document.getElementById('legReg').textContent = fmt(pendienteSinCobrar);
+      document.getElementById('legFalta').textContent = fmt(faltaRegistrar);
+      document.getElementById('stackCobrado').style.width = Math.min(totalCobrado / state.objetivoTotal * 100, 100) + '%';
+      document.getElementById('stackReg').style.width = Math.min(pendienteSinCobrar / state.objetivoTotal * 100, 100) + '%';
+
+      const scaleList = document.getElementById('scaleList');
+      scaleList.innerHTML = '';
+      state.scaleRows.forEach(s => {
+        const done = totalRegistrado >= s.meta;
+        const faltaEscala = Math.max(s.meta - totalRegistrado, 0);
+        const row = document.createElement('div');
+        row.className = 'scale-row';
+        row.innerHTML = `<span class="lv">${Math.round(s.escala * 100)}%</span><span class="meta num">${fmt(s.meta)}</span><span class="scale-falta num">${done ? '—' : 'Faltan ' + fmt(faltaEscala)}</span><span class="status ${done ? 'done' : 'pend'}">${done ? '✓ Alcanzado' : '⏳ Pendiente'}</span>`;
+        scaleList.appendChild(row);
+      });
+
+      // --- payments list ---
+      const listEl = document.getElementById('pagosList');
+      listEl.innerHTML = '';
+      document.getElementById('pagosSub').textContent = state.payments.length + ' movimientos' + (state.cutoffDate !== '—' ? ' · ' + state.cutoffDate.toLowerCase() : '');
+      [...state.payments].sort((a, b) => b.monto - a.monto).forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'pago-row';
+        row.innerHTML = `
+      <span class="pago-name"><span class="n">${String(p.id).padStart(2, '0')}</span>${p.name}</span>
+      <span class="pago-right">
+        <span class="pago-tag ${p.estado === 'Cobrado' ? '' : 'off'}" data-id="${p.id}">${p.estado === 'Cobrado' ? 'Cobrado' : 'Marcar cobrado'}</span>
+        <span class="pago-amt num">${fmt(p.monto)}</span>
+        <button class="del-btn" data-id="${p.id}">×</button>
+      </span>
+    `;
+        listEl.appendChild(row);
+      });
+      listEl.querySelectorAll('.del-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = Number(btn.dataset.id);
+          state.payments = state.payments.filter(p => p.id !== id);
+          render();
+        });
+      });
+      listEl.querySelectorAll('.pago-tag').forEach(tag => {
+        tag.addEventListener('click', () => {
+          const id = Number(tag.dataset.id);
+          const p = state.payments.find(p => p.id === id);
+          p.estado = (p.estado === 'Cobrado') ? null : 'Cobrado';
+          render();
+        });
+      });
+
+      // --- mi cobrador / recorrido input ---
+      const myCobradorInput = document.getElementById('myCobradorInput');
+      if (document.activeElement !== myCobradorInput) myCobradorInput.value = state.myCobrador || '';
+      const myRecorridoInput = document.getElementById('myRecorridoInput');
+      if (document.activeElement !== myRecorridoInput) myRecorridoInput.value = state.myRecorrido || '';
+
+      // --- duplicados ---
+      const dupSection = document.getElementById('dupSection');
+      if (state.pendingDuplicates.length) {
+        dupSection.style.display = '';
+        const rowsHtml = state.pendingDuplicates.map(d => {
+          const existing = state.payments.find(p => p.id === d.existingId);
+          return `<div class="dup-row">
+            <div class="dup-pair">
+              <div class="dup-item"><span class="dup-tag">Ya cargado</span>${existing ? existing.name + ' — ' + fmt(existing.monto) : '(fue borrado)'}</div>
+              <div class="dup-item"><span class="dup-tag new">Nuevo</span>${d.incoming.name} — ${fmt(d.incoming.monto)}</div>
+            </div>
+            <div class="dup-actions">
+              <button data-act="discard" data-dup="${d.dupId}">Descartar nuevo</button>
+              <button data-act="replace" data-dup="${d.dupId}">Reemplazar por nuevo</button>
+              <button data-act="keepboth" data-dup="${d.dupId}">Mantener ambos</button>
+            </div>
+          </div>`;
+        }).join('');
+        dupSection.innerHTML = `<h3>⚠️ ${state.pendingDuplicates.length} posible(s) pago(s) repetido(s)</h3>
+          <div class="dup-sub">Mismo nombre y mismo monto que un pago ya cargado. Revisá y elegí qué hacer con cada uno.</div>
+          ${rowsHtml}`;
+        dupSection.querySelectorAll('button').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const dupId = Number(btn.dataset.dup);
+            const act = btn.dataset.act;
+            const idx = state.pendingDuplicates.findIndex(d => d.dupId === dupId);
+            if (idx === -1) return;
+            const d = state.pendingDuplicates[idx];
+            if (act === 'replace') {
+              const existing = state.payments.find(p => p.id === d.existingId);
+              if (existing) {
+                existing.monto = d.incoming.monto;
+                existing.estado = d.incoming.estado;
+                existing.name = d.incoming.name;
+              }
+            } else if (act === 'keepboth') {
+              const nextId = state.payments.length ? Math.max(...state.payments.map(p => p.id)) + 1 : 1;
+              state.payments.push({ id: nextId, name: d.incoming.name, monto: d.incoming.monto, estado: d.incoming.estado });
+            }
+            state.pendingDuplicates.splice(idx, 1);
+            render();
+          });
+        });
+      } else {
+        dupSection.style.display = 'none';
+        dupSection.innerHTML = '';
+      }
+
+      saveState();
+    }
+
+    function setGauge(id, pct, color) {
+      const el = document.getElementById(id);
+      const r = 62, c = 2 * Math.PI * r;
+      const clamped = Math.max(0, Math.min(pct, 100));
+      el.style.stroke = color;
+      el.style.strokeDashoffset = c - (clamped / 100) * c;
+    }
+
+    /* ============ ADD PAYMENT ============ */
+    document.getElementById('addPagoBtn').addEventListener('click', () => {
+      const nameInput = document.getElementById('newName');
+      const amtInput = document.getElementById('newAmt');
+      const chk = document.getElementById('newCobrado');
+      const name = nameInput.value.trim();
+      const amt = parseFloat(amtInput.value);
+      if (!name || !amt || amt <= 0) { nameInput.focus(); return; }
+      const nextId = state.payments.length ? Math.max(...state.payments.map(p => p.id)) + 1 : 1;
+      state.payments.push({ id: nextId, name, monto: amt, estado: chk.checked ? 'Cobrado' : null });
+      nameInput.value = ''; amtInput.value = ''; chk.checked = false;
+      render();
+    });
+
+    /* ============ OBJETIVO MANUAL ============ */
+    function fijarObjetivoManual() {
+      const input = document.getElementById('objManualInput');
+      const val = parseFloat(input.value);
+      if (!val || val <= 0) { input.focus(); return; }
+      state.objetivoTotal = val;
+      state.objetivoManual = true;
+      saveState();
+      render();
+    }
+    document.getElementById('objManualBtn').addEventListener('click', fijarObjetivoManual);
+    document.getElementById('objManualInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') fijarObjetivoManual();
+    });
+
+    document.getElementById('myCobradorInput').addEventListener('input', (e) => {
+      state.myCobrador = e.target.value.trim();
+      saveState();
+    });
+
+    document.getElementById('myRecorridoInput').addEventListener('input', (e) => {
+      state.myRecorrido = e.target.value.trim();
+      saveState();
+    });
+
+    /* ============ IMPORT EXCEL ============ */
+    function findSheet(wb, keyword) {
+      const name = wb.SheetNames.find(n => n.toLowerCase().includes(keyword));
+      return name ? wb.Sheets[name] : null;
+    }
+    function findSheetByHeader(wb, requiredSubstrings) {
+      for (const name of wb.SheetNames) {
+        const ws = wb.Sheets[name];
+        const rows = sheetRows(ws);
+        for (let i = 0; i < Math.min(rows.length, 5); i++) {
+          const headerCells = (rows[i] || []).map(v => String(v || '').trim().toLowerCase());
+          const joined = headerCells.join(' | ');
+          if (requiredSubstrings.every(s => joined.includes(s))) return ws;
+        }
+      }
+      return null;
+    }
+    function sheetRows(ws) {
+      return XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+    }
+
+    function parseSueldo(ws) {
+      const rows = sheetRows(ws);
+      let headerIdx = -1, catCol = -1;
+      for (let i = 0; i < rows.length; i++) {
+        const idx = (rows[i] || []).findIndex(v => v === 'CATEGORIA');
+        if (idx !== -1) { headerIdx = i; catCol = idx; break; }
+      }
+      if (headerIdx === -1) return null;
+      const nivelCol = catCol + 1, metaCol = catCol + 2, bonoCol = catCol + 3, alcCol = catCol + 4;
+      const categories = [];
+      let current = null;
+      for (let i = headerIdx + 1; i < rows.length; i++) {
+        const row = rows[i] || [];
+        const b = row[catCol], c = row[nivelCol], d = row[metaCol], e = row[bonoCol], f = row[alcCol];
+        if (b && String(b).trim() !== '') {
+          if (c !== null && c !== undefined && typeof e === 'number') {
+            // direct single-value category (e.g. SUELDO FIJO)
+            categories.push({ name: titleCase(b), fixed: true, tiers: [{ label: 'Base garantizada', meta: d, bono: e, alcanzado: !!f }], selected: f ? 0 : null });
+            current = null;
+          } else {
+            current = { name: titleCase(b), fixed: false, tiers: [], selected: null };
+            categories.push(current);
+          }
+        } else if ((!b || String(b).trim() === '') && c && current) {
+          const idx = current.tiers.length;
+          current.tiers.push({ label: String(c), meta: d, bono: (typeof e === 'number' ? e : 0), alcanzado: !!f });
+          if (f) current.selected = idx;
+        }
+      }
+      return categories.filter(c => c.tiers.length > 0);
+    }
+
+    function parseCobros(ws) {
+      const rows = sheetRows(ws);
+      const headerRow = rows[0] || [];
+      const colOf = (label) => headerRow.findIndex(v => String(v || '').trim().toLowerCase() === label.toLowerCase());
+      const nameCol = 0;
+      const objCol = colOf('Facturas objetivo');
+      const cobCol = colOf('Facturas cobradas');
+      const pctCol = colOf('Porcentaje facturas');
+      const recObjCol = colOf('Recaudación objetivo');
+      const recCobCol = colOf('Cobrado');
+      const routes = [];
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i] || [];
+        const name = row[nameCol];
+        if (!name) continue;
+        const s = String(name).trim();
+        if (/^recorrido/i.test(s)) {
+          routes.push({
+            recorrido: s,
+            objetivo: Number(row[objCol >= 0 ? objCol : 3]) || 0,
+            cobradas: Number(row[cobCol >= 0 ? cobCol : 4]) || 0,
+            pctFacturas: Number(row[pctCol >= 0 ? pctCol : 5]) || 0,
+            recObjetivo: Number(row[recObjCol >= 0 ? recObjCol : 9]) || 0,
+            recCobrado: Number(row[recCobCol >= 0 ? recCobCol : 10]) || 0
+          });
+        }
+      }
+      return routes;
+    }
+
+    function parseDashboard(ws) {
+      const rows = sheetRows(ws);
+      let objetivoTotal = null;
+      let payments = [];
+      let scaleRows = [];
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i] || [];
+        const objIdx = row.findIndex(v => v && String(v).includes('Objetivo Total'));
+        if (objIdx !== -1 && typeof row[objIdx + 1] === 'number') {
+          objetivoTotal = row[objIdx + 1];
+        }
+        const escIdx = row.findIndex(v => v === 'Escala');
+        if (escIdx !== -1) {
+          const metaIdx = escIdx + 1;
+          for (let j = i + 1; j < rows.length; j++) {
+            const r2 = rows[j] || [];
+            if (typeof r2[escIdx] !== 'number') break;
+            scaleRows.push({ escala: r2[escIdx], meta: Number(r2[metaIdx]) || 0 });
+          }
+        }
+        const hashIdx = row.findIndex(v => v === '#');
+        if (hashIdx !== -1 && String(row[hashIdx + 1] || '').trim() === 'Nombre / Concepto') {
+          const nameIdx = hashIdx + 1, montoIdx = hashIdx + 3, estadoIdx = hashIdx + 4;
+          for (let j = i + 1; j < rows.length; j++) {
+            const r2 = rows[j] || [];
+            if (typeof r2[hashIdx] !== 'number' || !r2[nameIdx]) break;
+            payments.push({ id: r2[hashIdx], name: titleCase(String(r2[nameIdx]).trim()), monto: Number(r2[montoIdx]) || 0, estado: r2[estadoIdx] || null });
+          }
+        }
+      }
+      return { objetivoTotal, payments, scaleRows };
+    }
+
+
+    function titleCase(s) {
+      return String(s).toLowerCase().replace(/(^|\s)\S/g, t => t.toUpperCase());
+    }
+
+    document.getElementById('fileInput').addEventListener('change', function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const statusEl = document.getElementById('importStatus');
+      statusEl.textContent = 'Leyendo archivo…';
+      statusEl.className = 'import-status';
+      const reader = new FileReader();
+      reader.onload = function (evt) {
+        try {
+          const data = new Uint8Array(evt.target.result);
+          const wb = XLSX.read(data, { type: 'array' });
+
+          const wsSueldo = findSheet(wb, 'sueldo');
+          const wsCobros = findSheet(wb, 'cobros') || findSheetByHeader(wb, ['recorrido', 'facturas objetivo']);
+          const wsDash = findSheet(wb, 'dashboard') || findSheet(wb, 'objetivo');
+
+          let updated = false;
+
+          if (wsSueldo) {
+            const cats = parseSueldo(wsSueldo);
+            if (cats && cats.length) { state.categories = cats; updated = true; }
+          }
+          if (wsCobros) {
+            const routes = parseCobros(wsCobros);
+            if (routes.length) {
+              state.routes = routes;
+              state.selectedRoute = routes.find(r => /10/.test(r.recorrido)) ? routes.find(r => /10/.test(r.recorrido)).recorrido : routes[0].recorrido;
+              updated = true;
+            }
+          }
+          if (wsDash) {
+            const d = parseDashboard(wsDash);
+            if (d.objetivoTotal) {
+              if (state.objetivoManual) {
+                if (confirm('Ya fijaste el objetivo manualmente en $' + fmt(state.objetivoTotal) + '. ¿Reemplazarlo por el valor detectado en el Excel ($' + fmt(d.objetivoTotal) + ')?')) {
+                  state.objetivoTotal = d.objetivoTotal;
+                  state.objetivoManual = false;
+                }
+              } else {
+                state.objetivoTotal = d.objetivoTotal;
+              }
+              updated = true;
+            }
+            if (d.payments.length) { state.payments = d.payments; updated = true; }
+            if (d.scaleRows.length) { state.scaleRows = d.scaleRows; updated = true; }
+          }
+
+          if (updated) {
+            const now = new Date();
+            state.cutoffDate = now.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
+            document.getElementById('footNote').textContent = 'Actualizado desde ' + file.name;
+            statusEl.textContent = '✓ Datos importados correctamente';
+            statusEl.className = 'import-status ok';
+            render();
+          } else {
+            statusEl.textContent = 'No se encontraron hojas reconocibles en el archivo';
+            statusEl.className = 'import-status err';
+          }
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = 'Error al leer el archivo';
+          statusEl.className = 'import-status err';
+        }
+        e.target.value = '';
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      if (!confirm('¿Restablecer los datos? Se vaciarán los pagos, los cobros por recorrido y los duplicados pendientes. Se mantienen el objetivo total (Composición del objetivo) y las Comisiones por categoría.')) return;
+      state.routes = [];
+      state.selectedRoute = null;
+      state.payments = [];
+      state.pendingDuplicates = [];
+      state.cutoffDate = '—';
+      document.getElementById('importStatus').textContent = '';
+      document.getElementById('importStatus').className = 'import-status';
+      document.getElementById('footNote').textContent = 'Datos reiniciados — importá tu Excel para actualizar';
+      render();
+    });
+
+    /* ============ IMPORT COBROS MENSUALES ============ */
+    function parseCobrosMensuales(wb) {
+      for (const sheetName of wb.SheetNames) {
+        const ws = wb.Sheets[sheetName];
+        const rows = sheetRows(ws);
+        if (!rows.length) continue;
+        const header = (rows[0] || []).map(h => String(h || '').trim().toLowerCase());
+        const nameCol = header.findIndex(h => h.includes('denominaci'));
+        const montoCol = header.findIndex(h => h.includes('importe pagado'));
+        const cobradorCol = header.findIndex(h => h.includes('cobrador'));
+        const recorridoCol = header.findIndex(h => h.includes('recorrido'));
+        if (nameCol === -1 || montoCol === -1) continue;
+        const out = [];
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i] || [];
+          const name = row[nameCol];
+          const monto = row[montoCol];
+          if (!name || typeof monto !== 'number') continue;
+          out.push({
+            name: String(name).trim(),
+            monto: monto,
+            cobrador: cobradorCol !== -1 ? String(row[cobradorCol] || '').trim() : '',
+            recorrido: recorridoCol !== -1 ? String(row[recorridoCol] || '').trim() : ''
+          });
+        }
+        if (out.length) return out;
+      }
+      return [];
+    }
+
+    document.getElementById('fileInputCobros').addEventListener('change', function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const statusEl = document.getElementById('importStatus');
+      statusEl.textContent = 'Leyendo cobros mensuales…';
+      statusEl.className = 'import-status';
+      const reader = new FileReader();
+      reader.onload = async function (evt) {
+        try {
+          const data = new Uint8Array(evt.target.result);
+          const wb = XLSX.read(data, { type: 'array' });
+          const rawRows = parseCobrosMensuales(wb);
+
+          if (!rawRows.length) {
+            statusEl.textContent = 'No se encontraron columnas de "Denominación" / "Importe pagado" en el archivo';
+            statusEl.className = 'import-status err';
+            e.target.value = '';
+            return;
+          }
+
+          const filterCobrador = (state.myCobrador || '').trim().toLowerCase();
+          const filterRecorrido = (state.myRecorrido || '').trim().toLowerCase();
+
+          if (!filterCobrador && !filterRecorrido) {
+            const seguir = confirm('No completaste "Cobrador" ni "Recorrido", así que se importarían las ' + rawRows.length + ' filas del archivo (de todos los cobradores/recorridos). ¿Continuar de todas formas?');
+            if (!seguir) {
+              statusEl.textContent = 'Importación cancelada — completá Cobrador y/o Recorrido para filtrar';
+              statusEl.className = 'import-status err';
+              e.target.value = '';
+              return;
+            }
+          }
+
+          const filtered = rawRows.filter(r => {
+            const okCobrador = filterCobrador ? r.cobrador.trim().toLowerCase() === filterCobrador : true;
+            const okRecorrido = filterRecorrido ? r.recorrido.trim().toLowerCase() === filterRecorrido : true;
+            return okCobrador && okRecorrido;
+          });
+
+          if ((filterCobrador || filterRecorrido) && !filtered.length) {
+            const criterios = [
+              filterCobrador ? 'Cobrador = "' + state.myCobrador + '"' : null,
+              filterRecorrido ? 'Recorrido = "' + state.myRecorrido + '"' : null
+            ].filter(Boolean).join(' y ');
+            statusEl.textContent = 'No se encontraron filas con ' + criterios;
+            statusEl.className = 'import-status err';
+            e.target.value = '';
+            return;
+          }
+
+          let nextId = state.payments.length ? Math.max(...state.payments.map(p => p.id)) + 1 : 1;
+          let nextDupId = state.pendingDuplicates.length ? Math.max(...state.pendingDuplicates.map(d => d.dupId)) + 1 : 1;
+          let added = 0, dup = 0;
+
+          filtered.forEach(r => {
+            const name = titleCase(r.name);
+            const montoRounded = Math.round(r.monto);
+            const existing = state.payments.find(p => p.name.trim().toLowerCase() === name.trim().toLowerCase() && Math.round(p.monto) === montoRounded);
+            if (existing) {
+              state.pendingDuplicates.push({ dupId: nextDupId++, existingId: existing.id, incoming: { name, monto: r.monto, estado: 'Cobrado' } });
+              dup++;
+            } else {
+              state.payments.push({ id: nextId++, name, monto: r.monto, estado: 'Cobrado' });
+              added++;
+            }
+          });
+
+          // Con el mismo archivo, hacemos match por nombre contra los clientes del
+          // Kanban de Cartera y los pasamos a "Cerrado" — así no hace falta subir
+          // el archivo de cobranzas de nuevo dentro del Kanban.
+          const kanbanSync = await sincronizarKanbanConCobros(filtered);
+
+          const now = new Date();
+          state.cutoffDate = now.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
+          document.getElementById('footNote').textContent = 'Cobros mensuales importados desde ' + file.name;
+          const filtrosTxt = [
+            filterCobrador ? 'Cobrador="' + state.myCobrador + '"' : null,
+            filterRecorrido ? 'Recorrido="' + state.myRecorrido + '"' : null
+          ].filter(Boolean).join(', ') || 'sin filtro';
+          let statusMsg = '✓ ' + added + ' pago(s) agregado(s) (filtro: ' + filtrosTxt + ')' + (dup ? ' · ' + dup + ' posible(s) duplicado(s) para revisar arriba' : '');
+          if (kanbanSync.synced) {
+            statusMsg += ' · ' + kanbanSync.matched + ' cliente(s) del Kanban pasados a Cerrado';
+          }
+          statusEl.textContent = statusMsg;
+          statusEl.className = 'import-status ok';
+          render();
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = 'Error al leer el archivo de cobros mensuales';
+          statusEl.className = 'import-status err';
+        }
+        e.target.value = '';
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    // Aplica los pagos importados en "Importar cobros" a la cartera del Kanban:
+    // busca cada cliente por nombre y, si coincide, lo pasa a "Cerrado (Cobrado)"
+    // guardando el monto pagado. Devuelve {synced, matched}.
+    async function sincronizarKanbanConCobros(rows) {
+      const KANBAN_STORAGE_KEY = 'cm_kanban_clientes_v1';
+      try {
+        const kanbanState = await kvGet(KANBAN_STORAGE_KEY);
+        if (!kanbanState || !Array.isArray(kanbanState.clients)) return { synced: false, matched: 0 };
+        let matched = 0;
+        rows.forEach(r => {
+          const nameNorm = String(r.name || '').trim().toLowerCase();
+          if (!nameNorm) return;
+          const client = kanbanState.clients.find(c => String(c.nombre || '').trim().toLowerCase() === nameNorm);
+          if (client) {
+            if (client.stage !== 'cerrado') matched++;
+            client.stage = 'cerrado';
+            client.montoPagado = r.monto;
+          }
+        });
+        await kvSet(KANBAN_STORAGE_KEY, kanbanState);
+        return { synced: true, matched };
+      } catch (e) { return { synced: false, matched: 0 }; }
+    }
+
+    /* ================= INIT ================= */
+    window.appReady.then(async () => {
+      if (!(await loadState())) {
+        loadDefaultData();
+      }
+      if (!state.myCobrador) state.myCobrador = 'Nestor Challier';
+      render();
+    });
+  </script>
+
+  <script>
+        let clientes = [];
+        let plantillasBase = {
+            "Vencimiento": "Hola, Buen dia {cliente}\nSoy {ejecutivo} de Cash Market.\n\nTe informamos que tu fecha de vencimiento es {fecha}, por un monto de ${monto}\n\nQuedo atento para coordinar el pago en efectivo Por favor, o por transferencia\n\nGracias!",
+            "Cuota Vencida": "⚠️ TU CUOTA ESTA VENCIDA\n\nBuenos dias, soy {ejecutivo} de cobranzas. tu cuota esta vencida y todavia no tenemos una confirmacion del pago de tu cuota.\n\nIMPORTE ATRASADO : ${monto}.-\n\nRECORDA QUE TENES RECARGO MORATORIO DIARIO.",
+            "Refinanciación": "Hola {cliente}, ¿cómo estás?\nTe contactamos desde Cash Market por tu préstamo atrasado.\n👉 Hoy tenés la posibilidad de refinanciar tu deuda.\nRespondé este mensaje para ver opciones.\nSaludos, Equipo Cash Market."
+        };
+
+        // Plantillas y clientes se cargan de forma async más abajo (ver INIT),
+        // una vez confirmada la sesión de Supabase.
+        function guardarPlantillas() {
+            kvSet("misPlantillas", plantillasBase).catch(e => console.error('No se pudo guardar misPlantillas', e));
+        }
+        function guardarClientes() {
+            kvSet("misClientes", clientes).catch(e => console.error('No se pudo guardar misClientes', e));
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.panel, .tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById('panel' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+            event.currentTarget.classList.add('active');
+            if (tab === 'config') listarPlantillasConfig();
+            actualizarSelect();
+        }
+
+        function actualizarSelect() {
+            const select = document.getElementById("selectorPlantillas");
+            select.innerHTML = "";
+            for (let p in plantillasBase) {
+                let opt = document.createElement("option");
+                opt.value = p; opt.innerText = p;
+                select.appendChild(opt);
+            }
+            mostrarPreview();
+        }
+        document.getElementById("selectorPlantillas").onchange = mostrarPreview;
+
+        function mostrarPreview() {
+            const val = document.getElementById("selectorPlantillas").value;
+            document.getElementById("previewPlantilla").innerText = plantillasBase[val];
+        }
+
+        function guardarNuevaPlantilla() {
+            const name = document.getElementById("newTempName").value;
+            const text = document.getElementById("newTempText").value;
+            if (!name || !text) return alert("Completa nombre y texto");
+            plantillasBase[name] = text;
+            guardarPlantillas();
+            alert("Plantilla Guardada");
+            document.getElementById("newTempName").value = "";
+            document.getElementById("newTempText").value = "";
+            listarPlantillasConfig();
+            actualizarSelect();
+        }
+
+        function listarPlantillasConfig() {
+            const container = document.getElementById("listaPlantillasEdit");
+            container.innerHTML = "";
+            for (let p in plantillasBase) {
+                const texto = plantillasBase[p].replace(/\n/g, ' ');
+                const snippet = texto.length > 70 ? texto.slice(0, 70) + '…' : texto;
+                container.innerHTML += `<div class="tpl-row">
+                <div class="tpl-info">
+                    <span class="tpl-name">${p}</span>
+                    <span class="tpl-snippet">${snippet}</span>
+                </div>
+                <button class="btn btn-rojo" onclick="borrarPlantilla('${p}')">🗑️ Eliminar</button>
+            </div>`;
+            }
+        }
+
+        function borrarPlantilla(name) {
+            if (confirm("¿Borrar " + name + "?")) {
+                delete plantillasBase[name];
+                guardarPlantillas();
+                listarPlantillasConfig();
+                actualizarSelect();
+            }
+        }
+
+        // --- LOGICA DE DATOS ---
+        let resumenCarga = { agregados: 0, duplicados: 0, invalidos: 0 };
+
+        // Cuando una celda de teléfono trae más de un número separado por "/"
+        // (ej: "1122334455 / 1166778899"), nos quedamos con el primero.
+        function primerTelefono(raw) {
+            if (!raw) return raw;
+            const partes = String(raw).split('/').map(p => p.trim()).filter(Boolean);
+            return partes.length ? partes[0] : raw;
+        }
+
+        // Parsea montos en formato argentino ($150.000 / 150.000,50 / 150000) a número.
+        // Soporta punto de miles y coma decimal, o directamente un número plano.
+        function parseMontoAR(raw) {
+            if (raw === null || raw === undefined || raw === '') return '';
+            if (typeof raw === 'number') return raw;
+            let s = String(raw).trim().replace(/[^\d.,-]/g, '');
+            if (!s) return '';
+            const hasDot = s.includes('.');
+            const hasComma = s.includes(',');
+            if (hasDot && hasComma) {
+                s = s.replace(/\./g, '').replace(',', '.');
+            } else if (hasComma && !hasDot) {
+                s = s.replace(',', '.');
+            } else if (hasDot && !hasComma) {
+                const partes = s.split('.');
+                const pareceDecimal = partes.length === 2 && partes[1].length <= 2 && partes[0].length <= 3;
+                if (!pareceDecimal) s = s.replace(/\./g, '');
+            }
+            const n = parseFloat(s);
+            return isNaN(n) ? '' : n;
+        }
+
+        // Normaliza teléfonos argentinos al formato que exige WhatsApp: 549 + código de área + número.
+        function normalizarTelefono(raw) {
+            let tel = String(raw || "").replace(/\D/g, "");
+            if (!tel) return { tel: "", valido: false };
+
+            if (tel.startsWith("54")) {
+                // Ya tiene código de país: asegurar el "9" de celular (549...)
+                if (!tel.startsWith("549")) tel = "549" + tel.slice(2);
+            } else {
+                if (tel.startsWith("0")) tel = tel.slice(1); // quitar el 0 nacional
+                tel = tel.replace(/^(\d{2,4})15/, "$1"); // quitar el "15" de celular tras el código de área
+                tel = "549" + tel;
+            }
+
+            const valido = tel.length >= 12 && tel.length <= 13;
+            return { tel, valido };
+        }
+
+        function procesarDatos() {
+            const fileInput = document.getElementById("fileExcel");
+            const textoArea = document.getElementById("txtPegar").value.trim();
+            resumenCarga = { agregados: 0, duplicados: 0, invalidos: 0 };
+
+            if (fileInput.files.length > 0) {
+                leerExcel(fileInput.files[0]);
+            } else if (textoArea) {
+                procesarPegado(textoArea);
+            } else {
+                alert("Sube un archivo o pega datos");
+            }
+        }
+
+        function leerExcel(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                json.shift(); // Quitar cabecera
+                json.forEach(row => {
+                    if (row[0]) agregarAClientes(row[0], row[1], row[2], row[3]);
+                });
+                document.getElementById("fileExcel").value = "";
+                renderizarTabla();
+                mostrarResumenCarga();
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function procesarPegado(texto) {
+            texto.split("\n").forEach(linea => {
+                const col = linea.split("\t");
+                if (col[0]) agregarAClientes(col[0], col[1], col[2], col[3]);
+            });
+            document.getElementById("txtPegar").value = "";
+            renderizarTabla();
+            mostrarResumenCarga();
+        }
+
+        function mostrarResumenCarga() {
+            const { agregados, duplicados, invalidos } = resumenCarga;
+            if (duplicados > 0 || invalidos > 0) {
+                alert(`Carga terminada.\n✅ Agregados: ${agregados}\n🔁 Duplicados omitidos: ${duplicados}\n⚠️ Teléfonos inválidos: ${invalidos}`);
+            }
+        }
+
+        // Trae los clientes que en el Kanban de Cartera están en la etapa "A contactar"
+        // y los agrega a la lista de envío (mismo criterio de duplicados por teléfono).
+        async function cargarDesdeKanban() {
+            const KANBAN_STORAGE_KEY = 'cm_kanban_clientes_v1';
+            let kanbanState;
+            try {
+                kanbanState = await kvGet(KANBAN_STORAGE_KEY);
+                if (!kanbanState) {
+                    alert('No se encontraron clientes del Kanban. Abrí la pestaña "Kanban de Cartera" al menos una vez y cargá tu cartera ahí primero.');
+                    return;
+                }
+            } catch (e) {
+                alert('No se pudo leer la cartera del Kanban.');
+                return;
+            }
+            const aContactar = (kanbanState.clients || []).filter(c => c.stage === 'a_contactar');
+            if (!aContactar.length) {
+                alert('No hay clientes en la etapa "A contactar" dentro del Kanban de Cartera.');
+                return;
+            }
+            resumenCarga = { agregados: 0, duplicados: 0, invalidos: 0 };
+            aContactar.forEach(c => agregarAClientes(c.nombre, '', c.monto, c.telefono));
+            renderizarTabla();
+            mostrarResumenCarga();
+        }
+
+        function agregarAClientes(n, f, m, t) {
+            const { tel, valido } = normalizarTelefono(primerTelefono(t));
+
+            if (tel && clientes.some(c => c.tel === tel)) {
+                resumenCarga.duplicados++;
+                return;
+            }
+            if (!valido) resumenCarga.invalidos++;
+
+            clientes.push({
+                nombre: String(n).toUpperCase(),
+                fecha: f || "",
+                monto: parseMontoAR(m),
+                tel: tel,
+                telValido: valido,
+                enviado: false
+            });
+            resumenCarga.agregados++;
+        }
+
+        function limpiarLista() {
+            if (!confirm("¿Borrar toda la lista de clientes cargada y su progreso de envío?")) return;
+            clientes = [];
+            kvRemove("misClientes").catch(e => console.error(e));
+            document.getElementById("cuerpoTabla").innerHTML = "";
+            document.getElementById("seccionTabla").style.display = "none";
+        }
+
+        function renderizarTabla() {
+            const tbody = document.getElementById("cuerpoTabla");
+            tbody.innerHTML = "";
+            clientes.forEach((c, idx) => {
+                const tr = document.createElement("tr");
+                if (c.enviado) tr.className = "enviado";
+                let estado = '<span class="badge-estado badge-pending">⏳ Pendiente</span>';
+                if (c.enviado) estado = '<span class="badge-estado badge-ok">✅ Enviado</span>';
+                else if (!c.telValido) estado = '<span class="badge-estado badge-invalid">⚠️ Tel. inválido</span>';
+                const montoTxt = (c.monto === '' || c.monto === null || c.monto === undefined || isNaN(c.monto)) ? '-' : ('$' + Number(c.monto).toLocaleString("es-AR"));
+                const delBtn = envioEnCurso ? '' : `<button class="btn-del-cliente" title="Quitar de la lista" data-idx="${idx}">✕</button>`;
+                tr.innerHTML = `<td></td><td></td><td>${montoTxt}</td><td></td><td>${estado}</td><td>${delBtn}</td>`;
+                const celdas = tr.querySelectorAll("td");
+                celdas[0].textContent = c.nombre;
+                celdas[1].textContent = c.fecha;
+                celdas[3].textContent = c.tel;
+                if (!envioEnCurso) celdas[5].querySelector('.btn-del-cliente').addEventListener('click', () => eliminarCliente(idx));
+                tbody.appendChild(tr);
+            });
+            document.getElementById("seccionTabla").style.display = clientes.length > 0 ? "block" : "none";
+            document.getElementById("countTotal").innerText = clientes.length;
+            guardarClientes();
+            actualizarBarra();
+        }
+
+        // Quita un cliente puntual de la lista de envío (para no mandarle mensaje).
+        function eliminarCliente(idx) {
+            const c = clientes[idx];
+            if (!c) return;
+            clientes.splice(idx, 1);
+            renderizarTabla();
+        }
+
+        let envioPausado = false;
+        let envioEnCurso = false;
+
+        function togglePausaEnvio() {
+            envioPausado = !envioPausado;
+            document.getElementById("btnPausa").textContent = envioPausado ? "▶️ Reanudar" : "⏸️ Pausar";
+        }
+
+        async function esperarConPausa(segundosTotal) {
+            const statusEl = document.getElementById('envioStatus');
+            let restante = segundosTotal;
+            while (restante > 0) {
+                if (envioPausado) {
+                    statusEl.textContent = '⏸️ Pausado — tocá "Reanudar" para seguir';
+                    await new Promise(r => setTimeout(r, 300));
+                    continue;
+                }
+                statusEl.textContent = `⏳ Próximo envío en ${restante}s...`;
+                await new Promise(r => setTimeout(r, 1000));
+                restante--;
+            }
+        }
+
+        async function iniciarEnvioAutomatico() {
+            const ejec = document.getElementById("ejecutivo").value || "Tu Asesor";
+            const plantKey = document.getElementById("selectorPlantillas").value;
+            const plantilla = plantillasBase[plantKey];
+            const btn = document.getElementById("btnAuto");
+            const btnPausa = document.getElementById("btnPausa");
+            const statusEl = document.getElementById('envioStatus');
+
+            btn.disabled = true;
+            envioPausado = false;
+            envioEnCurso = true;
+            btnPausa.style.display = "inline-block";
+            btnPausa.textContent = "⏸️ Pausar";
+
+            for (let i = 0; i < clientes.length; i++) {
+                if (clientes[i].enviado) continue;
+                if (!clientes[i].telValido) continue; // teléfono inválido: se salta, no se abre un chat roto
+
+                while (envioPausado) {
+                    statusEl.textContent = '⏸️ Pausado — tocá "Reanudar" para seguir';
+                    await new Promise(r => setTimeout(r, 300));
+                }
+
+                const c = clientes[i];
+                const msj = plantilla
+                    .replace(/{cliente}/g, c.nombre)
+                    .replace(/{fecha}/g, c.fecha)
+                    .replace(/{monto}/g, Number(c.monto).toLocaleString("es-AR"))
+                    .replace(/{ejecutivo}/g, ejec);
+
+                // Reutiliza siempre la misma ventana/pestaña ("waSendWindow") en vez de abrir una nueva por cada cliente.
+                // OJO: WhatsApp Web igual exige que apretes enviar manualmente en cada chat — no hay forma de mandar
+                // el mensaje solo desde acá sin esa confirmación tuya (es una protección anti-spam de WhatsApp).
+                window.open(`https://wa.me/${c.tel}?text=${encodeURIComponent(msj)}`, "waSendWindow");
+                clientes[i].enviado = true;
+                renderizarTabla();
+
+                const segundos = Math.max(3, Number(document.getElementById("intervaloEnvio").value) || 6);
+                await esperarConPausa(segundos);
+            }
+            statusEl.textContent = clientes.some(c => !c.enviado && c.telValido) ? '' : '✅ Envío finalizado';
+            btn.disabled = false;
+            btnPausa.style.display = "none";
+            envioEnCurso = false;
+            renderizarTabla();
+        }
+
+        function actualizarBarra() {
+            const env = clientes.filter(c => c.enviado).length;
+            const invalidos = clientes.filter(c => !c.telValido).length;
+            const pendientes = clientes.filter(c => !c.enviado && c.telValido).length;
+            const p = clientes.length > 0 ? (env / clientes.length) * 100 : 0;
+            document.getElementById("barraProgreso").style.width = p + "%";
+            document.getElementById("countEnviados").innerText = env;
+            document.getElementById("countPendientes").innerText = pendientes;
+            document.getElementById("countInvalidos").innerText = invalidos;
+        }
+
+        /* ================= INIT ================= */
+        window.appReady.then(async () => {
+            const savedPlantillas = await kvGet("misPlantillas");
+            if (savedPlantillas) plantillasBase = savedPlantillas;
+
+            const savedClientes = await kvGet("misClientes");
+            if (Array.isArray(savedClientes)) clientes = savedClientes;
+
+            actualizarSelect();
+            if (clientes.length > 0) renderizarTabla(); // restaurar tabla y progreso si había una campaña en curso
+        });
+  </script>
+
+  <script>
+    /* ===== Navegación por sidebar (colapsable) + carga de módulos embebidos ===== */
+    (function () {
+      const sidebar = document.getElementById('sidebar');
+      const collapseBtn = document.getElementById('sidebarCollapseBtn');
+      const openBtn = document.getElementById('sidebarOpenBtn');
+      const items = document.querySelectorAll('.sidebar-item');
+      const iframeRefi = document.getElementById('iframeRefi');
+      const iframeCalc = document.getElementById('iframeCalc');
+      const iframeKanban = document.getElementById('iframeKanban');
+      let refiLoaded = false, calcLoaded = false, kanbanLoaded = false;
+
+      function cargarIframeSiHaceFalta(view) {
+        if (view === 'view-refi' && !refiLoaded) {
+          iframeRefi.src = 'refi_buscador.html';
+          refiLoaded = true;
+        }
+        if (view === 'view-calc' && !calcLoaded) {
+          iframeCalc.src = 'calculadora_proximo_credito.html';
+          calcLoaded = true;
+        }
+        if (view === 'view-kanban' && !kanbanLoaded) {
+          iframeKanban.src = 'kanban_clientes.html';
+          kanbanLoaded = true;
+        }
+      }
+
+      function setAppView(view) {
+        document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
+        const el = document.getElementById(view);
+        if (el) el.classList.add('active');
+        items.forEach(b => b.classList.toggle('active', b.dataset.view === view));
+        cargarIframeSiHaceFalta(view);
+        try { localStorage.setItem('appActiveView_v1', view); } catch (e) { }
+      }
+
+      items.forEach(btn => btn.addEventListener('click', () => setAppView(btn.dataset.view)));
+
+      function collapseSidebar() {
+        sidebar.classList.add('collapsed');
+        openBtn.classList.add('visible');
+        try { localStorage.setItem('sidebarCollapsed_v1', '1'); } catch (e) { }
+      }
+      function expandSidebar() {
+        sidebar.classList.remove('collapsed');
+        openBtn.classList.remove('visible');
+        try { localStorage.setItem('sidebarCollapsed_v1', '0'); } catch (e) { }
+      }
+      collapseBtn.addEventListener('click', collapseSidebar);
+      openBtn.addEventListener('click', expandSidebar);
+
+      try {
+        const saved = localStorage.getItem('appActiveView_v1');
+        if (saved && document.getElementById(saved)) setAppView(saved);
+        if (localStorage.getItem('sidebarCollapsed_v1') === '1') collapseSidebar();
+      } catch (e) { }
+    })();
+  </script>
+
+  <script>
+    // ============ MODO CLARO / OSCURO ============
+    const THEME_KEY = 'cm_theme_v1';
+    function notifyThemeToIframes(theme){
+      ['iframeKanban', 'iframeRefi', 'iframeCalc'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.contentWindow) {
+          try { el.contentWindow.postMessage({ type: 'cm-theme', theme }, '*'); } catch (e) { }
+        }
+      });
+    }
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
+      const btn = document.getElementById('btnToggleTheme');
+      btn.textContent = theme === 'light' ? '☀️ Modo claro' : '🌙 Modo oscuro';
+      notifyThemeToIframes(theme);
+    }
+    let currentTheme = 'dark';
+    applyTheme(currentTheme);
+    window.appReady.then(async () => {
+      const saved = await kvGet(THEME_KEY);
+      if (saved) { currentTheme = saved; applyTheme(currentTheme); }
+    });
+    document.getElementById('btnToggleTheme').addEventListener('click', () => {
+      currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+      kvSet(THEME_KEY, currentTheme).catch(e => console.error(e));
+      applyTheme(currentTheme);
+    });
+  </script>
+
+  <script>
+    // ============ BACKUP COMPLETO (exportar/importar) ============
+    // Junta TODO lo que este panel guarda en Supabase (kv_store) —Sueldo & Cobros,
+    // Envío de Mensajes, Kanban de Cartera, tema y ejecutivo— en un solo .json.
+    // "Importar backup" también sirve para subir un backup viejo (exportado
+    // cuando todavía se guardaba en localStorage) directo a Supabase.
+    const BACKUP_KEYS = [
+      'panelComisionesCobros_state_v1', // Sueldo & Cobros
+      'misClientes',                    // Envío de Mensajes: lista de clientes
+      'misPlantillas',                  // Envío de Mensajes: plantillas de WhatsApp
+      'cm_kanban_clientes_v1',          // Kanban de Cartera
+      'cm_kanban_config_v1',            // Kanban de Cartera: campos visibles/personalizados
+      'cm_kanban_stages_v1',            // Kanban de Cartera: columnas
+      'cm_theme_v1',                    // Modo claro/oscuro
+      'wa_ejecutivo_v1'                 // Nombre de ejecutivo usado en el Kanban
+    ];
+
+    document.getElementById('btnExportarBackup').addEventListener('click', async () => {
+      const statusEl = document.getElementById('backupStatus');
+      statusEl.textContent = 'Preparando backup...';
+      statusEl.style.color = 'var(--text-faint)';
+      const backup = { generadoEl: new Date().toISOString(), datos: {} };
+      let algo = false;
+      for (const k of BACKUP_KEYS) {
+        const v = await kvGet(k);
+        if (v !== null && v !== undefined) { backup.datos[k] = v; algo = true; }
+      }
+      if (!algo) { statusEl.textContent = '⚠️ No hay datos guardados para exportar'; statusEl.style.color = 'var(--coral)'; return; }
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const fecha = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `backup_panel_cash_market_${fecha}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      statusEl.textContent = '✅ Backup descargado';
+      statusEl.style.color = 'var(--teal)';
+    });
+
+    document.getElementById('btnImportarBackup').addEventListener('click', () => {
+      document.getElementById('fileInputBackup').click();
+    });
+    document.getElementById('fileInputBackup').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      const statusEl = document.getElementById('backupStatus');
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        try {
+          const backup = JSON.parse(ev.target.result);
+          const datos = backup.datos || backup; // por si alguna vez se sube el json "pelado"
+          const claves = Object.keys(datos).filter(k => BACKUP_KEYS.includes(k));
+          if (!claves.length) {
+            statusEl.textContent = '⚠️ El archivo no tiene datos reconocibles';
+            statusEl.style.color = 'var(--coral)';
+            return;
+          }
+          statusEl.textContent = `Subiendo ${claves.length} sección(es) a Supabase...`;
+          statusEl.style.color = 'var(--text-faint)';
+          for (const k of claves) {
+            // Los backups viejos (de cuando esto era localStorage) guardan cada
+            // valor como un string JSON; los nuevos ya vienen como objeto.
+            const raw = datos[k];
+            const value = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            await kvSet(k, value);
+          }
+          statusEl.textContent = `✅ ${claves.length} sección(es) restauradas en Supabase — recargando...`;
+          statusEl.style.color = 'var(--teal)';
+          setTimeout(() => location.reload(), 900);
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = '⚠️ No se pudo leer el archivo (¿es un .json exportado desde acá?)';
+          statusEl.style.color = 'var(--coral)';
+        }
+        e.target.value = '';
+      };
+      reader.readAsText(file);
+    });
+  </script>
+
+  <script>
+    /* ===== Auth (Supabase) — gate de login para todo el panel ===== */
+    (function () {
+      const authGate = document.getElementById('authGate');
+      const appShell = document.getElementById('appShell');
+      const authForm = document.getElementById('authForm');
+      const authEmail = document.getElementById('authEmail');
+      const authPassword = document.getElementById('authPassword');
+      const authSubmit = document.getElementById('authSubmit');
+      const authError = document.getElementById('authError');
+      const btnLogout = document.getElementById('btnLogout');
+
+      function showApp() {
+        authGate.style.display = 'none';
+        appShell.style.display = '';
+        window._markAppReady();
+      }
+      function showGate() {
+        appShell.style.display = 'none';
+        authGate.style.display = 'flex';
+      }
+
+      sb.auth.getSession().then(({ data: { session } }) => {
+        if (session) showApp(); else showGate();
+      });
+
+      sb.auth.onAuthStateChange((_event, session) => {
+        if (session) showApp(); else showGate();
+      });
+
+      authForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        authError.textContent = '';
+        authSubmit.disabled = true;
+        authSubmit.textContent = 'Entrando...';
+        const { error } = await sb.auth.signInWithPassword({
+          email: authEmail.value.trim(),
+          password: authPassword.value,
+        });
+        authSubmit.disabled = false;
+        authSubmit.textContent = 'Entrar';
+        if (error) {
+          authError.textContent = 'Email o contraseña incorrectos.';
+        } else {
+          authPassword.value = '';
+        }
+      });
+
+      btnLogout.addEventListener('click', async () => {
+        await sb.auth.signOut();
+        location.reload();
+      });
+    })();
+  </script>
+</body>
+
+</html>

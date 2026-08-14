@@ -1,0 +1,1760 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kanban de Cartera — Cash Market</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase/config.js"></script>
+<script src="supabase/kv.js"></script>
+<style>
+  :root{
+    --bg:#0a0e14;
+    --panel:#111826;
+    --panel-2:#151d2e;
+    --line:#212c40;
+    --text:#e7edf7;
+    --muted:#8996ab;
+    --accent:#3fd0c9;
+    --accent-2:#5b8def;
+    --warn:#f0b866;
+    --danger:#e8677c;
+    --ok:#63d29a;
+    --radius:10px;
+    --shadow:0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 600px at 90% -10%, rgba(63,208,201,.08), transparent 60%),
+      radial-gradient(1000px 500px at -10% 110%, rgba(91,141,239,.08), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    min-height:100vh;
+  }
+  header{
+    padding:20px 28px 14px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:14px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, rgba(255,255,255,.02), transparent);
+  }
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand .mark{
+    width:38px;height:38px;border-radius:9px;
+    background:linear-gradient(135deg,var(--accent),var(--accent-2));
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;color:#04121a;font-size:16px;
+    box-shadow:var(--shadow);
+  }
+  .brand h1{font-size:17px;margin:0;letter-spacing:.2px;}
+  .brand span{display:block;font-size:12px;color:var(--muted);margin-top:1px;}
+
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .search{
+    position:relative;
+  }
+  .search input{
+    width:240px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:9px 12px 9px 34px;
+    border-radius:8px;
+    font-size:13px;
+    outline:none;
+    transition:border-color .15s;
+  }
+  .search input:focus{border-color:var(--accent);}
+  .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.5;}
+
+  button{
+    font-family:inherit;
+    cursor:pointer;
+    border:none;
+    border-radius:8px;
+    padding:9px 14px;
+    font-size:13px;
+    font-weight:600;
+    transition:transform .1s, opacity .15s, background .15s;
+  }
+  button:active{transform:scale(.97);}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#04121a;}
+  .btn-primary:hover{opacity:.92;}
+  .btn-ghost{background:var(--panel);color:var(--text);border:1px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--accent);}
+  .btn-danger-ghost{background:transparent;color:var(--danger);border:1px solid rgba(232,103,124,.35);padding:9px 14px;}
+  .btn-danger-ghost:hover{background:rgba(232,103,124,.08);}
+
+  #fileInput{display:none;}
+
+  .stats{
+    display:flex;gap:10px;padding:14px 28px 0;flex-wrap:wrap;
+  }
+  .stat{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:10px 16px;
+    min-width:110px;
+  }
+  .stat b{display:block;font-size:20px;}
+  .stat span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+
+  .filters-bar{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    padding:12px 28px 0;
+  }
+  .filters-bar .filters-label{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+  .filters-bar select{
+    background:var(--panel);border:1px solid var(--line);color:var(--text);
+    padding:7px 10px;border-radius:8px;font-size:12.5px;outline:none;cursor:pointer;
+    font-family:inherit;
+  }
+  .filters-bar select:focus{border-color:var(--accent);}
+  .filters-bar select.active-filter{border-color:var(--accent);color:var(--accent);font-weight:600;}
+  .filters-bar .btn-clear-filters{
+    background:none;border:1px solid var(--line);color:var(--muted);
+    padding:7px 12px;border-radius:8px;font-size:12px;cursor:pointer;
+  }
+  .filters-bar .btn-clear-filters:hover{border-color:var(--danger);color:var(--danger);}
+
+  main{
+    padding:18px 28px 40px;
+    display:flex;
+    gap:16px;
+    overflow-x:auto;
+  }
+  .column{
+    flex:1 1 0;
+    min-width:250px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    display:flex;
+    flex-direction:column;
+    max-height:calc(100vh - 220px);
+  }
+  .column-head{
+    padding:13px 14px 10px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    border-bottom:1px solid var(--line);
+    position:sticky;top:0;
+  }
+  .column-head h3{margin:0;font-size:13px;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;gap:8px;}
+  .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .count{
+    font-size:11px;color:var(--muted);
+    background:var(--panel-2);
+    padding:2px 8px;border-radius:20px;
+  }
+  .cards{
+    padding:10px;
+    flex:1;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    min-height:80px;
+  }
+  .cards.drag-over{background:rgba(63,208,201,.06);outline:1px dashed var(--accent);outline-offset:-6px;}
+
+  .card{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:11px 12px;
+    cursor:grab;
+    transition:border-color .15s, transform .1s;
+  }
+  .card:hover{border-color:#31435f;}
+  .card.dragging{opacity:.4;}
+  .card h4{margin:0 0 4px;font-size:13.5px;font-weight:600;}
+  .card .meta{font-size:11.5px;color:var(--muted);line-height:1.6;}
+  .card .meta b{color:#b7c3d6;font-weight:600;}
+  .card .row{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;}
+  .card .del{opacity:0;transition:opacity .15s;font-size:15px;line-height:1;color:var(--muted);background:none;border:none;padding:2px;}
+  .card:hover .del{opacity:1;}
+  .card .del:hover{color:var(--danger);}
+  .card .actions-row{display:flex;justify-content:flex-end;gap:2px;margin-top:2px;}
+  .card .wa{opacity:0;transition:opacity .15s, transform .1s;font-size:14px;line-height:1;color:#25d366;background:none;border:none;padding:3px 4px;display:flex;align-items:center;}
+  .card:hover .wa{opacity:1;}
+  .card .wa:hover{transform:scale(1.15);}
+  .card .wa.disabled{opacity:.25 !important;cursor:not-allowed;}
+  .highlight{background:rgba(63,208,201,.28);border-radius:3px;padding:0 1px;}
+
+  .promesa-badge{
+    font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:20px;display:inline-flex;align-items:center;line-height:1.5;white-space:nowrap;
+  }
+  .promesa-future{background:var(--panel);color:var(--muted);border:1px solid var(--line);}
+  .promesa-hoy{background:rgba(240,184,102,.16);color:var(--warn);border:1px solid rgba(240,184,102,.4);}
+  .promesa-vencida{background:rgba(232,103,124,.16);color:var(--danger);border:1px solid rgba(232,103,124,.4);}
+  .card-alert{border-color:var(--danger) !important;}
+
+  #btnRecordatorios.has-alert{
+    background:rgba(232,103,124,.14);color:var(--danger);border:1px solid rgba(232,103,124,.4);
+  }
+
+  .cf-badges-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0;align-items:center;}
+  .cf-badge{
+    font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap;
+    color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);display:inline-flex;align-items:center;line-height:1.5;
+  }
+  .config-field-row{display:flex;align-items:center;gap:9px;font-size:13px;cursor:pointer;user-select:none;}
+  .config-field-row input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;cursor:pointer;}
+  .custom-field-item{
+    display:flex;justify-content:space-between;align-items:center;background:var(--panel-2);
+    border:1px solid var(--line);border-radius:7px;padding:7px 11px;font-size:13px;
+  }
+  .custom-field-item button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:0 2px;}
+  .custom-field-item button:hover{color:var(--danger);}
+  .custom-field-item .cf-item-sub{display:block;font-size:11px;color:var(--muted);margin-top:2px;font-weight:400;}
+  .option-chip{
+    display:inline-flex;align-items:center;gap:5px;background:var(--panel);border:1px solid var(--line);
+    border-radius:20px;padding:3px 6px 3px 10px;font-size:11.5px;color:var(--text);
+  }
+  .option-chip button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 3px;line-height:1;}
+  .option-chip button:hover{color:var(--danger);}
+
+  .color-swatch{
+    width:24px;height:24px;border-radius:50%;cursor:pointer;border:2px solid transparent;
+    display:inline-flex;align-items:center;justify-content:center;transition:transform .1s;
+  }
+  .color-swatch:hover{transform:scale(1.1);}
+  .color-swatch.selected{border-color:var(--text);box-shadow:0 0 0 2px var(--panel);}
+  .color-swatch.selected::after{content:'✓';color:#fff;font-size:11px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.4);}
+  .field-color-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:7px;flex-shrink:0;}
+  .option-color-dot{
+    width:16px;height:16px;border-radius:50%;cursor:pointer;flex-shrink:0;
+    border:2px solid rgba(255,255,255,.5);transition:transform .1s;
+  }
+  .option-color-dot:hover{transform:scale(1.15);}
+  .option-row{display:flex;align-items:center;gap:8px;font-size:12.5px;}
+
+  .wa-preview{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+    padding:10px 12px;font-size:12.5px;color:#c3cbdb;white-space:pre-wrap;line-height:1.5;margin-top:4px;
+  }
+  .template-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+  .template-tabs button{
+    background:var(--panel-2);border:1px solid var(--line);color:var(--muted);
+    padding:6px 11px;font-size:12px;font-weight:600;border-radius:20px;
+  }
+  .template-tabs button.active{background:rgba(37,211,102,.14);border-color:#25d366;color:#25d366;}
+  .wa-modal{max-width:460px;}
+  .btn-wa{background:#25d366;color:#04140b;}
+  .btn-wa:hover{opacity:.9;}
+
+  .empty-col{
+    text-align:center;color:var(--muted);font-size:12px;padding:24px 8px;
+  }
+
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(4,8,14,.6);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;z-index:50;padding:20px;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal{
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    width:100%;max-width:420px;padding:22px;box-shadow:var(--shadow);
+  }
+  .modal h2{margin:0 0 16px;font-size:16px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;}
+  .field input,.field select,.field textarea{
+    width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    padding:9px 10px;border-radius:7px;font-size:13px;outline:none;font-family:inherit;
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;}
+
+  .import-modal{max-width:560px;}
+  .drop-zone{
+    border:2px dashed var(--line);border-radius:10px;padding:30px 16px;text-align:center;
+    color:var(--muted);font-size:13px;cursor:pointer;transition:border-color .15s,background .15s;
+  }
+  .drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:rgba(63,208,201,.05);}
+  .drop-zone svg{opacity:.5;margin-bottom:8px;}
+  .map-row{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:center;margin-bottom:8px;}
+  .map-row label{font-size:12px;color:var(--muted);}
+  .import-preview{font-size:12px;color:var(--muted);margin-top:10px;}
+  .toast{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+    background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    padding:11px 18px;border-radius:8px;font-size:13px;box-shadow:var(--shadow);
+    display:none;z-index:60;
+  }
+  .toast.show{display:block;animation:fadeUp .25s ease;}
+  @keyframes fadeUp{from{opacity:0;transform:translate(-50%,8px);}to{opacity:1;transform:translate(-50%,0);}}
+
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:#243149;border-radius:8px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+
+  @media (max-width:900px){
+    main{flex-direction:column;}
+    .column{max-height:none;}
+  }
+
+  :root[data-theme="light"]{
+    --bg:#f4f6f8; --panel:#ffffff; --panel-2:#eef1f4; --line:#dbe1e7;
+    --text:#1a2330; --muted:#5b6b7c; --accent:#0e9c87; --accent-2:#3b6fd1;
+    --warn:#c9822a; --danger:#d14f4f; --ok:#1fa855;
+  }
+  [data-theme="light"] body{
+    background:
+      radial-gradient(1200px 600px at 90% -10%, rgba(14,156,135,.06), transparent 60%),
+      radial-gradient(1000px 500px at -10% 110%, rgba(59,111,209,.06), transparent 60%),
+      var(--bg);
+  }
+  [data-theme="light"] .highlight{background:rgba(14,156,135,.22);}
+  [data-theme="light"] ::-webkit-scrollbar-thumb{background:#c7d0d9;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="mark">CM</div>
+    <div>
+      <h1>Kanban de Cartera</h1>
+      <span>Gestión de clientes por etapa</span>
+    </div>
+  </div>
+  <div class="toolbar">
+    <div class="search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8996ab" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="searchInput" type="text" placeholder="Buscar por nombre o DNI...">
+    </div>
+    <button class="btn-ghost" id="btnAdd">+ Cliente</button>
+    <button class="btn-ghost" id="btnRecordatorios">🔔 Recordatorios</button>
+    <button class="btn-ghost" id="btnConfigTarjeta">⚙️ Configurar tarjeta</button>
+    <button class="btn-ghost" id="btnConfigColumnas">🗂️ Configurar columnas</button>
+    <button class="btn-ghost" id="btnToggleTheme">🌙</button>
+    <button class="btn-danger-ghost" id="btnClear">Vaciar cartera</button>
+    <button class="btn-ghost" id="btnImport">Importar vencimientos</button>
+    <button class="btn-primary" id="btnImportPagos">Importar pagos</button>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+    <input type="file" id="fileInputPagos" accept=".xlsx,.xls,.csv">
+  </div>
+</header>
+
+<div class="stats" id="stats"></div>
+
+<div class="filters-bar" id="filtersBar"></div>
+
+<main id="board"></main>
+
+<!-- Modal: agregar/editar cliente -->
+<div class="modal-overlay" id="clientModal">
+  <div class="modal">
+    <h2 id="clientModalTitle">Nuevo cliente</h2>
+    <div class="field"><label>Nombre</label><input id="fNombre" type="text" placeholder="Ej: Juan Pérez"></div>
+    <div class="field"><label>DNI</label><input id="fDni" type="text" placeholder="Ej: 30123456"></div>
+    <div class="field"><label>Préstamo / Monto</label><input id="fMonto" type="text" placeholder="Ej: $150.000"></div>
+    <div class="field"><label>Teléfono</label><input id="fTelefono" type="text" placeholder="Ej: 11 5555-5555"></div>
+    <div class="field"><label>Etapa</label>
+      <select id="fEtapa"></select>
+    </div>
+    <div class="field"><label>Fecha de promesa de pago (opcional)</label><input id="fFechaPromesa" type="date"></div>
+    <div id="customFieldsFormArea"></div>
+    <div class="field"><label>Notas</label><textarea id="fNotas" rows="2" placeholder="Opcional"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btnCancelClient">Cancelar</button>
+      <button class="btn-primary" id="btnSaveClient">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: recordatorios de promesas de pago -->
+<div class="modal-overlay" id="recordatoriosModal">
+  <div class="modal wa-modal">
+    <h2>Recordatorios de promesas de pago</h2>
+    <div id="recordatoriosList" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btnCloseRecordatorios">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: configurar qué información se ve en las tarjetas -->
+<div class="modal-overlay" id="configModal">
+  <div class="modal wa-modal">
+    <h2>Configurar información de las tarjetas</h2>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Elegí qué datos querés ver en cada tarjeta del tablero.</div>
+    <div id="configFieldsList" style="display:flex;flex-direction:column;gap:9px;margin-bottom:18px;"></div>
+    <div style="border-top:1px solid var(--line);padding-top:14px;">
+      <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:8px;">Campos personalizados (listas desplegables, ej: Método de pago)</label>
+      <div id="customFieldsList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;"></div>
+
+      <div style="background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:12px;">
+        <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px;">Nuevo campo</div>
+        <input id="newCustomFieldName" type="text" placeholder="Nombre del campo (ej: Método de pago)" style="width:100%;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:8px 10px;border-radius:7px;font-size:13px;outline:none;box-sizing:border-box;margin-bottom:8px;">
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <input id="newCustomFieldOption" type="text" placeholder="Opción (ej: TR) — Enter para agregar" style="flex:1;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:8px 10px;border-radius:7px;font-size:13px;outline:none;">
+          <button class="btn-ghost" id="btnAddOptionToNewField">+ Opción</button>
+        </div>
+        <div id="newFieldOptionsChips" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Si no cargás opciones, el campo queda como texto libre. Cada opción tiene su propio color — tocá el punto de color para cambiarlo.</div>
+        <div id="newFieldColorSwatchWrap">
+          <div style="font-size:11.5px;color:var(--muted);margin-bottom:6px;">Color de la etiqueta</div>
+          <div id="newFieldColorSwatches" style="display:flex;gap:7px;margin-bottom:12px;"></div>
+        </div>
+        <button class="btn-primary" id="btnAddCustomField" style="width:100%;">Guardar campo</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="btnCloseConfig">Listo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: configurar columnas del tablero -->
+<div class="modal-overlay" id="stagesModal">
+  <div class="modal wa-modal">
+    <h2>Configurar columnas del tablero</h2>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Agregá, renombrá, reordená (▲▼) o sacá columnas. "A contactar" y "Cerrado (Cobrado)" son necesarias para que funcionen las importaciones, los pagos y los recordatorios — se pueden renombrar pero no eliminar.</div>
+    <div id="stagesList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;"></div>
+    <div style="background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:12px;">
+      <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px;">Nueva columna</div>
+      <div style="display:flex;gap:8px;">
+        <input id="newStageName" type="text" placeholder="Nombre de la columna" style="flex:1;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:8px 10px;border-radius:7px;font-size:13px;outline:none;">
+        <button class="btn-primary" id="btnAddStage">+ Agregar</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="btnCloseStages">Listo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: importar excel -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal import-modal">
+    <h2>Importar cartera desde Excel</h2>
+    <div class="drop-zone" id="dropZone">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8996ab" stroke-width="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <div>Arrastrá tu archivo .xlsx o .csv acá, o hacé clic para elegirlo</div>
+    </div>
+    <div id="mappingArea" style="display:none;margin-top:16px;">
+      <div class="map-row"><label>Nombre</label><select id="mapNombre"></select></div>
+      <div class="map-row"><label>DNI</label><select id="mapDni"></select></div>
+      <div class="map-row"><label>Préstamo</label><select id="mapMonto"></select></div>
+      <div class="map-row"><label>Teléfono</label><select id="mapTelefono"></select></div>
+      <div class="map-row"><label>Etapa inicial</label>
+        <select id="mapEtapaDefault"></select>
+      </div>
+      <div class="import-preview" id="importPreview"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btnCancelImport">Cancelar</button>
+      <button class="btn-primary" id="btnConfirmImport" style="display:none;">Crear tarjetas</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: enviar WhatsApp -->
+<div class="modal-overlay" id="waModal">
+  <div class="modal wa-modal">
+    <h2>Enviar WhatsApp</h2>
+    <div class="template-tabs" id="waTabs"></div>
+    <div class="field" style="display:flex;gap:8px;">
+      <div style="flex:1;">
+        <label>Ejecutivo</label>
+        <input id="waEjecutivo" type="text" placeholder="Tu nombre">
+      </div>
+      <div style="flex:1;">
+        <label>Fecha</label>
+        <input id="waFecha" type="date">
+      </div>
+    </div>
+    <div class="wa-preview" id="waPreview"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btnCancelWa">Cancelar</button>
+      <button class="btn-wa" id="btnSendWa">Abrir WhatsApp</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: importar pagos (match automático) -->
+<div class="modal-overlay" id="importPagosModal">
+  <div class="modal import-modal">
+    <h2>Importar pagos</h2>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Los clientes que coincidan por DNI (o nombre) pasan automáticamente a "Cerrado (Cobrado)" y el monto se suma al Registro de pagos de Sueldo &amp; Cobros.</div>
+    <div class="drop-zone" id="dropZonePagos">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8996ab" stroke-width="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <div>Arrastrá tu archivo de pagos .xlsx o .csv acá, o hacé clic para elegirlo</div>
+    </div>
+    <div id="mappingAreaPagos" style="display:none;margin-top:16px;">
+      <div class="map-row"><label>DNI</label><select id="mapPagoDni"></select></div>
+      <div class="map-row"><label>Nombre</label><select id="mapPagoNombre"></select></div>
+      <div class="map-row"><label>Monto pagado</label><select id="mapPagoMonto"></select></div>
+      <div class="import-preview" id="importPagosPreview"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btnCancelImportPagos">Cancelar</button>
+      <button class="btn-primary" id="btnConfirmImportPagos" style="display:none;">Procesar pagos</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: registrar pago manual (drag a Cerrado) -->
+<div class="modal-overlay" id="cobradoModal">
+  <div class="modal">
+    <h2>Registrar pago</h2>
+    <div class="field">
+      <label>Cliente</label>
+      <div id="cobradoNombre" style="font-weight:600;font-size:14px;"></div>
+    </div>
+    <div class="field"><label>Monto pagado</label><input id="cobradoMonto" type="number" placeholder="Ej: 150000"></div>
+    <div style="font-size:11.5px;color:var(--muted);">Se va a sumar al Registro de pagos de Sueldo &amp; Cobros como "Cobrado".</div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btnCancelCobrado">Cancelar</button>
+      <button class="btn-primary" id="btnConfirmCobrado">Confirmar y mover a Cerrado</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: confirmación genérica (reemplaza confirm() nativo, que Firefox puede bloquear) -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <h2 id="confirmTitle">Confirmar</h2>
+    <div id="confirmMsg" style="font-size:13px;color:#c3cbdb;margin-bottom:4px;line-height:1.5;"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btnConfirmCancel">Cancelar</button>
+      <button id="btnConfirmOk" style="background:var(--danger);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY = 'cm_kanban_clientes_v1';
+const STAGES_KEY = 'cm_kanban_stages_v1';
+// "A contactar" y "Cerrado (Cobrado)" están marcadas como protected: se usan por id
+// en la sincronización con Sueldo & Cobros, Envío de Mensajes, WhatsApp y recordatorios.
+// Se pueden renombrar pero no eliminar. El resto de las columnas son 100% configurables.
+const DEFAULT_STAGES = [
+  {id:'a_contactar', name:'A contactar', color:'#8996ab', protected:true},
+  {id:'contactado', name:'Contactado', color:'#5b8def'},
+  {id:'promesa', name:'Promesa de pago', color:'#f0b866'},
+  {id:'refinanciado', name:'Refinanciado', color:'#3fd0c9'},
+  {id:'cerrado', name:'Cerrado (Cobrado)', color:'#63d29a', protected:true},
+];
+function loadStages(){
+  return JSON.parse(JSON.stringify(DEFAULT_STAGES));
+}
+function saveStages(){ kvSet(STAGES_KEY, STAGES).catch(e => console.error('No se pudo guardar STAGES', e)); }
+let STAGES = loadStages();
+
+let state = load();
+let editingId = null;
+let importRows = [];
+let importHeaders = [];
+
+// --- Configuración de campos visibles / personalizados en las tarjetas ---
+const CF_PALETTE = [
+  {id:'blue', text:'#3b6fd1', bg:'rgba(59,111,209,.16)', border:'rgba(59,111,209,.4)'},
+  {id:'teal', text:'#0e9c87', bg:'rgba(14,156,135,.16)', border:'rgba(14,156,135,.4)'},
+  {id:'gold', text:'#c9822a', bg:'rgba(201,130,42,.16)', border:'rgba(201,130,42,.4)'},
+  {id:'coral', text:'#d14f4f', bg:'rgba(209,79,79,.16)', border:'rgba(209,79,79,.4)'},
+  {id:'green', text:'#1fa855', bg:'rgba(31,168,85,.16)', border:'rgba(31,168,85,.4)'},
+  {id:'purple', text:'#8b5cf6', bg:'rgba(139,92,246,.16)', border:'rgba(139,92,246,.4)'},
+  {id:'pink', text:'#ec4899', bg:'rgba(236,72,153,.16)', border:'rgba(236,72,153,.4)'},
+  {id:'gray', text:'#8996ab', bg:'rgba(137,150,171,.16)', border:'rgba(137,150,171,.4)'},
+];
+function getCfColor(id){ return CF_PALETTE.find(c=>c.id===id) || CF_PALETTE[0]; }
+
+const CONFIG_KEY = 'cm_kanban_config_v1';
+const CONFIG_FIELDS = [
+  {id:'dni', label:'DNI'},
+  {id:'monto', label:'Préstamo'},
+  {id:'montoPagado', label:'Monto pagado'},
+  {id:'telefono', label:'Teléfono'},
+  {id:'fechaPromesa', label:'Fecha de promesa'},
+];
+const CONFIG_DEFAULTS = {dni:true, monto:true, montoPagado:true, telefono:true, fechaPromesa:true};
+function loadConfig(){
+  return { visibleFields: CONFIG_DEFAULTS, customFields: [] };
+}
+function normalizeConfig(parsed){
+  return {
+    visibleFields: Object.assign({}, CONFIG_DEFAULTS, (parsed && parsed.visibleFields) || {}),
+    customFields: Array.isArray(parsed && parsed.customFields) ? parsed.customFields : []
+  };
+}
+function saveConfig(){ kvSet(CONFIG_KEY, config).catch(e => console.error('No se pudo guardar CONFIG', e)); }
+let config = loadConfig();
+
+// Reemplaza a window.confirm(): Firefox puede bloquear los diálogos nativos
+// (por ej. si se tildó "evitar que esta página cree más diálogos"), lo que hace
+// que confirm() devuelva false en silencio y las acciones parezcan no responder.
+let confirmCallback = null;
+function askConfirm(title, msg, onConfirm){
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMsg').textContent = msg;
+  confirmCallback = onConfirm;
+  document.getElementById('confirmModal').classList.add('open');
+}
+document.getElementById('btnConfirmCancel').addEventListener('click', ()=>{
+  confirmCallback = null;
+  document.getElementById('confirmModal').classList.remove('open');
+});
+document.getElementById('btnConfirmOk').addEventListener('click', ()=>{
+  document.getElementById('confirmModal').classList.remove('open');
+  const cb = confirmCallback;
+  confirmCallback = null;
+  if(cb) cb();
+});
+
+function load(){
+  return {clients:[]};
+}
+function save(){
+  kvSet(STORAGE_KEY, state).catch(e => console.error('No se pudo guardar el Kanban', e));
+}
+function uid(){ return 'c_'+Date.now()+'_'+Math.random().toString(36).slice(2,8); }
+// El id de cada cliente arranca con su timestamp de creación (c_<fecha>_...),
+// así que sirve para ordenar por más reciente/antiguo sin necesitar un campo aparte.
+function getCreatedAt(c){
+  const m = /^c_(\d+)_/.exec(c.id||'');
+  return m ? parseInt(m[1],10) : 0;
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=>t.classList.remove('show'), 2400);
+}
+
+function renderStageSelect(sel, includeAll){
+  sel.innerHTML = '';
+  STAGES.forEach(s=>{
+    const o = document.createElement('option');
+    o.value = s.id; o.textContent = s.name;
+    sel.appendChild(o);
+  });
+}
+renderStageSelect(document.getElementById('fEtapa'));
+renderStageSelect(document.getElementById('mapEtapaDefault'));
+
+function renderStats(){
+  const el = document.getElementById('stats');
+  const total = state.clients.length;
+  el.innerHTML = `<div class="stat"><b>${total}</b><span>Total cartera</span></div>` +
+    STAGES.map(s=>{
+      const n = state.clients.filter(c=>c.stage===s.id).length;
+      return `<div class="stat"><b style="color:${s.color}">${n}</b><span>${s.name}</span></div>`;
+    }).join('');
+}
+
+function matchesSearch(c, q){
+  if(!q) return true;
+  q = q.toLowerCase();
+  return (c.nombre||'').toLowerCase().includes(q) || (c.dni||'').toLowerCase().includes(q);
+}
+
+// --- Filtros por campo personalizado (ej: Método) y por promesa de pago ---
+let activeFilters = { customFields: {}, promesa: '', sort: '' };
+function matchesFilters(c){
+  for(const fieldId in activeFilters.customFields){
+    const val = activeFilters.customFields[fieldId];
+    if(val && (!c.customFields || c.customFields[fieldId] !== val)) return false;
+  }
+  if(activeFilters.promesa){
+    const info = promesaInfo(c.fechaPromesa);
+    if(activeFilters.promesa === 'con' && !c.fechaPromesa) return false;
+    if(activeFilters.promesa === 'sin' && c.fechaPromesa) return false;
+    if(activeFilters.promesa === 'vencida' && !(info && info.diffDias < 0)) return false;
+    if(activeFilters.promesa === 'hoy' && !(info && info.diffDias === 0)) return false;
+  }
+  return true;
+}
+function renderFiltersBar(){
+  const bar = document.getElementById('filtersBar');
+  const selectFields = config.customFields.filter(f => f.options && f.options.length);
+  if(!selectFields.length && !document.getElementById('filterPromesa')){
+    // igual mostramos el filtro de promesa aunque no haya campos con opciones
+  }
+  let html = `<span class="filters-label">Filtrar:</span>`;
+  html += `
+    <select id="filterPromesa">
+      <option value="">Promesa: todas</option>
+      <option value="con">Con fecha cargada</option>
+      <option value="vencida">Vencidas</option>
+      <option value="hoy">Es hoy</option>
+      <option value="sin">Sin fecha</option>
+    </select>`;
+  selectFields.forEach(f=>{
+    html += `<select data-filter-field="${f.id}"><option value="">${escapeHtml(f.label)}: todos</option>`;
+    html += f.options.map(o=>`<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+    html += `</select>`;
+  });
+  html += `<span class="filters-label" style="margin-left:6px;">Ordenar:</span>`;
+  html += `
+    <select id="filterSort">
+      <option value="">Sin ordenar</option>
+      <option value="recent">Más recientes primero</option>
+      <option value="oldest">Más antiguos primero</option>
+    </select>`;
+  html += `<button class="btn-clear-filters" id="btnClearFilters">Limpiar filtros</button>`;
+  bar.innerHTML = html;
+
+  document.getElementById('filterPromesa').value = activeFilters.promesa;
+  document.getElementById('filterPromesa').addEventListener('change', e=>{
+    activeFilters.promesa = e.target.value;
+    e.target.classList.toggle('active-filter', !!e.target.value);
+    renderBoard();
+  });
+  document.getElementById('filterSort').value = activeFilters.sort;
+  document.getElementById('filterSort').addEventListener('change', e=>{
+    activeFilters.sort = e.target.value;
+    e.target.classList.toggle('active-filter', !!e.target.value);
+    renderBoard();
+  });
+  bar.querySelectorAll('select[data-filter-field]').forEach(sel=>{
+    sel.value = activeFilters.customFields[sel.dataset.filterField] || '';
+    sel.classList.toggle('active-filter', !!sel.value);
+    sel.addEventListener('change', e=>{
+      activeFilters.customFields[sel.dataset.filterField] = e.target.value;
+      e.target.classList.toggle('active-filter', !!e.target.value);
+      renderBoard();
+    });
+  });
+  document.getElementById('btnClearFilters').addEventListener('click', ()=>{
+    activeFilters = { customFields: {}, promesa: '', sort: '' };
+    renderFiltersBar();
+    renderBoard();
+  });
+}
+function highlight(text, q){
+  if(!q) return escapeHtml(text||'');
+  const t = escapeHtml(text||'');
+  const idx = t.toLowerCase().indexOf(q.toLowerCase());
+  if(idx===-1) return t;
+  return t.slice(0,idx) + '<span class="highlight">' + t.slice(idx, idx+q.length) + '</span>' + t.slice(idx+q.length);
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+// Devuelve {diffDias, fechaTxt, cls, html} a partir de una fecha de promesa (YYYY-MM-DD).
+// diffDias negativo = vencida, 0 = es hoy, positivo = a futuro.
+function promesaInfo(fechaPromesa){
+  if(!fechaPromesa) return null;
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const prom = new Date(fechaPromesa+'T00:00:00');
+  const diffDias = Math.round((prom - hoy) / 86400000);
+  const [y,m,d] = fechaPromesa.split('-');
+  const fechaTxt = `${d}/${m}`;
+  let cls = 'promesa-future', label = `📅 Promesa: ${fechaTxt}`;
+  if(diffDias < 0){ cls = 'promesa-vencida'; label = `⚠️ Venció ${fechaTxt} (hace ${Math.abs(diffDias)}d)`; }
+  else if(diffDias === 0){ cls = 'promesa-hoy'; label = `🔔 Promesa es hoy`; }
+  return { diffDias, fechaTxt, cls, html: `<div class="promesa-badge ${cls}">${label}</div>` };
+}
+
+function renderBoard(){
+  const q = document.getElementById('searchInput').value.trim();
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  STAGES.forEach(stage=>{
+    const clients = state.clients.filter(c=>c.stage===stage.id && matchesSearch(c,q) && matchesFilters(c));
+    if(activeFilters.sort === 'recent') clients.sort((a,b)=> getCreatedAt(b) - getCreatedAt(a));
+    else if(activeFilters.sort === 'oldest') clients.sort((a,b)=> getCreatedAt(a) - getCreatedAt(b));
+    const col = document.createElement('div');
+    col.className = 'column';
+    col.innerHTML = `
+      <div class="column-head">
+        <h3><span class="dot" style="background:${stage.color}"></span>${stage.name}</h3>
+        <span class="count">${clients.length}</span>
+      </div>
+      <div class="cards" data-stage="${stage.id}"></div>
+    `;
+    const cardsEl = col.querySelector('.cards');
+    if(clients.length===0){
+      cardsEl.innerHTML = `<div class="empty-col">Sin clientes</div>`;
+    } else {
+      clients.forEach(c=>{
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.draggable = true;
+        card.dataset.id = c.id;
+        const pInfo = promesaInfo(c.fechaPromesa);
+        if(pInfo && pInfo.diffDias <= 0) card.classList.add('card-alert');
+        const cfBadges = config.customFields
+          .filter(f => c.customFields && c.customFields[f.id])
+          .map(f => {
+            const val = c.customFields[f.id];
+            const colorId = (f.options && f.options.length) ? ((f.optionColors && f.optionColors[val]) || 'blue') : (f.color || 'blue');
+            const col = getCfColor(colorId);
+            return `<span class="cf-badge" title="${escapeHtml(f.label)}" style="background:${col.text};">${escapeHtml(val)}</span>`;
+          })
+          .join('');
+        card.innerHTML = `
+          <div class="row">
+            <h4>${highlight(c.nombre, q)}</h4>
+            <button class="del" title="Eliminar" data-id="${c.id}">×</button>
+          </div>
+          <div class="meta">
+            ${config.visibleFields.dni && c.dni ? `<b>DNI:</b> ${highlight(c.dni,q)}<br>`:''}
+            ${config.visibleFields.monto && c.monto ? `<b>Préstamo:</b> ${escapeHtml(c.monto)}<br>`:''}
+            ${config.visibleFields.montoPagado && c.montoPagado ? `<b>Pagado:</b> $${escapeHtml(String(c.montoPagado))}<br>`:''}
+            ${config.visibleFields.telefono && c.telefono ? `<b>Tel:</b> ${escapeHtml(c.telefono)}`:''}
+          </div>
+          ${(cfBadges || (config.visibleFields.fechaPromesa && pInfo)) ? `<div class="cf-badges-row">${cfBadges}${(config.visibleFields.fechaPromesa && pInfo) ? pInfo.html : ''}</div>` : ''}
+          <div class="actions-row">
+            <button class="wa ${c.telefono ? '' : 'disabled'}" title="${c.telefono ? 'Enviar WhatsApp' : 'Sin teléfono cargado'}" data-id="${c.id}">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.87 9.87 0 0 0 4.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.03c-.24.68-1.4 1.3-1.94 1.38-.5.08-1.12.11-1.81-.12-.42-.13-.95-.31-1.64-.6-2.88-1.24-4.76-4.15-4.9-4.34-.14-.19-1.17-1.55-1.17-2.96 0-1.4.74-2.09 1-2.38.26-.28.57-.35.76-.35.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.57.81 1.98.88 2.12.07.15.12.32.02.51-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.13-.28.28-.12.55.16.28.72 1.19 1.55 1.93 1.06.95 1.96 1.24 2.24 1.38.28.14.44.12.6-.07.16-.19.7-.82.89-1.1.19-.28.37-.23.63-.14.26.1 1.66.78 1.94.93.28.14.47.21.54.33.07.12.07.68-.16 1.36z"/></svg>
+            </button>
+          </div>
+        `;
+        card.addEventListener('dragstart', e=>{
+          card.classList.add('dragging');
+          e.dataTransfer.setData('text/plain', c.id);
+        });
+        card.addEventListener('dragend', ()=> card.classList.remove('dragging'));
+        card.addEventListener('click', (e)=>{
+          if(e.target.classList.contains('del')) return;
+          openClientModal(c.id);
+        });
+        card.querySelector('.del').addEventListener('click', (e)=>{
+          e.stopPropagation();
+          askConfirm('Eliminar cliente', `¿Eliminar a ${c.nombre} de la cartera?`, ()=>{
+            state.clients = state.clients.filter(x=>x.id!==c.id);
+            save(); renderBoard(); renderStats();
+          });
+        });
+        card.querySelector('.wa').addEventListener('click', (e)=>{
+          e.stopPropagation();
+          if(!c.telefono){ toast('Este cliente no tiene teléfono cargado'); return; }
+          openWaModal(c.id);
+        });
+        cardsEl.appendChild(card);
+      });
+    }
+    cardsEl.addEventListener('dragover', e=>{ e.preventDefault(); cardsEl.classList.add('drag-over'); });
+    cardsEl.addEventListener('dragleave', ()=> cardsEl.classList.remove('drag-over'));
+    cardsEl.addEventListener('drop', e=>{
+      e.preventDefault();
+      cardsEl.classList.remove('drag-over');
+      const id = e.dataTransfer.getData('text/plain');
+      const client = state.clients.find(c=>c.id===id);
+      if(!client) return;
+      if(stage.id === 'cerrado' && client.stage !== 'cerrado'){
+        openCobradoModal(id);
+        return;
+      }
+      client.stage = stage.id; save(); renderBoard(); renderStats();
+    });
+    board.appendChild(col);
+  });
+  renderRecordatoriosBadge();
+}
+
+document.getElementById('searchInput').addEventListener('input', renderBoard);
+
+// --- Modal cliente ---
+function openClientModal(id){
+  editingId = id || null;
+  const c = id ? state.clients.find(x=>x.id===id) : null;
+  document.getElementById('clientModalTitle').textContent = c ? 'Editar cliente' : 'Nuevo cliente';
+  document.getElementById('fNombre').value = c ? c.nombre : '';
+  document.getElementById('fDni').value = c ? c.dni : '';
+  document.getElementById('fMonto').value = c ? c.monto : '';
+  document.getElementById('fTelefono').value = c ? c.telefono : '';
+  document.getElementById('fNotas').value = c ? (c.notas||'') : '';
+  renderStageSelect(document.getElementById('fEtapa'));
+  document.getElementById('fEtapa').value = (c && STAGES.some(s=>s.id===c.stage)) ? c.stage : STAGES[0].id;
+  document.getElementById('fFechaPromesa').value = c ? (c.fechaPromesa||'') : '';
+  renderCustomFieldsForm(c);
+  document.getElementById('clientModal').classList.add('open');
+}
+
+function renderCustomFieldsForm(c){
+  const wrap = document.getElementById('customFieldsFormArea');
+  if(!config.customFields.length){ wrap.innerHTML=''; return; }
+  wrap.innerHTML = config.customFields.map(f=>{
+    const current = c && c.customFields ? (c.customFields[f.id]||'') : '';
+    if(f.options && f.options.length){
+      const opts = ['<option value="">— Sin elegir —</option>']
+        .concat(f.options.map(o => `<option value="${escapeHtml(o)}" ${o===current?'selected':''}>${escapeHtml(o)}</option>`));
+      return `<div class="field"><label>${escapeHtml(f.label)}</label><select class="cf-input" data-field="${f.id}">${opts.join('')}</select></div>`;
+    }
+    return `<div class="field"><label>${escapeHtml(f.label)}</label><input type="text" class="cf-input" data-field="${f.id}" value="${escapeHtml(current)}"></div>`;
+  }).join('');
+}
+document.getElementById('btnAdd').addEventListener('click', ()=>openClientModal(null));
+document.getElementById('btnCancelClient').addEventListener('click', ()=>{
+  document.getElementById('clientModal').classList.remove('open');
+});
+document.getElementById('btnSaveClient').addEventListener('click', ()=>{
+  const nombre = document.getElementById('fNombre').value.trim();
+  if(!nombre){ toast('Ingresá al menos el nombre'); return; }
+  const newStage = document.getElementById('fEtapa').value;
+  const data = {
+    nombre,
+    dni: document.getElementById('fDni').value.trim(),
+    monto: document.getElementById('fMonto').value.trim(),
+    telefono: document.getElementById('fTelefono').value.trim(),
+    notas: document.getElementById('fNotas').value.trim(),
+    stage: newStage,
+    fechaPromesa: document.getElementById('fFechaPromesa').value || '',
+  };
+  const customFieldsData = {};
+  document.querySelectorAll('#customFieldsFormArea .cf-input').forEach(inp=>{
+    const v = inp.value.trim();
+    if(v) customFieldsData[inp.dataset.field] = v;
+  });
+  data.customFields = customFieldsData;
+  if(editingId){
+    const c = state.clients.find(x=>x.id===editingId);
+    const prevStage = c.stage;
+    if(newStage === 'cerrado' && prevStage !== 'cerrado'){
+      Object.assign(c, data);
+      c.stage = prevStage; // se confirma recién al ingresar el monto pagado
+      save(); renderBoard(); renderStats();
+      document.getElementById('clientModal').classList.remove('open');
+      openCobradoModal(c.id);
+      return;
+    }
+    Object.assign(c, data);
+  } else {
+    state.clients.push({id:uid(), ...data});
+  }
+  save(); renderBoard(); renderStats();
+  document.getElementById('clientModal').classList.remove('open');
+  toast('Cliente guardado');
+});
+
+// --- Importación Excel ---
+const importModal = document.getElementById('importModal');
+document.getElementById('btnImport').addEventListener('click', ()=>{
+  renderStageSelect(document.getElementById('mapEtapaDefault'));
+  resetImportModal();
+  importModal.classList.add('open');
+});
+document.getElementById('btnCancelImport').addEventListener('click', ()=>{
+  importModal.classList.remove('open');
+});
+function resetImportModal(){
+  importRows = []; importHeaders = [];
+  document.getElementById('mappingArea').style.display = 'none';
+  document.getElementById('btnConfirmImport').style.display = 'none';
+  document.getElementById('importPreview').textContent = '';
+  document.getElementById('dropZone').innerHTML = `
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8996ab" stroke-width="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <div>Arrastrá tu archivo .xlsx o .csv acá, o hacé clic para elegirlo</div>`;
+}
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('click', ()=> document.getElementById('fileInput').click());
+dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e=>{
+  e.preventDefault(); dropZone.classList.remove('drag');
+  if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+document.getElementById('fileInput').addEventListener('change', e=>{
+  if(e.target.files.length) handleFile(e.target.files[0]);
+});
+
+function handleFile(file){
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    try{
+      const wb = XLSX.read(e.target.result, {type:'binary'});
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
+      if(json.length < 1){ toast('El archivo está vacío'); return; }
+      importHeaders = json[0].map(h=>String(h).trim());
+      importRows = json.slice(1).filter(r=>r.some(cell=>String(cell).trim()!==''));
+      dropZone.innerHTML = `<div>✅ ${file.name} — ${importRows.length} filas detectadas</div>`;
+      setupMapping();
+    }catch(err){
+      toast('No se pudo leer el archivo');
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+function guessColumn(headers, keywords){
+  const lower = headers.map(h=>h.toLowerCase());
+  for(const kw of keywords){
+    const idx = lower.findIndex(h=>h.includes(kw));
+    if(idx!==-1) return idx;
+  }
+  return -1;
+}
+
+// Cuando una celda de teléfono trae más de un número separado por "/"
+// (ej: "1122334455 / 1166778899"), nos quedamos con el primero.
+function primerTelefono(raw){
+  if(!raw) return raw;
+  const partes = String(raw).split('/').map(p=>p.trim()).filter(Boolean);
+  return partes.length ? partes[0] : raw;
+}
+
+function setupMapping(){
+  const selects = {
+    fNombre: document.getElementById('mapNombre'),
+    fDni: document.getElementById('mapDni'),
+    fMonto: document.getElementById('mapMonto'),
+    fTelefono: document.getElementById('mapTelefono'),
+  };
+  Object.values(selects).forEach(sel=>{
+    sel.innerHTML = '<option value="-1">— No mapear —</option>' +
+      importHeaders.map((h,i)=>`<option value="${i}">${escapeHtml(h)}</option>`).join('');
+  });
+  selects.fNombre.value = guessColumn(importHeaders, ['nombre','cliente']);
+  selects.fDni.value = guessColumn(importHeaders, ['dni','documento','cuil']);
+  selects.fMonto.value = guessColumn(importHeaders, ['monto','préstamo','prestamo','importe','deuda']);
+  selects.fTelefono.value = guessColumn(importHeaders, ['tel','celular','whatsapp','contacto']);
+  document.getElementById('importPreview').textContent = `${importRows.length} filas listas para importar.`;
+  document.getElementById('mappingArea').style.display = 'block';
+  document.getElementById('btnConfirmImport').style.display = 'inline-block';
+}
+
+document.getElementById('btnConfirmImport').addEventListener('click', ()=>{
+  const idxNombre = parseInt(document.getElementById('mapNombre').value);
+  const idxDni = parseInt(document.getElementById('mapDni').value);
+  const idxMonto = parseInt(document.getElementById('mapMonto').value);
+  const idxTelefono = parseInt(document.getElementById('mapTelefono').value);
+  const defaultStage = document.getElementById('mapEtapaDefault').value;
+  if(idxNombre === -1){ toast('Mapeá al menos la columna Nombre'); return; }
+
+  let added = 0;
+  importRows.forEach(row=>{
+    const nombre = String(row[idxNombre]||'').trim();
+    if(!nombre) return;
+    state.clients.push({
+      id: uid(),
+      nombre,
+      dni: idxDni!==-1 ? String(row[idxDni]||'').trim() : '',
+      monto: idxMonto!==-1 ? String(row[idxMonto]||'').trim() : '',
+      telefono: idxTelefono!==-1 ? primerTelefono(String(row[idxTelefono]||'').trim()) : '',
+      notas: '',
+      stage: defaultStage,
+    });
+    added++;
+  });
+  save(); renderBoard(); renderStats();
+  importModal.classList.remove('open');
+  toast(`${added} clientes importados`);
+});
+
+// --- Plantillas de WhatsApp (compartidas con "Envío de Mensajes") ---
+const MENSAJES_TEMPLATES_KEY = 'misPlantillas';
+const FALLBACK_TEMPLATES = {
+  'Vencimiento': 'Hola, Buen dia {cliente}\nSoy {ejecutivo} de Cash Market.\n\nTe informamos que tu fecha de vencimiento es {fecha}, por un monto de ${monto}\n\nQuedo atento para coordinar el pago en efectivo Por favor, o por transferencia\n\nGracias!',
+  'Cuota Vencida': '⚠️ TU CUOTA ESTA VENCIDA\n\nBuenos dias, soy {ejecutivo} de cobranzas. tu cuota esta vencida y todavia no tenemos una confirmacion del pago de tu cuota.\n\nIMPORTE ATRASADO : ${monto}.-\n\nRECORDA QUE TENES RECARGO MORATORIO DIARIO.',
+  'Refinanciación': 'Hola {cliente}, ¿cómo estás?\nTe contactamos desde Cash Market por tu préstamo atrasado.\n👉 Hoy tenés la posibilidad de refinanciar tu deuda.\nRespondé este mensaje para ver opciones.\nSaludos, Equipo Cash Market.',
+};
+// Mapeo de etapa -> plantilla sugerida por defecto
+const STAGE_TEMPLATE_MAP = {
+  a_contactar: 'Vencimiento',
+  contactado: 'Cuota Vencida',
+  promesa: 'Vencimiento',
+  refinanciado: 'Refinanciación',
+  cerrado: 'Refinanciación',
+};
+const EJECUTIVO_KEY = 'wa_ejecutivo_v1';
+
+async function loadMensajesTemplates(){
+  try{
+    const parsed = await kvGet(MENSAJES_TEMPLATES_KEY);
+    if(parsed && Object.keys(parsed).length) return parsed;
+  }catch(e){}
+  return FALLBACK_TEMPLATES;
+}
+
+function normalizePhoneAR(raw){
+  let d = String(raw).replace(/\D/g,'');
+  if(!d) return '';
+  if(d.startsWith('0')) d = d.slice(1);
+  if(d.startsWith('54')){
+    if(!d.startsWith('549')) d = '549' + d.slice(2);
+  } else {
+    d = '549' + d;
+  }
+  return d;
+}
+function fmtDateAR(iso){
+  if(!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+function fillTemplate(text, c, ejecutivo, fecha){
+  return text
+    .replace(/{cliente}/g, c.nombre || '')
+    .replace(/{monto}/g, (c.monto || '').replace(/^\$\s*/,''))
+    .replace(/{dni}/g, c.dni || '')
+    .replace(/{ejecutivo}/g, ejecutivo || '')
+    .replace(/{fecha}/g, fmtDateAR(fecha));
+}
+
+// --- Modal enviar WhatsApp ---
+let waClientId = null;
+let waSelectedTemplate = null;
+let waTemplates = {};
+async function openWaModal(clientId){
+  waClientId = clientId;
+  waTemplates = await loadMensajesTemplates();
+  const c = state.clients.find(x=>x.id===clientId);
+  const suggested = STAGE_TEMPLATE_MAP[c.stage];
+  waSelectedTemplate = (suggested && waTemplates[suggested]) ? suggested : Object.keys(waTemplates)[0];
+  document.getElementById('waEjecutivo').value = (await kvGet(EJECUTIVO_KEY)) || '';
+  document.getElementById('waFecha').value = new Date().toISOString().slice(0,10);
+  renderWaTabs();
+  renderWaPreview();
+  document.getElementById('waModal').classList.add('open');
+}
+function renderWaTabs(){
+  const tabs = document.getElementById('waTabs');
+  tabs.innerHTML = '';
+  Object.keys(waTemplates).forEach(key=>{
+    const btn = document.createElement('button');
+    btn.textContent = key;
+    btn.className = key === waSelectedTemplate ? 'active' : '';
+    btn.addEventListener('click', ()=>{
+      waSelectedTemplate = key;
+      renderWaTabs();
+      renderWaPreview();
+    });
+    tabs.appendChild(btn);
+  });
+}
+function renderWaPreview(){
+  const c = state.clients.find(x=>x.id===waClientId);
+  const ejecutivo = document.getElementById('waEjecutivo').value;
+  const fecha = document.getElementById('waFecha').value;
+  document.getElementById('waPreview').textContent = fillTemplate(waTemplates[waSelectedTemplate] || '', c, ejecutivo, fecha);
+}
+document.getElementById('waEjecutivo').addEventListener('input', ()=>{
+  kvSet(EJECUTIVO_KEY, document.getElementById('waEjecutivo').value).catch(e => console.error(e));
+  renderWaPreview();
+});
+document.getElementById('waFecha').addEventListener('input', renderWaPreview);
+document.getElementById('btnCancelWa').addEventListener('click', ()=>{
+  document.getElementById('waModal').classList.remove('open');
+});
+document.getElementById('btnSendWa').addEventListener('click', ()=>{
+  const c = state.clients.find(x=>x.id===waClientId);
+  const phone = normalizePhoneAR(c.telefono);
+  if(!phone){ toast('Teléfono inválido'); return; }
+  const ejecutivo = document.getElementById('waEjecutivo').value;
+  const fecha = document.getElementById('waFecha').value;
+  const msg = encodeURIComponent(fillTemplate(waTemplates[waSelectedTemplate] || '', c, ejecutivo, fecha));
+  window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+  document.getElementById('waModal').classList.remove('open');
+});
+
+// --- Vaciar cartera ---
+document.getElementById('btnClear').addEventListener('click', ()=>{
+  if(state.clients.length === 0){ toast('La cartera ya está vacía'); return; }
+  askConfirm('Vaciar cartera', `¿Seguro que querés vaciar toda la cartera? Se eliminarán ${state.clients.length} clientes. Esta acción no se puede deshacer.`, ()=>{
+    state.clients = [];
+    save(); renderBoard(); renderStats();
+    toast('Cartera vaciada');
+  });
+});
+
+// --- Sincronización con Sueldo & Cobros (panel unificado) ---
+const PANEL_STORAGE_KEY = 'panelComisionesCobros_state_v1';
+function normalizeDni(v){ return String(v||'').replace(/\D/g,''); }
+// Registra una lista de pagos [{name, monto}] en el Registro de pagos del panel,
+// usando la MISMA regla de duplicados que "Importar cobros mensuales" (mismo nombre
+// + mismo monto redondeado ya existente = posible duplicado, va a la cola de revisión
+// en vez de sumarse dos veces).
+// Devuelve {synced, added, dup}.
+async function registrarPagosEnPanel(list){
+  if(!list || !list.length) return {synced:false, added:0, dup:0};
+  try{
+    const panelState = await kvGet(PANEL_STORAGE_KEY);
+    if(!panelState) return {synced:false, added:0, dup:0};
+    if(!Array.isArray(panelState.payments)) panelState.payments = [];
+    if(!Array.isArray(panelState.pendingDuplicates)) panelState.pendingDuplicates = [];
+    let nextId = panelState.payments.length ? Math.max(...panelState.payments.map(p=>p.id||0)) + 1 : 1;
+    let nextDupId = panelState.pendingDuplicates.length ? Math.max(...panelState.pendingDuplicates.map(d=>d.dupId||0)) + 1 : 1;
+    let added = 0, dup = 0;
+    list.forEach(p=>{
+      const nameNorm = (p.name||'').trim().toLowerCase();
+      const montoRounded = Math.round(p.monto);
+      const existing = panelState.payments.find(x => (x.name||'').trim().toLowerCase() === nameNorm && Math.round(x.monto) === montoRounded);
+      if(existing){
+        panelState.pendingDuplicates.push({ dupId: nextDupId++, existingId: existing.id, incoming: { name: p.name, monto: p.monto, estado: 'Cobrado' } });
+        dup++;
+      } else {
+        panelState.payments.push({ id: nextId++, name: p.name, monto: p.monto, estado: 'Cobrado' });
+        added++;
+      }
+    });
+    await kvSet(PANEL_STORAGE_KEY, panelState);
+    return { synced:true, added, dup };
+  }catch(e){ return {synced:false, added:0, dup:0}; }
+}
+
+// --- Modal: registrar pago (drag o cambio manual a Cerrado) ---
+let pendingCobradoId = null;
+function openCobradoModal(id){
+  pendingCobradoId = id;
+  const c = state.clients.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('cobradoNombre').textContent = c.nombre;
+  document.getElementById('cobradoMonto').value = '';
+  document.getElementById('cobradoModal').classList.add('open');
+  setTimeout(()=>document.getElementById('cobradoMonto').focus(), 60);
+}
+document.getElementById('btnCancelCobrado').addEventListener('click', ()=>{
+  pendingCobradoId = null;
+  document.getElementById('cobradoModal').classList.remove('open');
+});
+async function confirmCobrado(){
+  const montoInput = document.getElementById('cobradoMonto');
+  const monto = parseFloat(montoInput.value);
+  if(!monto || monto <= 0){ montoInput.focus(); toast('Ingresá un monto válido'); return; }
+  const c = state.clients.find(x=>x.id===pendingCobradoId);
+  if(!c) return;
+  c.stage = 'cerrado';
+  c.montoPagado = monto;
+  save(); renderBoard(); renderStats();
+  const result = await registrarPagosEnPanel([{name: c.nombre, monto}]);
+  document.getElementById('cobradoModal').classList.remove('open');
+  if(!result.synced){
+    toast('Cliente movido a Cerrado (abrí Sueldo & Cobros al menos una vez para sincronizar montos)');
+  } else if(result.dup){
+    toast('Cliente movido a Cerrado — ya había un pago igual registrado, quedó para revisar en Sueldo & Cobros');
+  } else {
+    toast('Pago registrado y sumado a Sueldo & Cobros');
+  }
+  pendingCobradoId = null;
+}
+document.getElementById('btnConfirmCobrado').addEventListener('click', confirmCobrado);
+document.getElementById('cobradoMonto').addEventListener('keydown', e=>{ if(e.key==='Enter') confirmCobrado(); });
+
+// --- Importar pagos (match automático por DNI/Nombre) ---
+const importPagosModal = document.getElementById('importPagosModal');
+let importPagosRows = [];
+let importPagosHeaders = [];
+document.getElementById('btnImportPagos').addEventListener('click', ()=>{
+  resetImportPagosModal();
+  importPagosModal.classList.add('open');
+});
+document.getElementById('btnCancelImportPagos').addEventListener('click', ()=>{
+  importPagosModal.classList.remove('open');
+});
+function resetImportPagosModal(){
+  importPagosRows = []; importPagosHeaders = [];
+  document.getElementById('mappingAreaPagos').style.display = 'none';
+  document.getElementById('btnConfirmImportPagos').style.display = 'none';
+  document.getElementById('importPagosPreview').textContent = '';
+  document.getElementById('dropZonePagos').innerHTML = `
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8996ab" stroke-width="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <div>Arrastrá tu archivo de pagos .xlsx o .csv acá, o hacé clic para elegirlo</div>`;
+}
+const dropZonePagos = document.getElementById('dropZonePagos');
+dropZonePagos.addEventListener('click', ()=> document.getElementById('fileInputPagos').click());
+dropZonePagos.addEventListener('dragover', e=>{ e.preventDefault(); dropZonePagos.classList.add('drag'); });
+dropZonePagos.addEventListener('dragleave', ()=> dropZonePagos.classList.remove('drag'));
+dropZonePagos.addEventListener('drop', e=>{
+  e.preventDefault(); dropZonePagos.classList.remove('drag');
+  if(e.dataTransfer.files.length) handleFilePagos(e.dataTransfer.files[0]);
+});
+document.getElementById('fileInputPagos').addEventListener('change', e=>{
+  if(e.target.files.length) handleFilePagos(e.target.files[0]);
+});
+function handleFilePagos(file){
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    try{
+      const wb = XLSX.read(e.target.result, {type:'binary'});
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
+      if(json.length < 1){ toast('El archivo está vacío'); return; }
+      importPagosHeaders = json[0].map(h=>String(h).trim());
+      importPagosRows = json.slice(1).filter(r=>r.some(cell=>String(cell).trim()!==''));
+      dropZonePagos.innerHTML = `<div>✅ ${file.name} — ${importPagosRows.length} filas detectadas</div>`;
+      setupMappingPagos();
+    }catch(err){
+      toast('No se pudo leer el archivo');
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+function setupMappingPagos(){
+  const selects = {
+    mapPagoDni: document.getElementById('mapPagoDni'),
+    mapPagoNombre: document.getElementById('mapPagoNombre'),
+    mapPagoMonto: document.getElementById('mapPagoMonto'),
+  };
+  Object.values(selects).forEach(sel=>{
+    sel.innerHTML = '<option value="-1">— No mapear —</option>' +
+      importPagosHeaders.map((h,i)=>`<option value="${i}">${escapeHtml(h)}</option>`).join('');
+  });
+  selects.mapPagoDni.value = guessColumn(importPagosHeaders, ['dni','documento','cuil']);
+  selects.mapPagoNombre.value = guessColumn(importPagosHeaders, ['nombre','cliente','denominación','denominacion']);
+  selects.mapPagoMonto.value = guessColumn(importPagosHeaders, ['pagado','importe','monto','cobrado']);
+  document.getElementById('importPagosPreview').textContent = `${importPagosRows.length} filas listas para procesar.`;
+  document.getElementById('mappingAreaPagos').style.display = 'block';
+  document.getElementById('btnConfirmImportPagos').style.display = 'inline-block';
+}
+document.getElementById('btnConfirmImportPagos').addEventListener('click', async ()=>{
+  const idxDni = parseInt(document.getElementById('mapPagoDni').value);
+  const idxNombre = parseInt(document.getElementById('mapPagoNombre').value);
+  const idxMonto = parseInt(document.getElementById('mapPagoMonto').value);
+  if(idxMonto === -1 || (idxDni === -1 && idxNombre === -1)){
+    toast('Mapeá al menos Monto pagado y (DNI o Nombre)');
+    return;
+  }
+
+  let matched = 0;
+  const unmatched = [];
+  const newPayments = [];
+
+  importPagosRows.forEach(row=>{
+    const dniRaw = idxDni !== -1 ? String(row[idxDni]||'').trim() : '';
+    const nombreRaw = idxNombre !== -1 ? String(row[idxNombre]||'').trim() : '';
+    const montoRaw = idxMonto !== -1 ? row[idxMonto] : '';
+    const monto = parseFloat(String(montoRaw).replace(/[^\d.,-]/g,'').replace(/\./g,'').replace(',','.')) || parseFloat(montoRaw) || 0;
+    if(!monto) return;
+
+    const dniNorm = normalizeDni(dniRaw);
+    let client = null;
+    if(dniNorm){
+      client = state.clients.find(c => normalizeDni(c.dni) === dniNorm);
+    }
+    if(!client && nombreRaw){
+      const nLow = nombreRaw.toLowerCase();
+      client = state.clients.find(c => (c.nombre||'').trim().toLowerCase() === nLow);
+    }
+
+    if(client){
+      client.stage = 'cerrado';
+      client.montoPagado = monto;
+      matched++;
+      newPayments.push({name: client.nombre, monto});
+    } else {
+      unmatched.push(nombreRaw || dniRaw || '(sin datos)');
+    }
+  });
+
+  save(); renderBoard(); renderStats();
+  const result = await registrarPagosEnPanel(newPayments);
+  importPagosModal.classList.remove('open');
+
+  let msg = `${matched} clientes movidos a Cerrado`;
+  if(unmatched.length) msg += ` · ${unmatched.length} sin coincidencia`;
+  if(matched && !result.synced) msg += ' (abrí Sueldo & Cobros una vez para sincronizar montos)';
+  else if(result.dup) msg += ` · ${result.dup} ya estaban cargados, quedaron para revisar en Sueldo & Cobros`;
+  toast(msg);
+});
+
+// Cerrar modales con click fuera
+[document.getElementById('clientModal'), importModal, document.getElementById('waModal'), importPagosModal, document.getElementById('cobradoModal'), document.getElementById('confirmModal'), document.getElementById('recordatoriosModal'), document.getElementById('configModal'), document.getElementById('stagesModal')].forEach(m=>{
+  m.addEventListener('click', e=>{ if(e.target===m) m.classList.remove('open'); });
+});
+
+// --- Recordatorios de promesas de pago ---
+// Devuelve, ordenadas de más vencida a menos, las promesas de hoy o ya vencidas
+// de clientes que todavía no llegaron a Cerrado (Cobrado).
+function getRecordatorios(){
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  return state.clients
+    .filter(c => c.fechaPromesa && c.stage !== 'cerrado')
+    .map(c => ({ c, info: promesaInfo(c.fechaPromesa) }))
+    .filter(x => x.info && x.info.diffDias <= 0)
+    .sort((a,b)=> a.info.diffDias - b.info.diffDias);
+}
+function renderRecordatoriosBadge(){
+  const btn = document.getElementById('btnRecordatorios');
+  const list = getRecordatorios();
+  if(list.length){
+    btn.textContent = `🔔 Recordatorios (${list.length})`;
+    btn.classList.add('has-alert');
+  } else {
+    btn.textContent = `🔔 Recordatorios`;
+    btn.classList.remove('has-alert');
+  }
+}
+function openRecordatoriosModal(){
+  const list = getRecordatorios();
+  const wrap = document.getElementById('recordatoriosList');
+  if(!list.length){
+    wrap.innerHTML = `<div class="empty-col">No hay promesas vencidas ni para hoy 🎉</div>`;
+  } else {
+    wrap.innerHTML = list.map(({c, info})=>{
+      const estadoTxt = info.diffDias === 0 ? 'Es hoy' : `Venció hace ${Math.abs(info.diffDias)} día(s)`;
+      const color = info.diffDias < 0 ? 'var(--danger)' : 'var(--warn)';
+      return `
+        <div class="card" style="cursor:default;">
+          <div class="row">
+            <h4>${escapeHtml(c.nombre)}</h4>
+            <button class="wa" title="${c.telefono ? 'Enviar WhatsApp' : 'Sin teléfono cargado'}" data-id="${c.id}" style="opacity:1;${c.telefono?'':'opacity:.25;cursor:not-allowed;'}">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.87 9.87 0 0 0 4.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.03c-.24.68-1.4 1.3-1.94 1.38-.5.08-1.12.11-1.81-.12-.42-.13-.95-.31-1.64-.6-2.88-1.24-4.76-4.15-4.9-4.34-.14-.19-1.17-1.55-1.17-2.96 0-1.4.74-2.09 1-2.38.26-.28.57-.35.76-.35.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.57.81 1.98.88 2.12.07.15.12.32.02.51-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.13-.28.28-.12.55.16.28.72 1.19 1.55 1.93 1.06.95 1.96 1.24 2.24 1.38.28.14.44.12.6-.07.16-.19.7-.82.89-1.1.19-.28.37-.23.63-.14.26.1 1.66.78 1.94.93.28.14.47.21.54.33.07.12.07.68-.16 1.36z"/></svg>
+            </button>
+          </div>
+          <div class="meta">
+            ${c.monto ? `<b>Préstamo:</b> ${escapeHtml(c.monto)}<br>`:''}
+            <b>Etapa:</b> ${escapeHtml(STAGES.find(s=>s.id===c.stage)?.name || c.stage)}<br>
+            <b>Promesa:</b> ${info.fechaTxt} — <span style="color:${color};font-weight:600;">${estadoTxt}</span>
+          </div>
+        </div>`;
+    }).join('');
+    wrap.querySelectorAll('.wa').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id = btn.dataset.id;
+        const cli = state.clients.find(x=>x.id===id);
+        if(!cli || !cli.telefono) return;
+        document.getElementById('recordatoriosModal').classList.remove('open');
+        openWaModal(id);
+      });
+    });
+  }
+  document.getElementById('recordatoriosModal').classList.add('open');
+}
+document.getElementById('btnRecordatorios').addEventListener('click', openRecordatoriosModal);
+document.getElementById('btnCloseRecordatorios').addEventListener('click', ()=>{
+  document.getElementById('recordatoriosModal').classList.remove('open');
+});
+
+// --- Configurar columnas del tablero (etapas) ---
+function renderStagesList(){
+  const wrap = document.getElementById('stagesList');
+  wrap.innerHTML = STAGES.map((s,i) => `
+    <div class="custom-field-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button class="stage-move" data-dir="up" data-id="${s.id}" ${i===0?'disabled':''} style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;opacity:${i===0?'.3':'1'};">▲</button>
+        <button class="stage-move" data-dir="down" data-id="${s.id}" ${i===STAGES.length-1?'disabled':''} style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;opacity:${i===STAGES.length-1?'.3':'1'};">▼</button>
+        <input type="text" class="stage-name-input" data-id="${s.id}" value="${escapeHtml(s.name)}" style="flex:1;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:6px 9px;border-radius:6px;font-size:13px;outline:none;">
+        ${s.protected ? `<span style="font-size:10px;color:var(--muted);white-space:nowrap;">🔒 fija</span>` : `<button data-del-stage="${s.id}" title="Eliminar columna" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;">×</button>`}
+      </div>
+      <div style="display:flex;gap:6px;">${CF_PALETTE.map(c=>`<span class="color-swatch ${c.text===s.color?'selected':''}" data-stage-color="${s.id}" data-hex="${c.text}" style="background:${c.text};width:16px;height:16px;"></span>`).join('')}</div>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('.stage-name-input').forEach(inp=>{
+    inp.addEventListener('change', ()=>{
+      const st = STAGES.find(s=>s.id===inp.dataset.id);
+      if(st && inp.value.trim()){ st.name = inp.value.trim(); saveStages(); renderBoard(); renderStats(); }
+      else if(st) inp.value = st.name;
+    });
+  });
+  wrap.querySelectorAll('[data-stage-color]').forEach(sw=>{
+    sw.addEventListener('click', ()=>{
+      const st = STAGES.find(s=>s.id===sw.dataset.stageColor);
+      if(!st) return;
+      st.color = sw.dataset.hex;
+      saveStages();
+      renderStagesList();
+      renderBoard();
+      renderStats();
+    });
+  });
+  wrap.querySelectorAll('.stage-move').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const idx = STAGES.findIndex(s=>s.id===btn.dataset.id);
+      const swapIdx = idx + (btn.dataset.dir === 'up' ? -1 : 1);
+      if(swapIdx<0 || swapIdx>=STAGES.length) return;
+      [STAGES[idx], STAGES[swapIdx]] = [STAGES[swapIdx], STAGES[idx]];
+      saveStages();
+      renderStagesList();
+      renderBoard();
+      renderStats();
+    });
+  });
+  wrap.querySelectorAll('[data-del-stage]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.delStage;
+      const st = STAGES.find(s=>s.id===id);
+      askConfirm('Eliminar columna', `¿Eliminar la columna "${st ? st.name : ''}"? Los clientes que estén ahí pasan a "A contactar".`, ()=>{
+        const afectados = state.clients.filter(c=>c.stage===id).length;
+        state.clients.forEach(c=>{ if(c.stage===id) c.stage = 'a_contactar'; });
+        STAGES = STAGES.filter(s=>s.id!==id);
+        save(); saveStages();
+        renderStagesList();
+        renderBoard();
+        renderStats();
+        if(afectados) toast(`${afectados} cliente(s) pasaron a "A contactar"`);
+      });
+    });
+  });
+}
+document.getElementById('btnAddStage').addEventListener('click', ()=>{
+  const input = document.getElementById('newStageName');
+  const name = input.value.trim();
+  if(!name){ input.focus(); toast('Ponele un nombre a la columna'); return; }
+  const id = 'st_' + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+  const color = CF_PALETTE[STAGES.length % CF_PALETTE.length].text;
+  STAGES.push({id, name, color});
+  saveStages();
+  input.value = '';
+  renderStagesList();
+  renderBoard();
+  renderStats();
+});
+document.getElementById('newStageName').addEventListener('keydown', e=>{
+  if(e.key === 'Enter') document.getElementById('btnAddStage').click();
+});
+document.getElementById('btnConfigColumnas').addEventListener('click', ()=>{
+  renderStagesList();
+  document.getElementById('stagesModal').classList.add('open');
+});
+document.getElementById('btnCloseStages').addEventListener('click', ()=>{
+  document.getElementById('stagesModal').classList.remove('open');
+});
+
+// --- Configurar información de las tarjetas ---
+function renderConfigFields(){
+  const wrap = document.getElementById('configFieldsList');
+  wrap.innerHTML = CONFIG_FIELDS.map(f => `
+    <label class="config-field-row">
+      <input type="checkbox" data-field="${f.id}" ${config.visibleFields[f.id] !== false ? 'checked' : ''}>
+      ${escapeHtml(f.label)}
+    </label>
+  `).join('');
+  wrap.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      config.visibleFields[cb.dataset.field] = cb.checked;
+      saveConfig();
+      renderBoard();
+    });
+  });
+}
+function renderCustomFieldsList(){
+  const wrap = document.getElementById('customFieldsList');
+  if(!config.customFields.length){
+    wrap.innerHTML = `<div style="font-size:12px;color:var(--muted);">No agregaste campos personalizados todavía.</div>`;
+    return;
+  }
+  wrap.innerHTML = config.customFields.map(f => {
+    const hasOptions = f.options && f.options.length;
+    if(hasOptions){
+      const optionRows = f.options.map(opt => {
+        const optColor = (f.optionColors && f.optionColors[opt]) || 'blue';
+        const col = getCfColor(optColor);
+        return `<div class="option-row">
+          <span class="option-color-dot" data-field="${f.id}" data-opt="${escapeHtml(opt)}" style="background:${col.text};" title="Cambiar color"></span>
+          <span class="option-chip" style="background:${col.text};color:#fff;border:none;">${escapeHtml(opt)}</span>
+        </div>`;
+      }).join('');
+      return `
+      <div class="custom-field-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span>${escapeHtml(f.label)}<span class="cf-item-sub">Lista desplegable</span></span>
+          <button data-id="${f.id}" title="Eliminar campo">×</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">${optionRows}</div>
+      </div>`;
+    }
+    const col = getCfColor(f.color);
+    const swatches = CF_PALETTE.map(c => `<span class="color-swatch ${c.id===(f.color||'blue')?'selected':''}" data-field="${f.id}" data-color="${c.id}" style="background:${c.text};width:16px;height:16px;"></span>`).join('');
+    return `
+    <div class="custom-field-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span><span class="field-color-dot" style="background:${col.text};"></span>${escapeHtml(f.label)}<span class="cf-item-sub">Texto libre</span></span>
+        <button data-id="${f.id}" title="Eliminar campo">×</button>
+      </div>
+      <div style="display:flex;gap:6px;">${swatches}</div>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('button[data-id]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      config.customFields = config.customFields.filter(f=>f.id !== btn.dataset.id);
+      saveConfig();
+      renderCustomFieldsList();
+      renderFiltersBar();
+      renderBoard();
+    });
+  });
+  // Campos de texto libre: swatch elegido directamente
+  wrap.querySelectorAll('.color-swatch[data-field]').forEach(sw=>{
+    sw.addEventListener('click', ()=>{
+      const field = config.customFields.find(f=>f.id===sw.dataset.field);
+      if(!field) return;
+      field.color = sw.dataset.color;
+      saveConfig();
+      renderCustomFieldsList();
+      renderFiltersBar();
+      renderBoard();
+    });
+  });
+  // Campos con opciones: cada punto de color cicla al siguiente color de la paleta
+  wrap.querySelectorAll('.option-color-dot[data-field]').forEach(dot=>{
+    dot.addEventListener('click', ()=>{
+      const field = config.customFields.find(f=>f.id===dot.dataset.field);
+      if(!field) return;
+      if(!field.optionColors) field.optionColors = {};
+      const cur = field.optionColors[dot.dataset.opt] || 'blue';
+      const curIdx = CF_PALETTE.findIndex(c=>c.id===cur);
+      field.optionColors[dot.dataset.opt] = CF_PALETTE[(curIdx+1) % CF_PALETTE.length].id;
+      saveConfig();
+      renderCustomFieldsList();
+      renderFiltersBar();
+      renderBoard();
+    });
+  });
+}
+
+// --- Constructor del campo nuevo (nombre + opciones para lista desplegable) ---
+// Si el campo tiene opciones, CADA opción tiene su propio color (auto-asignado,
+// cíclico, y clickeable para cambiarlo). Si no tiene opciones (texto libre),
+// se usa un único color de campo (draftColor) con el selector de abajo.
+let draftOptions = []; // [{value, color}]
+let draftColor = 'blue';
+function renderDraftColorSwatches(){
+  const wrap = document.getElementById('newFieldColorSwatches');
+  wrap.innerHTML = CF_PALETTE.map(c => `<span class="color-swatch ${c.id===draftColor?'selected':''}" data-color="${c.id}" style="background:${c.text};"></span>`).join('');
+  wrap.querySelectorAll('.color-swatch').forEach(sw=>{
+    sw.addEventListener('click', ()=>{
+      draftColor = sw.dataset.color;
+      renderDraftColorSwatches();
+    });
+  });
+  document.getElementById('newFieldColorSwatchWrap').style.display = draftOptions.length ? 'none' : 'block';
+}
+function nextPaletteColor(usedCount){
+  return CF_PALETTE[usedCount % CF_PALETTE.length].id;
+}
+function renderDraftOptionsChips(){
+  const wrap = document.getElementById('newFieldOptionsChips');
+  wrap.innerHTML = draftOptions.map((opt, i) => {
+    const col = getCfColor(opt.color);
+    return `
+    <div class="option-row">
+      <span class="option-color-dot" data-i="${i}" style="background:${col.text};" title="Cambiar color"></span>
+      <span class="option-chip" style="background:${col.text};color:#fff;border:none;">${escapeHtml(opt.value)}<button data-del="${i}" style="color:rgba(255,255,255,.85);">×</button></span>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('.option-color-dot').forEach(dot=>{
+    dot.addEventListener('click', ()=>{
+      const i = parseInt(dot.dataset.i);
+      const curIdx = CF_PALETTE.findIndex(c=>c.id===draftOptions[i].color);
+      draftOptions[i].color = CF_PALETTE[(curIdx+1) % CF_PALETTE.length].id;
+      renderDraftOptionsChips();
+    });
+  });
+  wrap.querySelectorAll('button[data-del]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      draftOptions.splice(parseInt(btn.dataset.del), 1);
+      renderDraftOptionsChips();
+      renderDraftColorSwatches();
+    });
+  });
+  document.getElementById('newFieldColorSwatchWrap').style.display = draftOptions.length ? 'none' : 'block';
+}
+function addDraftOption(){
+  const input = document.getElementById('newCustomFieldOption');
+  const val = input.value.trim();
+  if(!val || draftOptions.some(o=>o.value===val)){ input.value=''; return; }
+  draftOptions.push({ value: val, color: nextPaletteColor(draftOptions.length) });
+  input.value = '';
+  renderDraftOptionsChips();
+  renderDraftColorSwatches();
+}
+document.getElementById('btnAddOptionToNewField').addEventListener('click', addDraftOption);
+document.getElementById('newCustomFieldOption').addEventListener('keydown', e=>{
+  if(e.key === 'Enter'){ e.preventDefault(); addDraftOption(); }
+});
+document.getElementById('btnAddCustomField').addEventListener('click', ()=>{
+  const nameInput = document.getElementById('newCustomFieldName');
+  const label = nameInput.value.trim();
+  if(!label){ nameInput.focus(); toast('Ponele un nombre al campo'); return; }
+  const id = 'cf_' + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+  const field = { id, label };
+  if(draftOptions.length){
+    field.options = draftOptions.map(o=>o.value);
+    field.optionColors = {};
+    draftOptions.forEach(o => field.optionColors[o.value] = o.color);
+  } else {
+    field.color = draftColor;
+  }
+  config.customFields.push(field);
+  saveConfig();
+  nameInput.value = '';
+  draftOptions = [];
+  draftColor = 'blue';
+  renderDraftOptionsChips();
+  renderDraftColorSwatches();
+  renderCustomFieldsList();
+      renderFiltersBar();
+});
+document.getElementById('btnConfigTarjeta').addEventListener('click', ()=>{
+  renderConfigFields();
+  renderCustomFieldsList();
+      renderFiltersBar();
+  renderDraftColorSwatches();
+  document.getElementById('configModal').classList.add('open');
+});
+document.getElementById('btnCloseConfig').addEventListener('click', ()=>{
+  document.getElementById('configModal').classList.remove('open');
+  renderBoard();
+});
+
+// --- Modo oscuro / claro ---
+// Comparte la misma clave que el panel general (kv_store en Supabase) y además
+// escucha cambios en vivo por postMessage, para no depender de recargar el iframe.
+const THEME_KEY = 'cm_theme_v1';
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
+  document.getElementById('btnToggleTheme').textContent = theme === 'light' ? '🌙' : '☀️';
+  document.getElementById('btnToggleTheme').title = theme === 'light' ? 'Cambiar a modo oscuro' : 'Cambiar a modo claro';
+}
+let currentTheme = 'dark';
+applyTheme(currentTheme);
+window.appReady.then(async () => {
+  const saved = await kvGet(THEME_KEY);
+  if (saved) { currentTheme = saved; applyTheme(currentTheme); }
+});
+document.getElementById('btnToggleTheme').addEventListener('click', ()=>{
+  currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+  kvSet(THEME_KEY, currentTheme).catch(e => console.error(e));
+  applyTheme(currentTheme);
+});
+window.addEventListener('message', e=>{
+  if(e.data && e.data.type === 'cm-theme'){
+    currentTheme = e.data.theme === 'light' ? 'light' : 'dark';
+    applyTheme(currentTheme);
+  }
+});
+
+renderFiltersBar();
+renderBoard();
+renderStats();
+
+/* ================= AUTH + CARGA DESDE SUPABASE ================= */
+// Este archivo corre embebido en un iframe dentro de index.html, que ya
+// exige login antes de mostrarlo. Si alguien lo abre directo por URL sin
+// sesión, lo mandamos al panel principal a loguearse.
+sb.auth.getSession().then(({ data: { session } }) => {
+  if (session) window._markAppReady();
+  else location.href = 'index.html';
+});
+sb.auth.onAuthStateChange((_event, session) => {
+  if (!session) location.href = 'index.html';
+});
+
+window.appReady.then(async () => {
+  const [savedStages, savedConfig, savedState] = await Promise.all([
+    kvGet(STAGES_KEY),
+    kvGet(CONFIG_KEY),
+    kvGet(STORAGE_KEY),
+  ]);
+  if (Array.isArray(savedStages) && savedStages.length) STAGES = savedStages;
+  if (savedConfig) config = normalizeConfig(savedConfig);
+  if (savedState && Array.isArray(savedState.clients)) state = savedState;
+
+  renderFiltersBar();
+  renderBoard();
+  renderStats();
+});
+</script>
+</body>
+</html>
