@@ -1770,7 +1770,7 @@ function setKanbanViewMode(mode){
   document.getElementById('board').style.display = isCal ? 'none' : '';
   document.getElementById('filtersBar').style.display = isCal ? 'none' : '';
   document.getElementById('stats').style.display = isCal ? 'none' : '';
-  document.getElementById('calendarView').style.display = isCal ? '' : 'none';
+  document.getElementById('calendarView').style.display = isCal ? 'block' : 'none';
   if(isCal) renderCalendar();
 }
 
