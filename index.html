@@ -3129,6 +3129,7 @@
           if (client) {
             if (client.stage !== 'cerrado') matched++;
             client.stage = 'cerrado';
+            client.stageChangedAt = Date.now();
             client.montoPagado = r.monto;
           }
         });

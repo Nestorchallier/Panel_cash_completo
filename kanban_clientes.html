@@ -630,6 +630,11 @@ function getCreatedAt(c){
   const m = /^c_(\d+)_/.exec(c.id||'');
   return m ? parseInt(m[1],10) : 0;
 }
+// Momento del último cambio de etapa: es lo que define el orden por defecto
+// del tablero (recién movido = arriba de todo). Si un cliente todavía no
+// tiene esta marca (datos viejos), usamos su fecha de creación como respaldo.
+function stampStageChange(c){ c.stageChangedAt = Date.now(); }
+function getStageChangedAt(c){ return c.stageChangedAt || getCreatedAt(c); }
 function toast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -772,6 +777,7 @@ function renderBoard(){
     const clients = state.clients.filter(c=>c.stage===stage.id && matchesSearch(c,q) && matchesFilters(c));
     if(activeFilters.sort === 'recent') clients.sort((a,b)=> getCreatedAt(b) - getCreatedAt(a));
     else if(activeFilters.sort === 'oldest') clients.sort((a,b)=> getCreatedAt(a) - getCreatedAt(b));
+    else clients.sort((a,b)=> getStageChangedAt(b) - getStageChangedAt(a));
     const col = document.createElement('div');
     col.className = 'column';
     col.innerHTML = `
@@ -855,7 +861,7 @@ function renderBoard(){
         openCobradoModal(id);
         return;
       }
-      client.stage = stage.id; save(); renderBoard(); renderStats();
+      client.stage = stage.id; stampStageChange(client); save(); renderBoard(); renderStats();
     });
     board.appendChild(col);
   });
@@ -928,9 +934,10 @@ document.getElementById('btnSaveClient').addEventListener('click', ()=>{
       openCobradoModal(c.id);
       return;
     }
+    if(newStage !== prevStage) stampStageChange(c);
     Object.assign(c, data);
   } else {
-    state.clients.push({id:uid(), ...data});
+    state.clients.push({id:uid(), ...data, stageChangedAt: Date.now()});
   }
   save(); renderBoard(); renderStats();
   document.getElementById('clientModal').classList.remove('open');
@@ -1225,6 +1232,7 @@ async function confirmCobrado(){
   const c = state.clients.find(x=>x.id===pendingCobradoId);
   if(!c) return;
   c.stage = 'cerrado';
+  stampStageChange(c);
   c.montoPagado = monto;
   save(); renderBoard(); renderStats();
   const result = await registrarPagosEnPanel([{name: c.nombre, monto}]);
@@ -1339,6 +1347,7 @@ document.getElementById('btnConfirmImportPagos').addEventListener('click', async
 
     if(client){
       client.stage = 'cerrado';
+      stampStageChange(client);
       client.montoPagado = monto;
       matched++;
       newPayments.push({name: client.nombre, monto});
@@ -1476,7 +1485,7 @@ function renderStagesList(){
       const st = STAGES.find(s=>s.id===id);
       askConfirm('Eliminar columna', `¿Eliminar la columna "${st ? st.name : ''}"? Los clientes que estén ahí pasan a "A contactar".`, ()=>{
         const afectados = state.clients.filter(c=>c.stage===id).length;
-        state.clients.forEach(c=>{ if(c.stage===id) c.stage = 'a_contactar'; });
+        state.clients.forEach(c=>{ if(c.stage===id){ c.stage = 'a_contactar'; stampStageChange(c); } });
         STAGES = STAGES.filter(s=>s.id!==id);
         save(); saveStages();
         renderStagesList();
