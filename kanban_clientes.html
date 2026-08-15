@@ -337,6 +337,37 @@
   .cal-item-name{color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .cal-item-row{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:2px;}
   .cal-item-row .cf-badge{font-size:9px;padding:1px 6px;box-shadow:none;}
+  .cal-day.has-items{cursor:pointer;}
+  .cal-day.has-items:hover{background:var(--panel-2);}
+
+  .day-modal{max-width:600px;padding:0;}
+  .day-modal-head{
+    display:flex;align-items:flex-start;justify-content:space-between;
+    padding:20px 22px 16px;border-bottom:1px solid var(--line);
+  }
+  .day-modal-sub{font-size:12.5px;color:var(--muted);margin-top:2px;}
+  .day-modal-close{
+    width:28px;height:28px;border-radius:6px;border:none;background:transparent;
+    color:var(--muted);font-size:16px;cursor:pointer;line-height:1;
+  }
+  .day-modal-close:hover{color:var(--text);}
+  .day-modal-list{display:flex;flex-direction:column;gap:10px;padding:16px 22px 22px;max-height:60vh;overflow-y:auto;}
+  .day-modal-empty{color:var(--muted);font-size:13px;text-align:center;padding:20px 0;}
+  .day-item{
+    background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:8px;padding:12px 14px;cursor:pointer;transition:border-color .15s;
+  }
+  .day-item:hover{border-color:var(--accent);}
+  .day-item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+  .day-item-name{font-size:13.5px;font-weight:600;color:var(--text);}
+  .day-item-meta{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.6;}
+  .day-item-meta b{color:#b7c3d6;font-weight:600;}
+  .day-item-monto{font-size:14px;font-weight:600;text-align:right;}
+  .day-item-bottom{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    margin-top:10px;padding-top:10px;border-top:1px solid var(--line);
+  }
+  .day-item-notas{font-size:11px;color:var(--muted);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;}
 </style>
 </head>
 <body>
@@ -545,6 +576,20 @@
   </div>
 </div>
 
+<!-- Modal: detalle de un dia del calendario (todos los clientes con promesa ese dia) -->
+<div class="modal-overlay" id="dayDetailModal">
+  <div class="modal day-modal">
+    <div class="day-modal-head">
+      <div>
+        <h2 id="dayDetailTitle" style="margin:0;"></h2>
+        <div id="dayDetailSub" class="day-modal-sub"></div>
+      </div>
+      <button class="day-modal-close" id="btnCloseDayDetail">✕</button>
+    </div>
+    <div id="dayDetailList" class="day-modal-list"></div>
+  </div>
+</div>
+
 <!-- Modal: confirmación genérica (reemplaza confirm() nativo, que Firefox puede bloquear) -->
 <div class="modal-overlay" id="confirmModal">
   <div class="modal">
@@ -595,6 +640,16 @@ const CF_PALETTE = [
   {id:'gray', text:'#8996ab', bg:'rgba(137,150,171,.16)', border:'rgba(137,150,171,.4)'},
 ];
 function getCfColor(id){ return CF_PALETTE.find(c=>c.id===id) || CF_PALETTE[0]; }
+
+// Fondo + borde de cada columna del tablero, tenido con el color que el
+// usuario le asigno a esa etapa (Configurar columnas).
+function stageColumnStyle(color){
+  const hex = (color||'#8996ab').replace('#','');
+  const r = parseInt(hex.substr(0,2),16) || 137;
+  const g = parseInt(hex.substr(2,2),16) || 150;
+  const b = parseInt(hex.substr(4,2),16) || 171;
+  return `background:rgba(${r},${g},${b},.08);border-color:rgba(${r},${g},${b},.35);border-top:3px solid ${color};`;
+}
 
 const CONFIG_KEY = 'cm_kanban_config_v1';
 const CONFIG_FIELDS = [
@@ -801,6 +856,7 @@ function renderBoard(){
     else clients.sort((a,b)=> getStageChangedAt(b) - getStageChangedAt(a));
     const col = document.createElement('div');
     col.className = 'column';
+    col.style.cssText = stageColumnStyle(stage.color);
     col.innerHTML = `
       <div class="column-head">
         <h3><span class="dot" style="background:${stage.color}"></span>${stage.name}</h3>
@@ -1389,7 +1445,7 @@ document.getElementById('btnConfirmImportPagos').addEventListener('click', async
 });
 
 // Cerrar modales con click fuera
-[document.getElementById('clientModal'), importModal, document.getElementById('waModal'), importPagosModal, document.getElementById('cobradoModal'), document.getElementById('confirmModal'), document.getElementById('recordatoriosModal'), document.getElementById('configModal'), document.getElementById('stagesModal')].forEach(m=>{
+[document.getElementById('clientModal'), importModal, document.getElementById('waModal'), importPagosModal, document.getElementById('cobradoModal'), document.getElementById('confirmModal'), document.getElementById('recordatoriosModal'), document.getElementById('configModal'), document.getElementById('stagesModal'), document.getElementById('dayDetailModal')].forEach(m=>{
   m.addEventListener('click', e=>{ if(e.target===m) m.classList.remove('open'); });
 });
 
@@ -1820,7 +1876,7 @@ function renderCalendar(){
         </div>
       </div>`;
     }).join('');
-    cellsHtml += `<div class="cal-day ${isToday?'today':''}">
+    cellsHtml += `<div class="cal-day ${isToday?'today':''} ${items.length?'has-items':''}" data-date="${dateStr}">
       <div class="cal-day-num">${day}</div>
       ${itemsHtml}
     </div>`;
@@ -1852,9 +1908,79 @@ function renderCalendar(){
   document.getElementById('calNext').addEventListener('click', ()=>{ calDate = new Date(year, month+1, 1); renderCalendar(); });
   document.getElementById('calToday').addEventListener('click', ()=>{ calDate = new Date(); renderCalendar(); });
   wrap.querySelectorAll('.cal-item').forEach(el=>{
-    el.addEventListener('click', ()=> openClientModal(el.dataset.id));
+    el.addEventListener('click', (e)=>{ e.stopPropagation(); openClientModal(el.dataset.id); });
+  });
+  wrap.querySelectorAll('.cal-day.has-items').forEach(el=>{
+    el.addEventListener('click', ()=> openDayModal(el.dataset.date));
   });
 }
+
+const CAL_DIAS_SEMANA = ['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
+function formatDateLarga(dateStr){
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  return `${CAL_DIAS_SEMANA[dt.getDay()]} ${d} de ${CAL_MESES[m-1].toLowerCase()}`;
+}
+
+function openDayModal(dateStr){
+  const items = state.clients
+    .filter(c=>c.fechaPromesa===dateStr)
+    .sort((a,b)=> (a.nombre||'').localeCompare(b.nombre||''));
+
+  document.getElementById('dayDetailTitle').textContent = formatDateLarga(dateStr);
+  document.getElementById('dayDetailSub').textContent =
+    items.length === 1 ? '1 cliente con promesa este dia' : `${items.length} clientes con promesa este dia`;
+
+  const listEl = document.getElementById('dayDetailList');
+  if(!items.length){
+    listEl.innerHTML = `<div class="day-modal-empty">Sin clientes con promesa este dia</div>`;
+  } else {
+    listEl.innerHTML = items.map(c=>{
+      const pInfo = promesaInfo(c.fechaPromesa);
+      const cls = pInfo ? pInfo.cls : 'promesa-future';
+      const col = cls==='promesa-vencida' ? 'var(--danger)' : cls==='promesa-hoy' ? 'var(--warn)' : 'var(--accent)';
+      const label = cls==='promesa-vencida' ? 'Vencio' : cls==='promesa-hoy' ? 'Promesa es hoy' : 'Promesa futura';
+      const badges = config.customFields
+        .filter(f => c.customFields && c.customFields[f.id])
+        .map(f=>{
+          const val = c.customFields[f.id];
+          const colorId = (f.options && f.options.length) ? ((f.optionColors && f.optionColors[val]) || 'blue') : (f.color || 'blue');
+          const cfCol = getCfColor(colorId);
+          return `<span class="cf-badge" style="background:${cfCol.text};">${escapeHtml(val)}</span>`;
+        }).join('');
+      return `<div class="day-item" data-id="${c.id}" style="border-left-color:${col};">
+        <div class="day-item-top">
+          <div>
+            <div class="day-item-name">${escapeHtml(c.nombre)}</div>
+            <div class="day-item-meta">
+              ${c.dni ? `<b>DNI:</b> ${escapeHtml(c.dni)}<br>`:''}
+              ${c.telefono ? `<b>Tel:</b> ${escapeHtml(c.telefono)}`:''}
+            </div>
+          </div>
+          <div class="day-item-monto" style="color:${col};">${c.monto ? escapeHtml(String(c.monto)) : ''}</div>
+        </div>
+        <div class="day-item-bottom">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <span class="promesa-badge" style="background:${col}22;color:${col};border:1px solid ${col}55;">${label}</span>
+            ${badges}
+          </div>
+          ${c.notas ? `<span class="day-item-notas" title="${escapeHtml(c.notas)}">${escapeHtml(c.notas)}</span>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+    listEl.querySelectorAll('.day-item').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        document.getElementById('dayDetailModal').classList.remove('open');
+        openClientModal(el.dataset.id);
+      });
+    });
+  }
+
+  document.getElementById('dayDetailModal').classList.add('open');
+}
+document.getElementById('btnCloseDayDetail').addEventListener('click', ()=>{
+  document.getElementById('dayDetailModal').classList.remove('open');
+});
 
 window.addEventListener('message', e=>{
   if(e.data && e.data.type === 'cm-kanban-mode') setKanbanViewMode(e.data.mode);
