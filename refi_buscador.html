@@ -9,17 +9,17 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
-    --bg: #eef1ef;
-    --panel: #ffffff;
-    --ink: #16213a;
-    --muted: #667085;
-    --line: #dde3e0;
-    --teal: #0e7c66;
-    --teal-dark: #0a5c4c;
-    --amber: #d98e36;
-    --amber-soft: #fbeed9;
-    --teal-soft: #e2f2ee;
-    --danger: #c1443a;
+    --bg: #0a0e14;
+    --panel: #111826;
+    --ink: #e7edf7;
+    --muted: #8996ab;
+    --line: #212c40;
+    --teal: #3fd0c9;
+    --teal-dark: #2bb8ab;
+    --amber: #f0b866;
+    --amber-soft: rgba(240,184,102,.16);
+    --teal-soft: rgba(63,208,201,.14);
+    --danger: #e8677c;
     --radius: 14px;
   }
   *{ box-sizing: border-box; }
@@ -226,7 +226,7 @@
     padding: 18px 20px;
   }
   .stat-box.min{ background: var(--bg); border: 1px solid var(--line); }
-  .stat-box.rec{ background: var(--amber-soft); border: 1px solid #f0d9ab; }
+  .stat-box.rec{ background: var(--amber-soft); border: 1px solid rgba(240,184,102,.4); }
   .stat-label{
     font-size: 0.78rem;
     color: var(--muted);
@@ -234,7 +234,7 @@
     letter-spacing: 0.03em;
     font-weight:600;
   }
-  .stat-box.rec .stat-label{ color: #96631a; }
+  .stat-box.rec .stat-label{ color: var(--amber); }
   .stat-value{
     font-family:'Space Grotesk';
     font-size: 1.9rem;
