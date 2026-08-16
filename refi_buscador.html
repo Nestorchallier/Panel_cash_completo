@@ -16,11 +16,26 @@
     --line: #212c40;
     --teal: #3fd0c9;
     --teal-dark: #2bb8ab;
+    --on-teal: #04121a;
     --amber: #f0b866;
     --amber-soft: rgba(240,184,102,.16);
     --teal-soft: rgba(63,208,201,.14);
     --danger: #e8677c;
     --radius: 14px;
+  }
+  :root[data-theme="light"]{
+    --bg: #eef1ef;
+    --panel: #ffffff;
+    --ink: #16213a;
+    --muted: #667085;
+    --line: #dde3e0;
+    --teal: #0e7c66;
+    --teal-dark: #0a5c4c;
+    --on-teal: #ffffff;
+    --amber: #d98e36;
+    --amber-soft: #fbeed9;
+    --teal-soft: #e2f2ee;
+    --danger: #c1443a;
   }
   *{ box-sizing: border-box; }
   body{
@@ -92,7 +107,7 @@
   #dropzone .icon{ font-size: 2.2rem; margin-bottom: 10px; }
   .btn-primary{
     background: var(--teal);
-    color: #fff;
+    color: var(--on-teal);
     border:none;
     padding: 11px 22px;
     border-radius: 9px;
@@ -396,7 +411,7 @@
   }
   .btn-mini{
     background: var(--teal);
-    color:#fff;
+    color:var(--on-teal);
     border:none;
     font-family:'Inter';
     font-size: 0.78rem;
@@ -952,6 +967,15 @@
     }
   }
 })();
+
+// Modo claro/oscuro: lo controla el panel principal (el mismo interruptor
+// que usa el Kanban), nos avisa por postMessage cuando cambia.
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
+}
+window.addEventListener('message', e=>{
+  if(e.data && e.data.type === 'cm-theme') applyTheme(e.data.theme);
+});
 </script>
 </body>
 </html>

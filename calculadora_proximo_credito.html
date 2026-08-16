@@ -9,16 +9,34 @@
     --ink:#e7edf7;
     --paper:#0a0e14;
     --panel:#111826;
+    --input-bg:#0d141f;
     --line:#212c40;
     --slate:#b7c3d6;
     --muted:#8996ab;
     --accent:#3fd0c9;
     --accent-soft:rgba(63,208,201,.14);
+    --on-accent:#04121a;
     --warn:#f0b866;
     --warn-soft:rgba(240,184,102,.16);
     --danger:#e8677c;
     --danger-soft:rgba(232,103,124,.14);
     font-family: 'Iowan Old Style', 'Georgia', serif;
+  }
+  :root[data-theme="light"]{
+    --ink:#1b2430;
+    --paper:#f6f4ee;
+    --panel:#ffffff;
+    --input-bg:#fdfcf9;
+    --line:#dcd6c8;
+    --slate:#4c5a67;
+    --muted:#8b8577;
+    --accent:#0f6b5c;
+    --accent-soft:#e4f0ec;
+    --on-accent:#ffffff;
+    --warn:#a8631d;
+    --warn-soft:#fbeee1;
+    --danger:#a13d3d;
+    --danger-soft:#f8e9e9;
   }
   *{box-sizing:border-box;}
   body{
@@ -89,7 +107,7 @@
     border:1px solid var(--line);
     border-radius:3px;
     font-size:15px;
-    background:#fdfcf9;
+    background:var(--input-bg);
     color:var(--ink);
   }
   input[type=number]:focus{outline:2px solid var(--accent); outline-offset:1px;}
@@ -114,7 +132,7 @@
   .segmented button:last-child{border-right:none;}
   .segmented button.active{
     background:var(--accent);
-    color:#04121a;
+    color:var(--on-accent);
   }
 
   .result-panel{
@@ -392,6 +410,15 @@ function compute(){
       breakdown);
   }
 }
+
+// Modo claro/oscuro: lo controla el panel principal (el mismo interruptor
+// que usa el Kanban), nos avisa por postMessage cuando cambia.
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
+}
+window.addEventListener('message', e=>{
+  if(e.data && e.data.type === 'cm-theme') applyTheme(e.data.theme);
+});
 </script>
 </body>
 </html>

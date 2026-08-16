@@ -3525,16 +3525,20 @@
       // pida la version nueva del archivo despues de un deploy, en vez de
       // servir una copia vieja cacheada. Subir este numero en cada cambio a
       // kanban_clientes.html / refi_buscador.html / calculadora_proximo_credito.html.
-      const ASSET_VERSION = 6;
+      const ASSET_VERSION = 7;
 
       function cargarIframeSiHaceFalta(view) {
         if (view === 'view-refi' && !refiLoaded) {
           iframeRefi.src = 'refi_buscador.html?v=' + ASSET_VERSION;
           refiLoaded = true;
+          // notifyThemeToIframes/currentTheme viven en un <script> mas abajo,
+          // pero para cuando el iframe termine de cargar (async) ya van a existir.
+          iframeRefi.addEventListener('load', () => notifyThemeToIframes(currentTheme), { once: true });
         }
         if (view === 'view-calc' && !calcLoaded) {
           iframeCalc.src = 'calculadora_proximo_credito.html?v=' + ASSET_VERSION;
           calcLoaded = true;
+          iframeCalc.addEventListener('load', () => notifyThemeToIframes(currentTheme), { once: true });
         }
         if (view === 'view-kanban' && !kanbanLoaded) {
           iframeKanban.src = 'kanban_clientes.html?v=' + ASSET_VERSION;
