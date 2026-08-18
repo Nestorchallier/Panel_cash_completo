@@ -3589,7 +3589,7 @@
       // pida la version nueva del archivo despues de un deploy, en vez de
       // servir una copia vieja cacheada. Subir este numero en cada cambio a
       // kanban_clientes.html / refi_buscador.html / calculadora_proximo_credito.html.
-      const ASSET_VERSION = 7;
+      const ASSET_VERSION = 8;
 
       function cargarIframeSiHaceFalta(view) {
         if (view === 'view-refi' && !refiLoaded) {
@@ -3620,10 +3620,24 @@
         items.forEach(b => b.classList.toggle('active', b.dataset.view === view));
         const wasLoaded = kanbanLoaded;
         cargarIframeSiHaceFalta(target);
-        if (target === 'view-kanban' && mode) {
-          const sendMode = () => iframeKanban.contentWindow.postMessage({ type: 'cm-kanban-mode', mode }, '*');
-          if (wasLoaded) sendMode();
-          else iframeKanban.addEventListener('load', sendMode, { once: true });
+        if (target === 'view-kanban') {
+          // El Kanban y Sueldo & Cobros comparten datos (pagos, clientes
+          // movidos a Cerrado) y cada uno los tiene en memoria por separado.
+          // Al entrar al Kanban le pedimos que vuelva a traer todo fresco
+          // de Supabase, para no laburar con una copia vieja.
+          const sendMessage = (msg) => iframeKanban.contentWindow.postMessage(msg, '*');
+          if (wasLoaded) {
+            sendMessage({ type: 'cm-refresh' });
+            if (mode) sendMessage({ type: 'cm-kanban-mode', mode });
+          } else {
+            iframeKanban.addEventListener('load', () => { if (mode) sendMessage({ type: 'cm-kanban-mode', mode }); }, { once: true });
+          }
+        }
+        if (target === 'view-comisiones' && typeof loadState === 'function') {
+          // Mismo motivo: si el Kanban agrego un pago mientras esta pestaña
+          // ya estaba cargada, sin esto se seguiria viendo la copia vieja
+          // (y peor, un guardado desde acá podria pisar el pago nuevo).
+          loadState().then(() => render());
         }
         try { localStorage.setItem('appActiveView_v1', view); } catch (e) { }
       }

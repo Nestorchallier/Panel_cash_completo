@@ -2002,7 +2002,7 @@ sb.auth.onAuthStateChange((_event, session) => {
   if (!session) location.href = 'index.html';
 });
 
-window.appReady.then(async () => {
+async function hydrateFromSupabase() {
   const [savedStages, savedConfig, savedState] = await Promise.all([
     kvGet(STAGES_KEY),
     kvGet(CONFIG_KEY),
@@ -2016,6 +2016,16 @@ window.appReady.then(async () => {
   renderBoard();
   renderStats();
   renderCalendar();
+}
+
+window.appReady.then(hydrateFromSupabase);
+
+// Sueldo & Cobros puede modificar cm_kanban_clientes_v1 (al "Importar cobros")
+// mientras este iframe ya estaba cargado con una copia vieja en memoria. El
+// panel principal nos avisa por acá cuando volvemos a esta pestaña, para
+// traer todo fresco y no pisar esos cambios con un guardado posterior.
+window.addEventListener('message', e=>{
+  if(e.data && e.data.type === 'cm-refresh') hydrateFromSupabase();
 });
 </script>
 </body>
