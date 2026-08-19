@@ -1069,6 +1069,62 @@
       background: var(--coral-dim);
     }
 
+    .scale-row .lv input,
+    .scale-row .meta input {
+      width: 56px;
+      background: var(--card-2);
+      border: 1px solid var(--border-strong);
+      border-radius: 5px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      padding: 3px 5px;
+      text-align: right;
+    }
+
+    .scale-row .lv input {
+      width: 42px;
+      text-align: left;
+    }
+
+    .scale-row .lv input:focus,
+    .scale-row .meta input:focus {
+      border-color: var(--teal);
+    }
+
+    .scale-del-btn {
+      background: none;
+      border: none;
+      color: var(--text-faint);
+      font-size: 15px;
+      line-height: 1;
+      padding: 2px 4px;
+      margin-left: 8px;
+      cursor: pointer;
+    }
+
+    .scale-del-btn:hover {
+      color: var(--coral);
+    }
+
+    .scale-add-btn {
+      margin-top: 10px;
+      background: none;
+      border: 1px dashed var(--border-strong);
+      color: var(--text-dim);
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 12px;
+      width: 100%;
+      cursor: pointer;
+      transition: border-color .15s, color .15s;
+    }
+
+    .scale-add-btn:hover {
+      border-color: var(--teal);
+      color: var(--text);
+    }
+
     .scale-row .status.done {
       color: var(--teal);
       background: var(--teal-dim);
@@ -2144,6 +2200,7 @@
           style="font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.08em;font-family:'JetBrains Mono',monospace;margin-bottom:6px">
           Escala de metas</div>
         <div id="scaleList"></div>
+        <button id="btnAddScaleRow" class="scale-add-btn">+ Agregar escala</button>
       </div>
     </div>
 
@@ -2680,13 +2737,47 @@
 
       const scaleList = document.getElementById('scaleList');
       scaleList.innerHTML = '';
-      state.scaleRows.forEach(s => {
+      state.scaleRows.forEach((s, i) => {
         const done = totalRegistrado >= s.meta;
         const faltaEscala = Math.max(s.meta - totalRegistrado, 0);
         const row = document.createElement('div');
         row.className = 'scale-row';
-        row.innerHTML = `<span class="lv">${Math.round(s.escala * 100)}%</span><span class="meta num">${fmt(s.meta)}</span><span class="scale-falta num">${done ? '—' : 'Faltan ' + fmt(faltaEscala)}</span><span class="status ${done ? 'done' : 'pend'}">${done ? '✓ Alcanzado' : '⏳ Pendiente'}</span>`;
+        row.innerHTML = `
+      <span class="lv"><input type="number" class="scale-pct-input" data-idx="${i}" value="${Math.round(s.escala * 100)}" step="1">%</span>
+      <span class="meta num"><input type="number" class="scale-meta-input" data-idx="${i}" value="${Math.round(s.meta)}" step="1000"></span>
+      <span class="scale-falta num">${done ? '—' : 'Faltan ' + fmt(faltaEscala)}</span>
+      <span class="status ${done ? 'done' : 'pend'}">${done ? '✓ Alcanzado' : '⏳ Pendiente'}</span>
+      <button class="scale-del-btn" data-idx="${i}" title="Borrar esta escala">×</button>
+    `;
         scaleList.appendChild(row);
+      });
+      scaleList.querySelectorAll('.scale-pct-input').forEach(inp => {
+        inp.addEventListener('change', () => {
+          const idx = Number(inp.dataset.idx);
+          const pct = parseFloat(inp.value);
+          if (isNaN(pct) || pct < 0) { render(); return; }
+          state.scaleRows[idx].escala = pct / 100;
+          saveState();
+          render();
+        });
+      });
+      scaleList.querySelectorAll('.scale-meta-input').forEach(inp => {
+        inp.addEventListener('change', () => {
+          const idx = Number(inp.dataset.idx);
+          const meta = parseFloat(inp.value);
+          if (isNaN(meta) || meta < 0) { render(); return; }
+          state.scaleRows[idx].meta = meta;
+          saveState();
+          render();
+        });
+      });
+      scaleList.querySelectorAll('.scale-del-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = Number(btn.dataset.idx);
+          state.scaleRows.splice(idx, 1);
+          saveState();
+          render();
+        });
       });
 
       // --- payments list ---
@@ -2809,6 +2900,12 @@
     });
 
     document.getElementById('pagosSearch').addEventListener('input', () => render());
+
+    document.getElementById('btnAddScaleRow').addEventListener('click', () => {
+      state.scaleRows.push({ escala: 0, meta: 0 });
+      saveState();
+      render();
+    });
 
     document.getElementById('btnExportPagosExcel').addEventListener('click', () => {
       if (!state.payments.length) return;
