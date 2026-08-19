@@ -1073,6 +1073,13 @@
       grid-template-columns: 90px 1fr 30px !important;
     }
 
+    .se-meta-preview {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-dim);
+      font-size: 12.5px;
+      padding: 8px 10px;
+    }
+
     .scale-row .status.done {
       color: var(--teal);
       background: var(--teal-dim);
@@ -2153,7 +2160,6 @@
         <div id="scaleList"></div>
       </div>
     </div>
-    <div id="scaleEditRoot"></div>
 
     <div class="list-card">
       <h3>Registro de pagos</h3>
@@ -2171,6 +2177,7 @@
       </div>
     </div>
   </div>
+  <div id="scaleEditRoot"></div>
 
   <!-- COMISIONES -->
   <div class="section-title">
@@ -2557,7 +2564,7 @@
       <div class="cat-edit-overlay" id="scaleEditOverlay">
         <div class="cat-edit-modal">
           <h3>Editar escala de metas</h3>
-          <div class="sub">Definí el porcentaje y el monto objetivo de cada tramo.</div>
+          <div class="sub">Definí el porcentaje de cada tramo — el monto se calcula solo sobre el objetivo total (${fmt(state.objetivoTotal)}).</div>
           <div class="cat-edit-col-labels scale-edit-row"><span>Meta (%)</span><span>Monto ($)</span><span></span></div>
           <div id="scaleEditRows"></div>
           <button type="button" class="cat-edit-add-btn" id="scaleEditAddRow">+ Agregar escala</button>
@@ -2576,16 +2583,13 @@
           row.className = 'cat-edit-row scale-edit-row';
           row.innerHTML = `
         <input type="number" class="se-pct num" value="${Math.round((s.escala || 0) * 100)}" step="1">
-        <input type="number" class="se-meta num" value="${Math.round(s.meta || 0)}" step="1000">
+        <span class="se-meta-preview num">${fmt((s.escala || 0) * state.objetivoTotal)}</span>
         <button type="button" class="row-del" title="Eliminar escala">🗑️</button>
       `;
           row.querySelector('.se-pct').addEventListener('input', e => {
             const n = Number(e.target.value);
             draft[si].escala = isNaN(n) ? 0 : n / 100;
-          });
-          row.querySelector('.se-meta').addEventListener('input', e => {
-            const n = Number(e.target.value);
-            draft[si].meta = isNaN(n) ? 0 : n;
+            row.querySelector('.se-meta-preview').textContent = fmt(draft[si].escala * state.objetivoTotal);
           });
           row.querySelector('.row-del').addEventListener('click', () => {
             if (draft.length <= 1) { alert('Tiene que quedar al menos una escala.'); return; }
@@ -2613,7 +2617,10 @@
     }
 
     function saveScaleEditor(draft) {
-      const cleaned = draft.map(s => ({ escala: Number(s.escala) || 0, meta: Number(s.meta) || 0 }));
+      const cleaned = draft.map(s => {
+        const escala = Number(s.escala) || 0;
+        return { escala, meta: Math.round(escala * state.objetivoTotal) };
+      });
       if (!cleaned.length) { alert('Tiene que haber al menos una escala.'); return; }
       state.scaleRows = cleaned.sort((a, b) => a.escala - b.escala);
       saveState();
@@ -2914,6 +2921,9 @@
       if (!val || val <= 0) { input.focus(); return; }
       state.objetivoTotal = val;
       state.objetivoManual = true;
+      // Los montos de la escala de metas son ese % del objetivo total, asi que
+      // se recalculan solos cada vez que el objetivo cambia.
+      state.scaleRows.forEach(s => { s.meta = Math.round((s.escala || 0) * val); });
       saveState();
       render();
     }
