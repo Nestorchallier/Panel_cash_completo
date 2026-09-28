@@ -2,10 +2,10 @@
 // pago del Kanban de Cartera.
 //
 // Fase 1 (esta): un solo sentido, Kanban -> Google. Cuando se guarda un
-// cliente con fecha de promesa, se crea/actualiza un evento en un calendario
-// dedicado ("Panel Cash Market — Promesas") y una tarea en una lista de
-// tareas dedicada. Si se borra la fecha o el cliente, se borra tambien del
-// lado de Google.
+// cliente con fecha de promesa, se crea/actualiza un evento en el
+// calendario principal de Google (Calendar) y una tarea en una lista de
+// tareas dedicada ("Panel Cash Market — Promesas") en Google Tasks. Si se
+// borra la fecha o el cliente, se borra tambien del lado de Google.
 //
 // No hay backend propio, asi que el login usa el flujo de "token client" de
 // Google Identity Services: pide un access token de corta duracion (~1hs)
@@ -16,7 +16,6 @@
 
 const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/tasks';
 const GOOGLE_ENABLED_KEY = 'google_sync_enabled_v1';
-const GOOGLE_CALENDAR_ID_KEY = 'google_calendar_id_v1';
 const GOOGLE_TASKLIST_ID_KEY = 'google_tasklist_id_v1';
 
 let googleTokenClient = null;
@@ -94,16 +93,14 @@ async function googleFetch(url, options) {
   return res.json();
 }
 
+// Crear un calendario nuevo por API pide un permiso mas amplio que el que
+// pedimos (calendar.events, el minimo necesario para leer/escribir eventos).
+// Para no tener que pedir ese permiso extra, usamos directamente el
+// calendario principal de la cuenta ("primary") — ahi entran perfecto los
+// eventos de promesas de pago, se pueden identificar facil por su titulo y
+// quedan mezclados con el resto de tu agenda personal.
 async function ensureGoogleCalendar() {
-  let calId = await kvGet(GOOGLE_CALENDAR_ID_KEY);
-  if (calId) return calId;
-  const created = await googleFetch('https://www.googleapis.com/calendar/v3/calendars', {
-    method: 'POST',
-    body: JSON.stringify({ summary: 'Panel Cash Market — Promesas', timeZone: 'America/Argentina/Buenos_Aires' }),
-  });
-  calId = created.id;
-  await kvSet(GOOGLE_CALENDAR_ID_KEY, calId);
-  return calId;
+  return 'primary';
 }
 
 async function ensureGoogleTaskList() {
@@ -199,10 +196,9 @@ async function syncClientToGoogle(client) {
 async function deleteClientFromGoogle(client) {
   if (!(await isGoogleSyncEnabled())) return;
   try {
-    const calId = await kvGet(GOOGLE_CALENDAR_ID_KEY);
     const listId = await kvGet(GOOGLE_TASKLIST_ID_KEY);
-    if (client.googleEventId && calId) {
-      await googleFetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${client.googleEventId}`, { method: 'DELETE' }).catch(() => {});
+    if (client.googleEventId) {
+      await googleFetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${client.googleEventId}`, { method: 'DELETE' }).catch(() => {});
       delete client.googleEventId;
     }
     if (client.googleTaskId && listId) {
