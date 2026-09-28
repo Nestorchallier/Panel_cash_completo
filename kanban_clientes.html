@@ -8,6 +8,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase/config.js"></script>
 <script src="supabase/kv.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="google-config.js"></script>
+<script src="google-sync.js"></script>
 <style>
   :root{
     --bg:#0a0e14;
@@ -90,6 +93,7 @@
   .btn-primary:hover{opacity:.92;}
   .btn-ghost{background:var(--panel);color:var(--text);border:1px solid var(--line);}
   .btn-ghost:hover{border-color:var(--accent);}
+  .btn-ghost.is-connected{background:rgba(63,208,201,.14);color:var(--accent);border-color:rgba(63,208,201,.4);}
   .btn-danger-ghost{background:transparent;color:var(--danger);border:1px solid rgba(232,103,124,.35);padding:9px 14px;}
   .btn-danger-ghost:hover{background:rgba(232,103,124,.08);}
 
@@ -390,6 +394,7 @@
     <button class="btn-ghost" id="btnConfigTarjeta">⚙️ Configurar tarjeta</button>
     <button class="btn-ghost" id="btnConfigColumnas">🗂️ Configurar columnas</button>
     <button class="btn-ghost" id="btnToggleTheme">🌙</button>
+    <button class="btn-ghost" id="btnGoogleSync" title="Sincronizar promesas de pago con Google Calendar y Google Tasks">🔗 Conectar Google</button>
     <button class="btn-danger-ghost" id="btnClear">Vaciar cartera</button>
     <button class="btn-ghost" id="btnImport">Importar vencimientos</button>
     <button class="btn-primary" id="btnImportPagos">Importar pagos</button>
@@ -913,7 +918,8 @@ function renderBoard(){
         });
         card.querySelector('.del').addEventListener('click', (e)=>{
           e.stopPropagation();
-          askConfirm('Eliminar cliente', `¿Eliminar a ${c.nombre} de la cartera?`, ()=>{
+          askConfirm('Eliminar cliente', `¿Eliminar a ${c.nombre} de la cartera?`, async ()=>{
+            await deleteClientFromGoogle(c).catch(()=>{});
             state.clients = state.clients.filter(x=>x.id!==c.id);
             save(); renderBoard(); renderStats(); renderCalendar();
           });
@@ -981,7 +987,7 @@ document.getElementById('btnAdd').addEventListener('click', ()=>openClientModal(
 document.getElementById('btnCancelClient').addEventListener('click', ()=>{
   document.getElementById('clientModal').classList.remove('open');
 });
-document.getElementById('btnSaveClient').addEventListener('click', ()=>{
+document.getElementById('btnSaveClient').addEventListener('click', async ()=>{
   const nombre = document.getElementById('fNombre').value.trim();
   if(!nombre){ toast('Ingresá al menos el nombre'); return; }
   const newStage = document.getElementById('fEtapa').value;
@@ -1000,8 +1006,9 @@ document.getElementById('btnSaveClient').addEventListener('click', ()=>{
     if(v) customFieldsData[inp.dataset.field] = v;
   });
   data.customFields = customFieldsData;
+  let c;
   if(editingId){
-    const c = state.clients.find(x=>x.id===editingId);
+    c = state.clients.find(x=>x.id===editingId);
     const prevStage = c.stage;
     if(newStage === 'cerrado' && prevStage !== 'cerrado'){
       Object.assign(c, data);
@@ -1014,11 +1021,17 @@ document.getElementById('btnSaveClient').addEventListener('click', ()=>{
     if(newStage !== prevStage) stampStageChange(c);
     Object.assign(c, data);
   } else {
-    state.clients.push({id:uid(), ...data, stageChangedAt: Date.now()});
+    c = {id:uid(), ...data, stageChangedAt: Date.now()};
+    state.clients.push(c);
   }
-  save(); renderBoard(); renderStats(); renderCalendar();
   document.getElementById('clientModal').classList.remove('open');
   toast('Cliente guardado');
+  try {
+    await syncClientToGoogle(c);
+  } catch (e) {
+    toast('Cliente guardado, pero no se pudo sincronizar con Google');
+  }
+  save(); renderBoard(); renderStats(); renderCalendar();
 });
 
 // --- Importación Excel ---
@@ -1804,6 +1817,47 @@ document.getElementById('btnToggleTheme').addEventListener('click', ()=>{
   kvSet(THEME_KEY, currentTheme).catch(e => console.error(e));
   applyTheme(currentTheme);
 });
+// --- Sincronizacion con Google Calendar + Tasks (promesas de pago) ---
+const btnGoogleSync = document.getElementById('btnGoogleSync');
+function setGoogleSyncBtnState(connected){
+  btnGoogleSync.textContent = connected ? '🔗 Google conectado' : '🔗 Conectar Google';
+  btnGoogleSync.classList.toggle('is-connected', connected);
+}
+window.appReady.then(async () => {
+  initGoogleAuth();
+  const enabled = await isGoogleSyncEnabled();
+  setGoogleSyncBtnState(enabled);
+  if (enabled) {
+    ensureGoogleToken(false).catch(() => {
+      toast('Se venció el permiso de Google — tocá "Conectar Google" para renovarlo');
+    });
+  }
+});
+btnGoogleSync.addEventListener('click', async () => {
+  const enabled = await isGoogleSyncEnabled();
+  if (enabled) {
+    askConfirm('Desconectar Google', '¿Dejar de sincronizar las promesas de pago con Google Calendar y Tasks? Los eventos/tareas que ya se crearon quedan como están, solo se deja de actualizarlos.', async () => {
+      await disconnectGoogle();
+      setGoogleSyncBtnState(false);
+      toast('Google desconectado');
+    });
+    return;
+  }
+  btnGoogleSync.disabled = true;
+  btnGoogleSync.textContent = 'Conectando...';
+  try {
+    await connectGoogle();
+    setGoogleSyncBtnState(true);
+    toast('✅ Conectado con Google Calendar y Tasks');
+  } catch (e) {
+    console.error(e);
+    setGoogleSyncBtnState(false);
+    toast('No se pudo conectar con Google');
+  } finally {
+    btnGoogleSync.disabled = false;
+  }
+});
+
 window.addEventListener('message', e=>{
   if(e.data && e.data.type === 'cm-theme'){
     currentTheme = e.data.theme === 'light' ? 'light' : 'dark';
