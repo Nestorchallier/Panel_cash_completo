@@ -403,7 +403,27 @@ document.getElementById('btnNuevoChat').addEventListener('click', async ()=>{
 /* ===== Tema (igual que el resto del panel) ===== */
 const THEME_KEY = 'cm_theme_v1';
 function applyTheme(theme){ document.documentElement.setAttribute('data-theme', theme==='light'?'light':'dark'); }
-window.addEventListener('message', e=>{ if(e.data && e.data.type==='cm-theme') applyTheme(e.data.theme); });
+window.addEventListener('message', async e=>{
+  if(e.data && e.data.type==='cm-theme') applyTheme(e.data.theme);
+  if(e.data && e.data.type==='cm-abrir-chat-cliente' && e.data.clienteId){
+    await abrirChatDeCliente(e.data.clienteId);
+  }
+});
+
+// Viene del botón "Abrir chat" de la ficha de Clientes. Si ese cliente ya
+// tiene una conversación, la abre; si no tiene ninguna todavía pero tiene
+// un teléfono cargado, arranca una nueva (igual que "+ Nuevo chat").
+async function abrirChatDeCliente(clienteId){
+  if(!conversaciones.length) await cargarConversaciones();
+  let conv = conversaciones.find(c => c.cliente_id === clienteId);
+  if(!conv){
+    const { data: tel } = await window.sb.from('clientes_telefonos').select('telefono').eq('cliente_id', clienteId).eq('principal', true).maybeSingle();
+    if(!tel){ alert('Este cliente no tiene teléfono cargado todavía.'); return; }
+    conv = await crmCrearConversacion(tel.telefono);
+    await cargarConversaciones();
+  }
+  abrirConversacion(conv.id);
+}
 
 /* ===== Estado de conexión de WhatsApp (wa_sesion) ===== */
 async function actualizarEstadoWa(){

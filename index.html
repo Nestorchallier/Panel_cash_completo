@@ -2005,6 +2005,7 @@
       <button class="sidebar-item active" data-view="view-comisiones"><span class="si-icon">📊</span><span class="si-label">Sueldo & Cobros</span></button>
       <button class="sidebar-item" data-view="view-whatsapp"><span class="si-icon">💬</span><span class="si-label">WhatsApp CRM</span></button>
       <button class="sidebar-item" data-view="view-kanban" data-mode="kanban"><span class="si-icon">🗂️</span><span class="si-label">Kanban de Cartera</span></button>
+      <button class="sidebar-item" data-view="view-clientes"><span class="si-icon">👤</span><span class="si-label">Clientes</span></button>
       <button class="sidebar-item" data-view="view-calendario" data-target="view-kanban" data-mode="calendar"><span class="si-icon">📅</span><span class="si-label">Calendario</span></button>
       <button class="sidebar-item" data-view="view-mensajes"><span class="si-icon">📨</span><span class="si-label">Envío de Mensajes</span></button>
       <button class="sidebar-item" data-view="view-refi"><span class="si-icon">🔍</span><span class="si-label">Buscador de Refinanciaciones</span></button>
@@ -2345,6 +2346,12 @@
   <div id="view-whatsapp" class="app-view">
     <div class="view-iframe-wrap">
       <iframe id="iframeWhatsapp" title="WhatsApp CRM"></iframe>
+    </div>
+  </div>
+
+  <div id="view-clientes" class="app-view">
+    <div class="view-iframe-wrap">
+      <iframe id="iframeClientes" title="Clientes"></iframe>
     </div>
   </div>
 
@@ -3701,12 +3708,13 @@
       const iframeCalc = document.getElementById('iframeCalc');
       const iframeKanban = document.getElementById('iframeKanban');
       const iframeWhatsapp = document.getElementById('iframeWhatsapp');
-      let refiLoaded = false, calcLoaded = false, kanbanLoaded = false, whatsappLoaded = false;
+      const iframeClientes = document.getElementById('iframeClientes');
+      let refiLoaded = false, calcLoaded = false, kanbanLoaded = false, whatsappLoaded = false, clientesLoaded = false;
       // Se suma como query param a cada iframe para que el navegador siempre
       // pida la version nueva del archivo despues de un deploy, en vez de
       // servir una copia vieja cacheada. Subir este numero en cada cambio a
       // kanban_clientes.html / refi_buscador.html / calculadora_proximo_credito.html / whatsapp_crm.html.
-      const ASSET_VERSION = 11;
+      const ASSET_VERSION = 12;
 
       function cargarIframeSiHaceFalta(view) {
         if (view === 'view-refi' && !refiLoaded) {
@@ -3729,6 +3737,11 @@
           iframeWhatsapp.src = 'whatsapp_crm.html?v=' + ASSET_VERSION;
           whatsappLoaded = true;
           iframeWhatsapp.addEventListener('load', () => notifyThemeToIframes(currentTheme), { once: true });
+        }
+        if (view === 'view-clientes' && !clientesLoaded) {
+          iframeClientes.src = 'clientes.html?v=' + ASSET_VERSION;
+          clientesLoaded = true;
+          iframeClientes.addEventListener('load', () => notifyThemeToIframes(currentTheme), { once: true });
         }
       }
 
@@ -3785,6 +3798,35 @@
         if (savedBtn) setAppView(savedBtn);
         if (localStorage.getItem('sidebarCollapsed_v1') === '1') collapseSidebar();
       } catch (e) { }
+
+      // Navegación cruzada entre pestañas (todas iframes independientes):
+      // "Ver ficha completa" del chat -> Clientes, "Abrir chat" de la ficha
+      // -> WhatsApp CRM (en la conversación de ese cliente), "Editar" de la
+      // ficha -> abre el modal de edición en el Kanban. yaCargado se
+      // captura ANTES de cambiar de vista porque cargarIframeSiHaceFalta
+      // marca el flag como cargado apenas asigna el src (carga async), no
+      // cuando termina — si no se captura antes, el mensaje se perdería.
+      function irYMandarMensaje(viewName, iframeEl, yaCargadoAntes, mensaje) {
+        const btn = Array.from(items).find(b => b.dataset.view === viewName);
+        if (btn) setAppView(btn);
+        const enviar = () => iframeEl.contentWindow.postMessage(mensaje, '*');
+        if (yaCargadoAntes) enviar();
+        else iframeEl.addEventListener('load', enviar, { once: true });
+      }
+
+      window.addEventListener('message', (e) => {
+        const d = e.data;
+        if (!d || !d.type) return;
+        if (d.type === 'cm-ir-a-clientes' && d.id) {
+          irYMandarMensaje('view-clientes', iframeClientes, clientesLoaded, { type: 'cm-abrir-cliente', id: d.id });
+        }
+        if (d.type === 'cm-abrir-chat-cliente' && d.clienteId) {
+          irYMandarMensaje('view-whatsapp', iframeWhatsapp, whatsappLoaded, { type: 'cm-abrir-chat-cliente', clienteId: d.clienteId });
+        }
+        if (d.type === 'cm-editar-cliente-kanban' && d.clienteId) {
+          irYMandarMensaje('view-kanban', iframeKanban, kanbanLoaded, { type: 'cm-editar-cliente', id: d.clienteId });
+        }
+      });
     })();
   </script>
 
@@ -3792,7 +3834,7 @@
     // ============ MODO CLARO / OSCURO ============
     const THEME_KEY = 'cm_theme_v1';
     function notifyThemeToIframes(theme){
-      ['iframeKanban', 'iframeRefi', 'iframeCalc', 'iframeWhatsapp'].forEach(id => {
+      ['iframeKanban', 'iframeRefi', 'iframeCalc', 'iframeWhatsapp', 'iframeClientes'].forEach(id => {
         const el = document.getElementById(id);
         if (el && el.contentWindow) {
           try { el.contentWindow.postMessage({ type: 'cm-theme', theme }, '*'); } catch (e) { }

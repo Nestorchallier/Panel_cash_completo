@@ -273,6 +273,12 @@ async function crmActualizarCliente(clienteId, cambios) {
   if (error) { console.error('crmActualizarCliente', error); throw error; }
 }
 
+async function crmListTelefonosCliente(clienteId) {
+  const { data, error } = await window.sb.from('clientes_telefonos').select('*').eq('cliente_id', clienteId).order('principal', { ascending: false });
+  if (error) { console.error('crmListTelefonosCliente', error); return []; }
+  return data || [];
+}
+
 async function crmAgregarNotaCliente(clienteId, texto) {
   const uid = await _uid();
   await window.sb.from('eventos').insert({ user_id: uid, cliente_id: clienteId, tipo: 'nota', detalle: { texto } });
@@ -288,6 +294,20 @@ function crmSuscribirMensajes(conversacionId, onChange) {
   return window.sb.channel('mensajes-' + conversacionId)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes', filter: `conversacion_id=eq.${conversacionId}` }, onChange)
     .subscribe();
+}
+
+// Resumen liviano de chats por cliente, para la insignia de WhatsApp en
+// las tarjetas del Kanban (sección 5.2: "último mensaje, un globo verde
+// con los no leídos"). {cliente_id: {ultimoTexto, noLeidos, ultimoAt}}
+async function crmListResumenChats() {
+  const uid = await _uid();
+  const { data, error } = await window.sb
+    .from('conversaciones').select('cliente_id, ultimo_texto, no_leidos, ultimo_at')
+    .eq('user_id', uid).not('cliente_id', 'is', null);
+  if (error) { console.error('crmListResumenChats', error); return {}; }
+  const out = {};
+  (data || []).forEach(c => { out[c.cliente_id] = { ultimoTexto: c.ultimo_texto, noLeidos: c.no_leidos, ultimoAt: c.ultimo_at }; });
+  return out;
 }
 
 // ───────────────────────── usuarios ─────────────────────────
@@ -312,9 +332,9 @@ if (typeof window !== 'undefined') {
     crmListPlantillas, crmSavePlantillas,
     crmListPagos, crmAddPago,
     crmGetNombreUsuario, crmSetNombreUsuario,
-    crmListConversaciones, crmListMensajes, crmMarcarConversacionLeida,
+    crmListConversaciones, crmListMensajes, crmMarcarConversacionLeida, crmListResumenChats,
     crmEnviarMensaje, crmCrearConversacion,
-    crmGetFichaCliente, crmActualizarCliente, crmAgregarNotaCliente,
+    crmGetFichaCliente, crmActualizarCliente, crmAgregarNotaCliente, crmListTelefonosCliente,
     crmSuscribirConversaciones, crmSuscribirMensajes,
   });
 }

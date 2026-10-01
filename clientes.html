@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clientes — Cash Market</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase/config.js"></script>
+<script src="supabase/kv.js"></script>
+<script src="js/telefonos.js"></script>
+<script src="supabase/crm.js"></script>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#111826; --panel-2:#151d2e; --line:#212c40;
+    --text:#e7edf7; --muted:#8996ab; --accent:#3fd0c9; --accent-2:#5b8def;
+    --warn:#f0b866; --danger:#e8677c; --ok:#63d29a; --radius:10px;
+    --shadow:0 8px 24px rgba(0,0,0,.35);
+  }
+  :root[data-theme="light"]{
+    --bg:#f4f6f8; --panel:#ffffff; --panel-2:#eef1f4; --line:#dbe1e7;
+    --text:#1a2330; --muted:#5b6b7c; --accent:#0e9c87; --accent-2:#3b6fd1;
+    --warn:#c9822a; --danger:#d14f4f; --ok:#1fa855;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;min-height:100vh;}
+  header{padding:16px 24px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--line);}
+  header h1{font-size:17px;margin:0;}
+  .breadcrumb{font-size:13px;color:var(--muted);}
+  .breadcrumb b{color:var(--text);}
+  .search{display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;width:280px;}
+  .search input{background:none;border:none;outline:none;color:var(--text);font-size:13px;width:100%;}
+  main{padding:20px 24px;}
+
+  table{width:100%;border-collapse:collapse;}
+  th{text-align:left;font-size:11px;color:var(--muted);text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--line);}
+  td{padding:10px;border-bottom:1px solid var(--line);font-size:13px;}
+  tr.row-cliente{cursor:pointer;}
+  tr.row-cliente:hover{background:var(--panel-2);}
+  .badge{font-size:10px;padding:2px 7px;border-radius:5px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);display:inline-block;}
+  .danger-text{color:var(--danger);font-weight:600;}
+
+  .btn{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:8px 14px;font-size:12px;cursor:pointer;}
+  .btn:hover{border-color:var(--accent-2);}
+  .btn-primary{background:var(--accent);border:none;color:#04121a;font-weight:700;}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;}
+
+  #vistaFicha{display:none;}
+  .ficha-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-top:16px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px;}
+  .card h3{margin:0 0 12px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;}
+  .indicadores{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
+  .indicador{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px;}
+  .indicador .label{font-size:11px;color:var(--muted);}
+  .indicador .valor{font-size:19px;font-weight:800;margin-top:4px;}
+  .datos-row{display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px dashed var(--line);}
+  .datos-row:last-child{border-bottom:none;}
+  .datos-row .k{color:var(--muted);}
+  .timeline{display:flex;flex-direction:column;gap:10px;max-height:380px;overflow-y:auto;}
+  .timeline-item{font-size:12px;border-left:2px solid var(--line);padding-left:10px;}
+  .timeline-item .tipo{font-weight:700;color:var(--accent-2);}
+  .timeline-item .cuando{color:var(--muted);font-size:10.5px;}
+  .nota-box{display:flex;gap:6px;margin-top:10px;}
+  .nota-box textarea{flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:7px;color:var(--text);padding:8px;font-size:12px;resize:none;}
+  .tel-list{display:flex;flex-direction:column;gap:6px;}
+  .tel-item{display:flex;justify-content:space-between;font-size:12px;}
+  .cuotas-table td, .cuotas-table th{font-size:11.5px;padding:6px 8px;}
+  .estado-pagada{color:var(--ok);} .estado-vencida{color:var(--danger);} .estado-pendiente{color:var(--muted);}
+  .empty-state{color:var(--muted);font-size:13px;padding:30px;text-align:center;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1 id="headerTitulo">👤 Clientes</h1>
+    <div class="breadcrumb" id="breadcrumb" style="display:none;"><a href="#" id="btnVolverLista" style="color:var(--accent-2);text-decoration:none;">Clientes</a> &gt; <b id="breadcrumbNombre"></b></div>
+  </div>
+  <div class="search" id="searchWrap">
+    <span>🔍</span>
+    <input type="text" id="buscarCliente" placeholder="Buscar por nombre o DNI...">
+  </div>
+</header>
+
+<main>
+  <div id="vistaLista">
+    <table>
+      <thead><tr><th>Cliente</th><th>DNI</th><th>Etapa</th><th>Saldo vencido</th><th>Días atraso</th><th>Teléfono</th></tr></thead>
+      <tbody id="tablaClientes"></tbody>
+    </table>
+  </div>
+
+  <div id="vistaFicha"></div>
+</main>
+
+<script>
+let clientesCache = [];
+let etapasCache = [];
+let fichaActual = null;
+
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function money(n){ return '$' + Number(n||0).toLocaleString('es-AR'); }
+function nombreEtapa(etapaId){
+  const e = etapasCache.find(x => x._rowId === etapaId || x.id === etapaId);
+  return e ? e.name : '—';
+}
+
+async function cargarLista(){
+  const [clientes, etapas] = await Promise.all([crmListClientes(), crmListEtapas()]);
+  etapasCache = etapas;
+  // crmListClientes ya trae stage como la CLAVE/id de etapa (no el row id);
+  // para la lista alcanza con eso, pero necesitamos también saldo vencido y
+  // días de atraso, que viven en prestamos — se traen aparte, en lote.
+  const { data: prestamos } = await window.sb.from('prestamos').select('cliente_id, importe_atraso, dias_atraso, estado').eq('estado', 'activo');
+  const prestamoPorCliente = {};
+  (prestamos || []).forEach(p => { if(!prestamoPorCliente[p.cliente_id]) prestamoPorCliente[p.cliente_id] = p; });
+  clientesCache = clientes.map(c => ({ ...c, _prestamo: prestamoPorCliente[c.id] || null }));
+  renderLista();
+}
+
+function renderLista(){
+  const q = document.getElementById('buscarCliente').value.trim().toLowerCase();
+  const filtrados = clientesCache.filter(c => !q || c.nombre.toLowerCase().includes(q) || (c.dni||'').includes(q));
+  const tbody = document.getElementById('tablaClientes');
+  if(!filtrados.length){
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Sin clientes${q ? ' que coincidan con la búsqueda' : ' todavía — importalos desde Kanban de Cartera → Importar cartera'}.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtrados.map(c => `
+    <tr class="row-cliente" data-id="${c.id}">
+      <td><b>${escapeHtml(c.nombre)}</b></td>
+      <td>${escapeHtml(c.dni||'—')}</td>
+      <td><span class="badge">${escapeHtml(nombreEtapaClave(c.stage))}</span></td>
+      <td>${c._prestamo ? `<span class="danger-text">${money(c._prestamo.importe_atraso)}</span>` : '—'}</td>
+      <td>${c._prestamo ? (c._prestamo.dias_atraso || 0) + 'd' : '—'}</td>
+      <td>${escapeHtml((window.formatearTelefonoAR && c.telefono) ? window.formatearTelefonoAR(window.normalizarTelefonoAR(c.telefono) || c.telefono) : (c.telefono||'—'))}</td>
+    </tr>`).join('');
+  tbody.querySelectorAll('tr').forEach(tr => tr.addEventListener('click', () => abrirFicha(tr.dataset.id)));
+}
+function nombreEtapaClave(clave){
+  const e = etapasCache.find(x => x.id === clave);
+  return e ? e.name : (clave || '—');
+}
+
+async function abrirFicha(clienteId){
+  fichaActual = await crmGetFichaCliente(clienteId);
+  if(!fichaActual) return;
+  const telefonos = await crmListTelefonosCliente(clienteId);
+  renderFicha(telefonos);
+
+  document.getElementById('vistaLista').style.display = 'none';
+  document.getElementById('searchWrap').style.display = 'none';
+  document.getElementById('vistaFicha').style.display = 'block';
+  document.getElementById('breadcrumb').style.display = 'block';
+  document.getElementById('breadcrumbNombre').textContent = fichaActual.cliente.nombre;
+  document.getElementById('headerTitulo').textContent = '👤 ' + fichaActual.cliente.nombre;
+}
+
+function volverALista(){
+  document.getElementById('vistaLista').style.display = 'block';
+  document.getElementById('searchWrap').style.display = 'flex';
+  document.getElementById('vistaFicha').style.display = 'none';
+  document.getElementById('breadcrumb').style.display = 'none';
+  document.getElementById('headerTitulo').textContent = '👤 Clientes';
+  cargarLista();
+}
+document.getElementById('btnVolverLista').addEventListener('click', e => { e.preventDefault(); volverALista(); });
+
+function renderFicha(telefonos){
+  const { cliente, prestamos, prestamoActivo, cuotas, eventos } = fichaActual;
+  const saldoVencido = prestamoActivo ? (prestamoActivo.importe_atraso || 0) : 0;
+  const saldoTotal = prestamoActivo ? (prestamoActivo.saldo_total_punitorios || prestamoActivo.saldo_total || 0) : 0;
+  const diasAtraso = prestamoActivo ? (prestamoActivo.dias_atraso || 0) : 0;
+
+  document.getElementById('vistaFicha').innerHTML = `
+    <div class="btn-row" style="margin-bottom:4px;">
+      <span class="badge" style="border-color:${cliente.etapas ? cliente.etapas.color : 'var(--line)'};">${escapeHtml(cliente.etapas ? cliente.etapas.nombre : '—')}</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnAbrirChat">💬 Abrir chat</button>
+      <button class="btn" id="btnRefinanciar">🔁 Refinanciar</button>
+      <button class="btn" id="btnEditar">✎ Editar</button>
+    </div>
+
+    <div class="indicadores">
+      <div class="indicador"><div class="label">Saldo vencido</div><div class="valor" style="color:var(--danger);">${money(saldoVencido)}</div></div>
+      <div class="indicador"><div class="label">Saldo total</div><div class="valor">${money(saldoTotal)}</div></div>
+      <div class="indicador"><div class="label">Días de atraso</div><div class="valor">${diasAtraso}</div></div>
+      <div class="indicador"><div class="label">Promesa de pago</div><div class="valor" style="font-size:14px;">${cliente.promesa_fecha || 'Sin fecha'}</div></div>
+    </div>
+
+    <div class="ficha-grid">
+      <div>
+        <div class="card">
+          <h3>Datos personales</h3>
+          <div class="datos-row"><span class="k">DNI</span><span>${escapeHtml(cliente.dni||'—')}</span></div>
+          <div class="datos-row"><span class="k">CUIL</span><span>${escapeHtml(cliente.cuil||'—')}</span></div>
+          <div class="datos-row"><span class="k">Domicilio</span><span>${escapeHtml(cliente.domicilio||'—')}</span></div>
+          <div class="datos-row"><span class="k">Localidad</span><span>${escapeHtml(cliente.localidad||'—')}</span></div>
+          <div class="datos-row"><span class="k">Empleador</span><span>${escapeHtml(cliente.empleador||'—')}</span></div>
+          <div class="datos-row"><span class="k">Email</span><span>${escapeHtml(cliente.email||'—')}</span></div>
+        </div>
+
+        <div class="card">
+          <h3>Teléfonos</h3>
+          <div class="tel-list">
+            ${telefonos.length ? telefonos.map(t => `<div class="tel-item"><span>${escapeHtml(window.formatearTelefonoAR ? window.formatearTelefonoAR(t.telefono) : t.telefono)} <span class="badge">${escapeHtml(t.etiqueta)}</span></span>${t.principal ? '<span class="badge" style="border-color:var(--accent);color:var(--accent);">Vinculado</span>' : ''}</div>`).join('') : '<div class="empty-state">Sin teléfonos cargados</div>'}
+          </div>
+        </div>
+
+        ${prestamoActivo ? `
+        <div class="card">
+          <h3>Plan de cuotas — Préstamo Nº ${escapeHtml(prestamoActivo.nro)}</h3>
+          <table class="cuotas-table">
+            <thead><tr><th>Cuota</th><th>Vencimiento</th><th>Monto</th><th>Estado</th><th>Pagó el</th></tr></thead>
+            <tbody>
+              ${cuotas.length ? cuotas.map(q => `<tr>
+                <td>${q.numero}/${prestamoActivo.cant_cuotas}</td>
+                <td>${q.vencimiento||'—'}</td>
+                <td>${money(q.monto)}</td>
+                <td class="estado-${q.estado}">${q.estado}</td>
+                <td>${q.pagado_el||'—'}</td>
+              </tr>`).join('') : `<tr><td colspan="5" class="empty-state">Sin plan de cuotas cargado.</td></tr>`}
+            </tbody>
+          </table>
+        </div>` : ''}
+
+        <div class="card">
+          <h3>Historial de créditos</h3>
+          <table class="cuotas-table">
+            <thead><tr><th>Préstamo</th><th>Alta</th><th>Monto</th><th>Cuotas</th><th>Estado</th><th>Atraso máx.</th></tr></thead>
+            <tbody>
+              ${prestamos.length ? prestamos.map(p => `<tr>
+                <td>#${escapeHtml(p.nro)}</td>
+                <td>${p.fecha_alta||'—'}</td>
+                <td>${money(p.monto)}</td>
+                <td>${p.cant_cuotas||'—'}</td>
+                <td><span class="badge">${p.estado}</span></td>
+                <td>${p.dias_atraso||0}d</td>
+              </tr>`).join('') : `<tr><td colspan="6" class="empty-state">Sin préstamos cargados.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Historial de gestión</h3>
+        <div class="timeline" id="timelineEventos">
+          ${eventos.length ? eventos.map(ev => `<div class="timeline-item">
+            <div class="tipo">${iconoEvento(ev.tipo)} ${escapeHtml(tituloEvento(ev))}</div>
+            <div>${escapeHtml(descripcionEvento(ev))}</div>
+            <div class="cuando">${new Date(ev.creado_at).toLocaleString('es-AR')}</div>
+          </div>`).join('') : `<div class="empty-state">Todavía no hay gestión registrada.</div>`}
+        </div>
+        <div class="nota-box">
+          <textarea id="notaTexto" rows="2" placeholder="Escribir nota interna..."></textarea>
+          <button class="btn btn-primary" id="btnGuardarNota">Guardar</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('btnAbrirChat').addEventListener('click', () => {
+    window.top.postMessage({ type: 'cm-abrir-chat-cliente', clienteId: cliente.id }, '*');
+  });
+  document.getElementById('btnRefinanciar').addEventListener('click', async () => {
+    const etapaRef = etapasCache.find(e => e.id === 'refinanciado');
+    if(!etapaRef) { alert('No se encontró la etapa "Refinanciado" en tu Kanban.'); return; }
+    await crmActualizarCliente(cliente.id, { etapa_id: etapaRef._rowId });
+    alert('Cliente movido a Refinanciado en el Kanban.');
+  });
+  document.getElementById('btnEditar').addEventListener('click', () => {
+    window.top.postMessage({ type: 'cm-editar-cliente-kanban', clienteId: cliente.id }, '*');
+  });
+  document.getElementById('btnGuardarNota').addEventListener('click', async () => {
+    const texto = document.getElementById('notaTexto').value.trim();
+    if(!texto) return;
+    await crmAgregarNotaCliente(cliente.id, texto);
+    document.getElementById('notaTexto').value = '';
+    await abrirFicha(cliente.id);
+  });
+}
+
+function iconoEvento(tipo){
+  return { mensaje:'💬', etapa:'➡️', promesa:'🤝', nota:'📝', pago:'💰', regla:'⚙️' }[tipo] || '•';
+}
+function tituloEvento(ev){
+  return { mensaje:'Mensaje', etapa:'Cambio de etapa', promesa:'Promesa de pago', nota:'Nota interna', pago:'Pago', regla:'Regla automática' }[ev.tipo] || ev.tipo;
+}
+function descripcionEvento(ev){
+  const d = ev.detalle || {};
+  if(ev.tipo === 'nota') return d.texto || '';
+  if(ev.tipo === 'regla') return `${d.regla || ''}${d.fecha_detectada ? ' · fecha detectada: ' + d.fecha_detectada : ''}`;
+  return JSON.stringify(d);
+}
+
+document.getElementById('buscarCliente').addEventListener('input', renderLista);
+
+/* ===== Tema ===== */
+const THEME_KEY = 'cm_theme_v1';
+function applyTheme(theme){ document.documentElement.setAttribute('data-theme', theme==='light'?'light':'dark'); }
+window.addEventListener('message', e=>{
+  if(e.data && e.data.type==='cm-theme') applyTheme(e.data.theme);
+  if(e.data && e.data.type==='cm-abrir-cliente' && e.data.id) abrirFicha(e.data.id);
+});
+
+/* ===== Auth + carga inicial ===== */
+sb.auth.getSession().then(async ({ data: { session } }) => {
+  if (!session) { location.href = 'index.html'; return; }
+  await crmBootstrap();
+  window._markAppReady();
+});
+sb.auth.onAuthStateChange((_event, session) => { if (!session) location.href = 'index.html'; });
+
+window.appReady.then(async ()=>{
+  const saved = await kvGet(THEME_KEY);
+  if (saved) applyTheme(saved);
+  await cargarLista();
+});
+</script>
+</body>
+</html>
