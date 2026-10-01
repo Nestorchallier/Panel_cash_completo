@@ -33,6 +33,24 @@ console.error = (...args) => {
   consoleErrorOriginal(...args);
 };
 
+// Mismo caso que arriba pero con console.warn/console.info: libsignal
+// avisa "a mano" cuando cierra una sesión vieja para abrir una nueva a
+// partir de una prekey bundle que llegó (normal al resincronizar), y lo
+// hace volcando el objeto completo de la sesión (claves, contadores, todo)
+// — inofensivo pero larguísimo en la consola.
+const consoleWarnOriginal = console.warn.bind(console);
+console.warn = (...args) => {
+  const primero = typeof args[0] === 'string' ? args[0] : '';
+  if (primero.startsWith('Closing open session in favor of incoming prekey bundle')) return;
+  consoleWarnOriginal(...args);
+};
+const consoleInfoOriginal = console.info.bind(console);
+console.info = (...args) => {
+  const primero = typeof args[0] === 'string' ? args[0] : '';
+  if (primero.startsWith('Closing session:')) return;
+  consoleInfoOriginal(...args);
+};
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const WORKER_USER_ID = process.env.WORKER_USER_ID;

@@ -23,7 +23,12 @@ const { normalizarTelefonoAR } = require('./telefonos');
 const { clasificarMensaje } = require('./reglas');
 
 const AUTH_DIR = path.join(__dirname, '..', 'auth');
-const logger = pino({ level: process.env.LOG_LEVEL || 'warn' });
+// En 'warn' se perdían nuestros propios logger.info (el progreso de la
+// importación del historial, "Historial de WhatsApp importado.", etc.) —
+// quedaba todo en silencio aunque la sincronización terminara bien. Ahora
+// en 'info' (el mismo nivel que usa index.js) para verlos siempre; el
+// ruido propio de Baileys se filtra aparte, con loggerBaileys más abajo.
+const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
 // "5491145327781@s.whatsapp.net" -> "5491145327781". Los jid de grupo
 // (@g.us) se descartan: este worker es 1 a 1 con clientes, no atiende
@@ -228,7 +233,7 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
   let mediaPath = null;
   if (descargarAdjuntos && tiposAdjuntoADescargar.includes(tipo)) {
     try {
-      const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger, reuploadRequest: sock.updateMediaMessage });
+      const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: loggerBaileys, reuploadRequest: sock.updateMediaMessage });
       const ext = tipo === 'imagen' ? 'jpg' : tipo === 'pdf' ? 'pdf' : 'ogg';
       mediaPath = await subirAdjunto(supabase, config.bucket, userId, buffer, ext);
     } catch (e) {
@@ -305,14 +310,17 @@ async function sincronizarHistorial(sock, supabase, userId, config, { chats, mes
   logger.info({ guardados }, 'Historial de WhatsApp importado.');
 }
 
-// Logger "hijo" que le pasamos a Baileys: baja a debug (no se ve, salvo
-// con LOG_LEVEL=debug) el "failed to decrypt message" que tira cuando le
-// llega un mensaje cifrado con una sesión vieja (típico tras reescanear
-// el QR varias veces, o con Estados de contactos) — es esperable y se
-// autocorrige con el próximo mensaje de esa conversación. El resto de
-// logger.error (nuestros, y cualquier otro error real de Baileys) no se
-// toca.
-const loggerBaileys = logger.child({});
+// Logger "hijo" que le pasamos a Baileys: queda en 'warn' aunque el
+// nuestro esté en 'info', porque Baileys por su cuenta loguea en info
+// cada query interna (son decenas, no aportan nada acá) — así no tapan
+// nuestros propios logger.info de progreso. Además baja a debug (no se
+// ve, salvo con LOG_LEVEL=debug) el "failed to decrypt message" que tira
+// cuando le llega un mensaje cifrado con una sesión vieja (típico tras
+// reescanear el QR varias veces, o con Estados de contactos) — es
+// esperable y se autocorrige con el próximo mensaje de esa conversación.
+// El resto de logger.error (nuestros, y cualquier otro error real de
+// Baileys) no se toca.
+const loggerBaileys = logger.child({}, { level: 'warn' });
 const errorBaileysOriginal = loggerBaileys.error.bind(loggerBaileys);
 loggerBaileys.error = (...args) => {
   const ultimo = args[args.length - 1];
