@@ -1739,22 +1739,25 @@
       min-height: 100vh;
     }
 
+    /* ── Menú lateral (diseño del plan, sección 5): siempre azul noche,
+       en modo claro y oscuro. ── */
     .sidebar {
+      width: 250px;
       flex-shrink: 0;
-      background: var(--card);
-      border-right: 1px solid var(--border-strong);
+      background: #0f172a;
+      color: #cbd5e1;
       display: flex;
       flex-direction: column;
-      transition: width .18s ease, padding .18s ease, opacity .12s ease;
+      transition: width .18s ease, opacity .12s ease;
       overflow: hidden;
       position: sticky;
       top: 0;
       height: 100vh;
+      font-family: 'Inter', sans-serif;
     }
 
     .sidebar.collapsed {
       width: 0;
-      border-right: none;
     }
 
     .sidebar-head {
@@ -1762,125 +1765,293 @@
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      padding: 22px 18px 18px;
-      border-bottom: 1px solid var(--border);
+      padding: 20px 16px 18px;
+      border-bottom: 1px solid #1e293b;
       white-space: nowrap;
     }
 
     .sidebar-brand {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11.5px;
-      letter-spacing: .1em;
-      color: var(--teal);
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 11px;
     }
 
-    .sidebar-collapse-btn {
-      background: var(--card-2);
-      border: 1px solid var(--border-strong);
-      color: var(--text-dim);
-      border-radius: 8px;
-      width: 30px;
-      height: 30px;
-      font-size: 13px;
+    .sidebar-logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 9px;
+      background: linear-gradient(90deg, #2563eb 0 50%, #16a34a 50% 100%);
+      color: #fff;
+      font-weight: 800;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: -.02em;
       flex-shrink: 0;
     }
 
+    .sidebar-brand-txt b {
+      display: block;
+      color: #fff;
+      font-size: 14.5px;
+      font-weight: 700;
+    }
+
+    .sidebar-brand-txt span {
+      display: block;
+      color: #94a3b8;
+      font-size: 11.5px;
+      margin-top: 1px;
+    }
+
+    .sidebar-collapse-btn {
+      background: none;
+      border: 1px solid #1e293b;
+      color: #64748b;
+      border-radius: 7px;
+      width: 26px;
+      height: 26px;
+      font-size: 11px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
     .sidebar-collapse-btn:hover {
-      color: var(--teal);
-      border-color: var(--teal);
+      color: #e2e8f0;
+      border-color: #334155;
     }
 
     .sidebar-menu {
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      padding: 14px 12px;
+      gap: 2px;
+      padding: 8px 10px;
       white-space: nowrap;
+      overflow-y: auto;
+    }
+
+    .sidebar-seccion {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      color: #475569;
+      padding: 14px 10px 6px;
     }
 
     .sidebar-item {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 11px;
       background: none;
-      border: 1px solid transparent;
-      color: var(--text-dim);
+      border: none;
+      color: #cbd5e1;
       text-align: left;
       font-family: 'Inter', sans-serif;
       font-size: 13.5px;
-      font-weight: 600;
-      padding: 12px 14px;
-      border-radius: 10px;
+      font-weight: 500;
+      padding: 9px 10px;
+      border-radius: 8px;
+      cursor: pointer;
     }
 
     .sidebar-item:hover {
-      background: var(--card-2);
-      color: var(--text);
+      background: #1e293b;
+      color: #fff;
     }
 
     .sidebar-item.active {
-      background: var(--teal-dim);
-      color: var(--teal);
-      border-color: var(--teal-dim);
+      background: #1e3a8a;
+      color: #fff;
+      font-weight: 600;
     }
 
     .si-icon {
-      font-size: 16px;
+      font-size: 15px;
       flex-shrink: 0;
+      width: 20px;
+      text-align: center;
+    }
+
+    .si-label {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .si-badge {
+      background: #16a34a;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 10px;
+      padding: 1px 8px;
+    }
+
+    .si-badge:empty {
+      display: none;
+    }
+
+    .si-nuevo {
+      border: 1px solid #16a34a;
+      color: #4ade80;
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      border-radius: 5px;
+      padding: 1px 5px;
     }
 
     .sidebar-backup {
       margin-top: auto;
-      padding-top: 14px;
-      border-top: 1px solid var(--border-strong);
+      padding: 12px 12px 14px;
+      border-top: 1px solid #1e293b;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 10px;
+    }
+
+    .sidebar-wa-estado {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #052e16;
+      color: #4ade80;
+      font-size: 12.5px;
+      font-weight: 600;
+      border-radius: 8px;
+      padding: 8px 10px;
+      cursor: pointer;
+      border: none;
+      font-family: 'Inter', sans-serif;
+      text-align: left;
+    }
+
+    .sidebar-wa-estado .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 0 3px #22c55e33;
+      flex-shrink: 0;
+    }
+
+    .sidebar-wa-estado.conectando {
+      background: #3a2f0b;
+      color: #fbbf24;
+    }
+
+    .sidebar-wa-estado.conectando .dot {
+      background: #f59e0b;
+      box-shadow: 0 0 0 3px #f59e0b33;
+    }
+
+    .sidebar-wa-estado.desconectado {
+      background: #3f1212;
+      color: #fca5a5;
+    }
+
+    .sidebar-wa-estado.desconectado .dot {
+      background: #ef4444;
+      box-shadow: 0 0 0 3px #ef444433;
+    }
+
+    .sidebar-user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sidebar-user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #2563eb;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .sidebar-user-txt {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .sidebar-user-txt b {
+      display: block;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sidebar-user-txt span {
+      display: block;
+      color: #94a3b8;
+      font-size: 11.5px;
+    }
+
+    .sidebar-icon-btn {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      font-size: 15px;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 6px;
+    }
+
+    .sidebar-icon-btn:hover {
+      background: #1e293b;
+    }
+
+    .sidebar-links {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
     }
 
     .sidebar-backup-btn {
       background: none;
-      border: 1px solid var(--border-strong);
-      color: var(--text-faint);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      padding: 8px 10px;
-      border-radius: 8px;
+      border: none;
+      color: #64748b;
+      font-family: 'Inter', sans-serif;
+      font-size: 11.5px;
+      padding: 3px 6px;
+      border-radius: 6px;
       cursor: pointer;
-      text-align: left;
     }
 
     .sidebar-backup-btn:hover {
-      border-color: var(--teal);
-      color: var(--teal);
+      color: #e2e8f0;
+      background: #1e293b;
     }
 
     .sidebar-open-btn {
       position: fixed;
-      top: 20px;
-      left: 20px;
+      top: 14px;
+      left: 14px;
       z-index: 40;
-      background: var(--card);
-      border: 1px solid var(--border-strong);
-      color: var(--text-dim);
-      border-radius: 10px;
+      background: #0f172a;
+      border: none;
+      color: #e2e8f0;
+      border-radius: 9px;
       width: 38px;
       height: 38px;
       font-size: 15px;
       box-shadow: 0 4px 18px -4px #00000080;
       display: none;
+      cursor: pointer;
     }
 
     .sidebar-open-btn.visible {
       display: block;
-    }
-
-    .sidebar-open-btn:hover {
-      color: var(--teal);
-      border-color: var(--teal);
     }
 
     .content-area {
@@ -1899,10 +2070,14 @@
 
     .view-iframe-wrap {
       background: var(--card);
-      border: 1px solid var(--border-strong);
-      border-radius: var(--radius);
       overflow: hidden;
-      height: calc(100vh - 56px);
+      height: 100vh;
+    }
+
+    /* Las pantallas embebidas (Bandeja, Kanban, Clientes...) van pegadas al
+       menú y ocupan todo el alto, como en los renders del plan. */
+    .content-area.flush {
+      padding: 0;
     }
 
     .view-iframe-wrap iframe {
@@ -1998,27 +2173,40 @@
 <div class="app-shell" id="appShell" style="display:none">
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-head">
-      <div class="sidebar-brand"><span class="dot"></span>PANEL CASH MARKET</div>
-      <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Ocultar menú">⟨⟨</button>
+      <div class="sidebar-brand">
+        <div class="sidebar-logo">CM</div>
+        <div class="sidebar-brand-txt"><b>Cash Market</b><span>Panel Unificado</span></div>
+      </div>
+      <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Ocultar menú">⟨</button>
     </div>
     <nav class="sidebar-menu" id="sidebarMenu">
+      <div class="sidebar-seccion">GESTIÓN</div>
       <button class="sidebar-item active" data-view="view-comisiones"><span class="si-icon">📊</span><span class="si-label">Sueldo & Cobros</span></button>
-      <button class="sidebar-item" data-view="view-whatsapp"><span class="si-icon">💬</span><span class="si-label">WhatsApp CRM</span></button>
+      <button class="sidebar-item" data-view="view-whatsapp"><span class="si-icon">💬</span><span class="si-label">WhatsApp CRM</span><span class="si-badge" id="sidebarBadgeWa"></span></button>
       <button class="sidebar-item" data-view="view-kanban" data-mode="kanban"><span class="si-icon">🗂️</span><span class="si-label">Kanban de Cartera</span></button>
-      <button class="sidebar-item" data-view="view-clientes"><span class="si-icon">👤</span><span class="si-label">Clientes</span></button>
+      <button class="sidebar-item" data-view="view-clientes"><span class="si-icon">👥</span><span class="si-label">Clientes</span></button>
+      <div class="sidebar-seccion">HERRAMIENTAS</div>
       <button class="sidebar-item" data-view="view-calendario" data-target="view-kanban" data-mode="calendar"><span class="si-icon">📅</span><span class="si-label">Calendario</span></button>
       <button class="sidebar-item" data-view="view-mensajes"><span class="si-icon">📨</span><span class="si-label">Envío de Mensajes</span></button>
-      <button class="sidebar-item" data-view="view-refi"><span class="si-icon">🔍</span><span class="si-label">Buscador de Refinanciaciones</span></button>
-      <button class="sidebar-item" data-view="view-calc"><span class="si-icon">🧮</span><span class="si-label">Calculadora de Próximo Crédito</span></button>
+      <button class="sidebar-item" data-view="view-refi"><span class="si-icon">🔎</span><span class="si-label">Refinanciaciones</span></button>
+      <button class="sidebar-item" data-view="view-calc"><span class="si-icon">🧮</span><span class="si-label">Calculadora</span></button>
+      <div class="sidebar-seccion">CONFIGURACIÓN</div>
       <button class="sidebar-item" data-view="view-conexion"><span class="si-icon">⚙️</span><span class="si-label">Conexión WhatsApp</span></button>
     </nav>
     <div class="sidebar-backup">
-      <button class="sidebar-backup-btn" id="btnToggleTheme">🌙 Modo oscuro</button>
-      <button class="sidebar-backup-btn" id="btnExportarBackup" title="Descarga un archivo con todos los datos guardados en este navegador">⬇️ Exportar backup</button>
-      <button class="sidebar-backup-btn" id="btnImportarBackup" title="Restaura los datos desde un archivo de backup exportado antes">⬆️ Importar backup</button>
+      <button class="sidebar-wa-estado desconectado" id="sidebarWaEstado" title="Ir a Conexión WhatsApp"><span class="dot"></span><span id="sidebarWaEstadoTxt">WhatsApp sin conectar</span></button>
+      <div class="sidebar-user">
+        <div class="sidebar-user-avatar" id="sidebarUserAvatar">?</div>
+        <div class="sidebar-user-txt"><b id="sidebarUserNombre">—</b><span>Cobrador</span></div>
+        <button class="sidebar-icon-btn" id="btnToggleTheme" title="Cambiar modo claro / oscuro">🌙</button>
+      </div>
+      <div class="sidebar-links">
+        <button class="sidebar-backup-btn" id="btnExportarBackup" title="Descarga un archivo con todos los datos guardados">⬇ Backup</button>
+        <button class="sidebar-backup-btn" id="btnImportarBackup" title="Restaura los datos desde un archivo de backup exportado antes">⬆ Restaurar</button>
+        <button class="sidebar-backup-btn" id="btnLogout">Salir</button>
+      </div>
       <input type="file" id="fileInputBackup" accept=".json" style="display:none">
-      <div id="backupStatus" style="font-size:10.5px;color:var(--text-faint);font-family:'JetBrains Mono',monospace;min-height:14px;"></div>
-      <button class="sidebar-backup-btn" id="btnLogout">🚪 Cerrar sesión</button>
+      <div id="backupStatus" style="font-size:10.5px;color:#64748b;min-height:12px;"></div>
     </div>
   </aside>
 
@@ -3771,7 +3959,7 @@
       // pida la version nueva del archivo despues de un deploy, en vez de
       // servir una copia vieja cacheada. Subir este numero en cada cambio a
       // kanban_clientes.html / refi_buscador.html / calculadora_proximo_credito.html / whatsapp_crm.html.
-      const ASSET_VERSION = 21;
+      const ASSET_VERSION = 22;
 
       function cargarIframeSiHaceFalta(view) {
         if (view === 'view-refi' && !refiLoaded) {
@@ -3815,6 +4003,7 @@
         const el = document.getElementById(target);
         if (el) el.classList.add('active');
         items.forEach(b => b.classList.toggle('active', b.dataset.view === view));
+        document.querySelector('.content-area').classList.toggle('flush', !!(el && el.querySelector('iframe')));
         const wasLoaded = kanbanLoaded;
         cargarIframeSiHaceFalta(target);
         if (target === 'view-kanban') {
@@ -3888,13 +4077,55 @@
         if (d.type === 'cm-editar-cliente-kanban' && d.clienteId) {
           irYMandarMensaje('view-kanban', iframeKanban, kanbanLoaded, { type: 'cm-editar-cliente', id: d.clienteId });
         }
+        // Atajos de la Bandeja: "Próx. crédito" -> Calculadora, "Plantillas"
+        // -> Envío de Mensajes, "Refinanciar" -> Refinanciaciones.
+        if (d.type === 'cm-ir-a-vista' && d.view) {
+          const btn = Array.from(items).find(b => b.dataset.view === d.view);
+          if (btn) setAppView(btn);
+        }
+      });
+
+      document.getElementById('sidebarWaEstado').addEventListener('click', () => {
+        const btn = Array.from(items).find(b => b.dataset.view === 'view-conexion');
+        if (btn) setAppView(btn);
+      });
+
+      // Estado de WhatsApp + chats sin leer en el menú (como en el render:
+      // "WhatsApp CRM [14]" y "● WhatsApp conectado" abajo).
+      async function actualizarSidebarWa() {
+        try {
+          const { data: { session } } = await window.sb.auth.getSession();
+          if (!session) return;
+          const [{ data: ses }, { count }] = await Promise.all([
+            window.sb.from('wa_sesion').select('estado').eq('user_id', session.user.id).maybeSingle(),
+            window.sb.from('conversaciones').select('id', { count: 'exact', head: true }).eq('user_id', session.user.id).gt('no_leidos', 0),
+          ]);
+          const estado = (ses && ses.estado) || 'desconectado';
+          const pill = document.getElementById('sidebarWaEstado');
+          pill.className = 'sidebar-wa-estado ' + (estado === 'conectado' ? '' : estado === 'conectando' ? 'conectando' : 'desconectado');
+          document.getElementById('sidebarWaEstadoTxt').textContent =
+            estado === 'conectado' ? 'WhatsApp conectado' : estado === 'conectando' ? 'Esperando QR...' : 'WhatsApp sin conectar';
+          document.getElementById('sidebarBadgeWa').textContent = count ? String(count) : '';
+        } catch (e) { console.error('actualizarSidebarWa', e); }
+      }
+      window.appReady.then(async () => {
+        actualizarSidebarWa();
+        setInterval(actualizarSidebarWa, 20000);
+        try {
+          const nombre = (await crmGetNombreUsuario()) || '';
+          const partes = nombre.trim().split(/\s+/).filter(Boolean);
+          document.getElementById('sidebarUserNombre').textContent = partes.length > 1 ? `${partes[0]} ${partes[1][0]}.` : (nombre || '—');
+          document.getElementById('sidebarUserAvatar').textContent = ((partes[0] || '?')[0] + ((partes[1] || '')[0] || '')).toUpperCase();
+        } catch (e) { }
       });
     })();
   </script>
 
   <script>
     // ============ MODO CLARO / OSCURO ============
-    const THEME_KEY = 'cm_theme_v1';
+    // v2: el diseño del plan es claro, así que se arranca en claro para todos
+    // (la preferencia vieja, cm_theme_v1, era del diseño anterior).
+    const THEME_KEY = 'cm_theme_v2';
     function notifyThemeToIframes(theme){
       ['iframeKanban', 'iframeRefi', 'iframeCalc', 'iframeWhatsapp', 'iframeClientes', 'iframeConexion'].forEach(id => {
         const el = document.getElementById(id);
@@ -3906,10 +4137,11 @@
     function applyTheme(theme) {
       document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
       const btn = document.getElementById('btnToggleTheme');
-      btn.textContent = theme === 'light' ? '☀️ Modo claro' : '🌙 Modo oscuro';
+      btn.textContent = theme === 'light' ? '🌙' : '☀️';
+      btn.title = theme === 'light' ? 'Pasar a modo oscuro' : 'Pasar a modo claro';
       notifyThemeToIframes(theme);
     }
-    let currentTheme = 'dark';
+    let currentTheme = 'light';
     applyTheme(currentTheme);
     window.appReady.then(async () => {
       const saved = await kvGet(THEME_KEY);

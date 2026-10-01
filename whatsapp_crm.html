@@ -4,123 +4,170 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WhatsApp CRM — Cash Market</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase/config.js"></script>
 <script src="supabase/kv.js"></script>
 <script src="js/telefonos.js"></script>
 <script src="supabase/crm.js"></script>
 <style>
+  /* Paleta del plan (sección 5.1 del PDF): fondo claro, tarjetas blancas
+     con borde suave, chat estilo WhatsApp y etiquetas pastel. El modo
+     oscuro es la misma estructura con los tonos invertidos. */
   :root{
-    --bg:#0a0e14; --panel:#111826; --panel-2:#151d2e; --line:#212c40;
-    --text:#e7edf7; --muted:#8996ab; --accent:#3fd0c9; --accent-2:#5b8def;
-    --warn:#f0b866; --danger:#e8677c; --ok:#63d29a; --radius:10px;
-    --shadow:0 8px 24px rgba(0,0,0,.35);
-    --bubble-in:#151d2e; --bubble-out:#0b3b2e; --bubble-out-border:#1a5c45;
+    --bg:#f8fafc; --panel:#ffffff; --panel-2:#f8fafc; --line:#e2e8f0; --line-2:#f1f5f9;
+    --text:#0f172a; --text-2:#334155; --muted:#64748b; --faint:#94a3b8;
+    --blue:#2563eb; --blue-50:#eff6ff; --green:#16a34a; --green-hover:#15803d; --red:#dc2626; --red-strong:#b91c1c;
+    --chat-bg:#efeae2; --chat-dot:#e2dcd2; --bubble-in:#ffffff; --bubble-out:#d9fdd3;
+    --aviso-bg:#fef9c3; --aviso-line:#fde68a; --aviso-text:#854d0e;
+    --chip-bg:#fef3c7; --shadow-sm:0 1px 2px rgba(15,23,42,.06); --shadow:0 10px 30px rgba(15,23,42,.12);
+    --tab-active-bg:#0f172a; --tab-active-text:#ffffff;
   }
-  :root[data-theme="light"]{
-    --bg:#f4f6f8; --panel:#ffffff; --panel-2:#eef1f4; --line:#dbe1e7;
-    --text:#1a2330; --muted:#5b6b7c; --accent:#0e9c87; --accent-2:#3b6fd1;
-    --warn:#c9822a; --danger:#d14f4f; --ok:#1fa855;
-    --bubble-in:#ffffff; --bubble-out:#dcf8c6; --bubble-out-border:#c3eeab;
+  :root[data-theme="dark"]{
+    --bg:#0b1220; --panel:#0f172a; --panel-2:#111c33; --line:#1e293b; --line-2:#162036;
+    --text:#e2e8f0; --text-2:#cbd5e1; --muted:#94a3b8; --faint:#64748b;
+    --blue:#60a5fa; --blue-50:#132443; --green:#22c55e; --green-hover:#16a34a; --red:#f87171; --red-strong:#f87171;
+    --chat-bg:#0b141a; --chat-dot:#111c22; --bubble-in:#1f2c34; --bubble-out:#005c4b;
+    --aviso-bg:#3a2f0b; --aviso-line:#5c4a12; --aviso-text:#fde68a;
+    --chip-bg:#3a2f0b; --shadow-sm:none; --shadow:0 10px 30px rgba(0,0,0,.5);
+    --tab-active-bg:#e2e8f0; --tab-active-text:#0f172a;
   }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}
   body{
     background:var(--bg); color:var(--text);
-    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif; font-size:13px;
     display:flex; flex-direction:column; height:100vh; overflow:hidden;
+    -webkit-font-smoothing:antialiased;
   }
+  button{font-family:inherit;}
+
+  /* ── Encabezado ── */
   header{
-    padding:12px 20px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
-    border-bottom:1px solid var(--line); background:linear-gradient(180deg, rgba(255,255,255,.02), transparent);
-    flex-shrink:0;
+    padding:14px 22px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+    border-bottom:1px solid var(--line); background:var(--panel); flex-shrink:0;
   }
-  .header-title{display:flex;flex-direction:column;}
-  header h1{font-size:16px;margin:0;}
-  .header-sub{font-size:11.5px;color:var(--muted);margin-top:1px;}
+  .header-title{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;}
+  header h1{font-size:19px;font-weight:800;margin:0;letter-spacing:-.01em;}
+  .header-sub{font-size:13px;color:var(--muted);}
   .header-tools{display:flex;align-items:center;gap:10px;}
-  .wa-search{display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;width:260px;}
-  .wa-search input{background:none;border:none;outline:none;color:var(--text);font-size:13px;width:100%;}
-  .btn-pill{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 14px;font-size:12.5px;cursor:pointer;white-space:nowrap;}
-  .btn-pill:hover{border-color:var(--accent-2);}
-  .btn-primary{background:var(--accent);border:none;color:#04121a;font-weight:700;}
-  .wa-estado{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);}
-  .wa-estado .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);}
-  .wa-estado.conectado .dot{background:var(--ok);}
-  .wa-estado.conectando .dot{background:var(--warn);}
+  .wa-search{display:flex;align-items:center;gap:8px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;width:300px;}
+  .wa-search input{background:none;border:none;outline:none;color:var(--text);font-size:13px;width:100%;font-family:inherit;}
+  .wa-search input::placeholder{color:var(--faint);}
+  .btn{border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;border:1px solid var(--line);background:var(--panel);color:var(--text-2);}
+  .btn:hover{border-color:var(--faint);}
+  .btn-verde{background:var(--green);border-color:var(--green);color:#fff;}
+  .btn-verde:hover{background:var(--green-hover);border-color:var(--green-hover);}
 
   .wa-crm{flex:1;display:flex;min-height:0;}
-  .wa-chats{width:320px;flex-shrink:0;border-right:1px solid var(--line);display:flex;flex-direction:column;background:var(--panel);}
-  .wa-chats-head{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px;}
-  .wa-tabs{display:flex;gap:6px;}
-  .wa-tabs button{flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:6px 0;font-size:11.5px;cursor:pointer;}
-  .wa-tabs button.active{background:var(--accent-2);color:#04121a;border-color:var(--accent-2);font-weight:600;}
-  select.etapa-filtro{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:6px 8px;font-size:12px;}
+
+  /* ── Lista de chats ── */
+  .wa-chats{width:340px;flex-shrink:0;border-right:1px solid var(--line);display:flex;flex-direction:column;background:var(--panel);}
+  .wa-chats-head{padding:14px 14px 10px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px;}
+  .select-pill{appearance:none;-webkit-appearance:none;background:var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23334155'/%3E%3C/svg%3E") no-repeat right 12px center;border:1px solid var(--line);color:var(--text-2);border-radius:8px;padding:8px 30px 8px 12px;font-size:13px;font-weight:600;font-family:inherit;width:100%;cursor:pointer;}
+  .wa-tabs{display:flex;gap:6px;flex-wrap:wrap;}
+  .wa-tabs button{background:var(--line-2);border:none;color:var(--text-2);border-radius:7px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;}
+  .wa-tabs button .n{font-weight:500;opacity:.85;}
+  .wa-tabs button.active{background:var(--tab-active-bg);color:var(--tab-active-text);}
   #chatList{flex:1;overflow-y:auto;}
-  .chat-item{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;gap:10px;cursor:pointer;align-items:flex-start;}
+  .chat-item{padding:14px 14px 14px 16px;border-bottom:1px solid var(--line-2);display:flex;gap:12px;cursor:pointer;align-items:flex-start;border-left:3px solid transparent;}
   .chat-item:hover{background:var(--panel-2);}
-  .chat-item.active{background:var(--panel-2);border-left:3px solid var(--accent-2);}
-  .chat-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#fff;flex-shrink:0;}
+  .chat-item.active{background:var(--blue-50);border-left-color:var(--blue);}
+  .avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;}
   .chat-info{flex:1;min-width:0;}
-  .chat-info .row1{display:flex;justify-content:space-between;gap:6px;}
-  .chat-info .nombre{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .chat-info .hora{font-size:10.5px;color:var(--muted);flex-shrink:0;}
-  .chat-info .preview{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
-  .chat-badges{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;align-items:center;}
-  .badge{font-size:10px;padding:2px 6px;border-radius:5px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);}
-  .badge.no-leidos{background:var(--ok);color:#04121a;border:none;font-weight:700;border-radius:10px;}
-  .atraso-pill{font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;white-space:nowrap;}
-  .atraso-pill.ok{background:rgba(31,168,85,.14);color:var(--ok);border:1px solid rgba(31,168,85,.35);}
-  .atraso-pill.leve{background:rgba(240,184,102,.16);color:var(--warn);border:1px solid rgba(240,184,102,.4);}
-  .atraso-pill.alto{background:rgba(232,103,124,.16);color:var(--danger);border:1px solid rgba(232,103,124,.4);}
+  .chat-info .row1{display:flex;justify-content:space-between;gap:8px;align-items:baseline;}
+  .chat-info .nombre{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .chat-info .hora{font-size:12px;color:var(--faint);flex-shrink:0;}
+  .chat-info .row2{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:2px;}
+  .chat-info .preview{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .no-leidos{background:var(--green);color:#fff;font-size:11px;font-weight:700;border-radius:10px;min-width:20px;height:20px;padding:0 6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .chat-tags{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;}
 
-  .wa-conv{flex:1;display:flex;flex-direction:column;min-width:0;}
-  .conv-head{padding:10px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;}
-  .conv-head-id{display:flex;align-items:center;gap:10px;min-width:0;}
-  .conv-head .nombre{font-weight:600;font-size:14px;}
-  .conv-head .sub{font-size:11.5px;color:var(--muted);}
-  #convMessages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:6px;background:
-    radial-gradient(1200px 600px at 90% -10%, rgba(63,208,201,.05), transparent 60%), var(--bg);}
-  .bubble{max-width:62%;padding:8px 12px;border-radius:10px;font-size:13px;line-height:1.4;position:relative;}
-  .bubble.entrante{align-self:flex-start;background:var(--bubble-in);border:1px solid var(--line);}
-  .bubble.saliente{align-self:flex-end;background:var(--bubble-out);border:1px solid var(--bubble-out-border);}
-  .bubble .meta{font-size:10px;color:var(--muted);margin-top:4px;text-align:right;}
-  .bubble .autor{font-size:11px;color:var(--accent-2);font-weight:600;margin-bottom:2px;}
-  .bubble img{max-width:220px;border-radius:6px;display:block;}
-  .regla-aviso{align-self:center;font-size:10.5px;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:20px;padding:4px 12px;margin:4px 0;max-width:80%;text-align:center;}
-  .dia-divisor{align-self:center;margin:10px 0 4px;}
-  .dia-divisor span{font-size:10.5px;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:20px;padding:4px 14px;}
-  .wa-compose{border-top:1px solid var(--line);padding:8px 14px 10px;display:flex;flex-direction:column;gap:6px;position:relative;}
+  /* Etiquetas pastel (mismas en lista, ficha y Kanban) */
+  .tag{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:5px;white-space:nowrap;background:#f1f5f9;color:#475569;}
+  .tag.azul{background:#dbeafe;color:#1d4ed8;}
+  .tag.verde{background:#dcfce7;color:#15803d;}
+  .tag.ambar{background:#fef3c7;color:#b45309;}
+  .tag.rojo{background:#fee2e2;color:#b91c1c;}
+  .tag.violeta{background:#ede9fe;color:#6d28d9;}
+  .tag.cian{background:#cffafe;color:#0e7490;}
+  .tag.gris{background:#f1f5f9;color:#475569;}
+  :root[data-theme="dark"] .tag{filter:saturate(.9) brightness(.92);}
+
+  /* ── Conversación ── */
+  .wa-conv{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--panel);}
+  .conv-head{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--panel);}
+  .conv-head-id{display:flex;align-items:center;gap:12px;min-width:0;}
+  .conv-head .nombre{font-weight:700;font-size:15px;}
+  .conv-head .sub{font-size:12.5px;color:var(--muted);margin-top:1px;}
+  .conv-head-tools{display:flex;gap:8px;align-items:center;}
+  .btn-cuadrado{width:36px;height:36px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;}
+  #convMessages{flex:1;overflow-y:auto;padding:18px 7%;display:flex;flex-direction:column;gap:8px;
+    background-color:var(--chat-bg);
+    background-image:radial-gradient(var(--chat-dot) 1px, transparent 1px);
+    background-size:18px 18px;}
+  .bubble{max-width:64%;padding:8px 12px 6px;border-radius:10px;font-size:14px;line-height:1.45;position:relative;box-shadow:0 1px 1px rgba(15,23,42,.08);white-space:pre-wrap;word-wrap:break-word;}
+  .bubble.entrante{align-self:flex-start;background:var(--bubble-in);}
+  .bubble.saliente{align-self:flex-end;background:var(--bubble-out);}
+  .bubble .meta{font-size:11px;color:var(--faint);margin-top:3px;text-align:right;white-space:nowrap;}
+  :root[data-theme="dark"] .bubble .meta{color:#8696a0;}
+  .bubble .autor{font-size:12px;color:var(--blue);font-weight:700;margin-bottom:2px;}
+  .bubble img{max-width:240px;border-radius:8px;display:block;margin:2px 0 4px;}
+  .bubble .adjunto-card{background:var(--blue-50);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--text-2);margin:2px 0 6px;}
+  .bubble .adjunto-card a{color:var(--blue);font-weight:600;text-decoration:none;}
+  .bubble .adjunto-nota{color:var(--muted);font-style:italic;font-size:12.5px;}
+  .regla-aviso{align-self:flex-start;width:min(86%, 560px);font-size:12px;color:var(--aviso-text);background:var(--aviso-bg);border:1px solid var(--aviso-line);border-radius:8px;padding:6px 10px;margin:2px 0;line-height:1.4;}
+  .regla-aviso b{font-weight:700;}
+  .dia-divisor{align-self:center;margin:8px 0 2px;}
+  .dia-divisor span{font-size:12px;font-weight:600;color:var(--aviso-text);background:var(--chip-bg);border-radius:7px;padding:4px 12px;box-shadow:var(--shadow-sm);}
+  .wa-compose{border-top:1px solid var(--line);padding:10px 16px 12px;display:flex;flex-direction:column;gap:8px;position:relative;background:var(--panel);}
   .plantilla-chips{display:flex;gap:6px;flex-wrap:wrap;}
-  .plantilla-chips button{background:var(--panel-2);border:1px solid var(--line);color:var(--accent-2);border-radius:20px;padding:4px 10px;font-size:11px;cursor:pointer;}
-  .plantilla-chips button:hover{border-color:var(--accent-2);}
-  #plantillasPopup{position:absolute;bottom:100%;left:14px;right:14px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);max-height:200px;overflow-y:auto;display:none;}
-  #plantillasPopup div{padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--line);}
-  #plantillasPopup div:hover{background:var(--panel);}
-  .compose-row{display:flex;gap:8px;align-items:flex-end;}
-  .compose-row textarea{flex:1;resize:none;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 12px;font-size:13px;font-family:inherit;max-height:100px;}
-  .compose-row button{background:var(--accent);border:none;color:#04121a;font-weight:700;border-radius:50%;width:38px;height:38px;cursor:pointer;flex-shrink:0;}
+  .plantilla-chips button{background:var(--panel);border:1px solid var(--line);color:var(--text-2);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:500;cursor:pointer;}
+  .plantilla-chips button:hover{border-color:var(--blue);color:var(--blue);}
+  #plantillasPopup{position:absolute;bottom:100%;left:16px;right:16px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);max-height:220px;overflow-y:auto;display:none;z-index:5;}
+  #plantillasPopup div{padding:9px 14px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--line-2);}
+  #plantillasPopup div:hover{background:var(--blue-50);}
+  .compose-row{display:flex;gap:10px;align-items:flex-end;}
+  .compose-row textarea{flex:1;resize:none;background:var(--panel-2);border:1px solid var(--line);border-radius:22px;color:var(--text);padding:10px 16px;font-size:14px;font-family:inherit;max-height:110px;outline:none;}
+  .compose-row textarea:focus{border-color:var(--blue);}
+  .btn-enviar{background:var(--green);border:none;color:#fff;font-weight:700;border-radius:50%;width:40px;height:40px;cursor:pointer;flex-shrink:0;font-size:16px;display:flex;align-items:center;justify-content:center;}
+  .btn-enviar:hover{background:var(--green-hover);}
 
-  .wa-ficha{width:280px;flex-shrink:0;border-left:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:16px;display:none;flex-direction:column;gap:14px;}
+  /* ── Ficha lateral ── */
+  .wa-ficha{width:330px;flex-shrink:0;border-left:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:16px;display:none;flex-direction:column;gap:12px;}
   .wa-ficha.open{display:flex;}
-  .ficha-nombre{font-weight:700;font-size:15px;}
-  .ficha-row{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;margin-top:4px;}
-  .ficha-card{background:var(--panel-2);border:1px solid var(--line);border-radius:var(--radius);padding:12px;}
-  .ficha-card .label{font-size:11px;color:var(--muted);}
-  .ficha-card .valor{font-size:18px;font-weight:800;margin-top:2px;}
-  .ficha-card .valor.danger{color:var(--danger);}
-  .progreso-bar{height:5px;border-radius:4px;background:var(--line);margin-top:8px;overflow:hidden;}
-  .progreso-bar .fill{height:100%;background:var(--accent);}
-  .progreso-txt{font-size:10.5px;color:var(--muted);margin-top:4px;}
-  select, input[type=date]{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:6px 8px;font-size:12px;width:100%;}
-  .ficha-acciones{display:flex;flex-direction:column;gap:6px;}
-  .ficha-acciones button{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:8px;font-size:12px;cursor:pointer;text-align:left;}
-  .ficha-acciones button:hover{border-color:var(--accent-2);}
-  .ficha-acciones button.primary{background:var(--accent);color:#04121a;font-weight:700;border:none;text-align:center;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;}
+  .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .card-titulo{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
+  .card-link{font-size:12.5px;font-weight:700;color:var(--blue);background:none;border:none;cursor:pointer;padding:0;}
+  .fila{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;align-items:center;}
+  .fila .k{color:var(--muted);}
+  .fila .v{font-weight:700;text-align:right;}
+  .fila .v.rojo{color:var(--red-strong);}
+  .saldo-label{font-size:12.5px;color:var(--muted);}
+  .saldo-grande{font-size:28px;font-weight:800;color:var(--red-strong);line-height:1.15;margin:1px 0 4px;letter-spacing:-.01em;}
+  .progreso-bar{height:6px;border-radius:4px;background:var(--line-2);margin-top:10px;overflow:hidden;}
+  .progreso-bar .fill{height:100%;background:var(--blue);border-radius:4px;}
+  .progreso-txt{font-size:12px;color:var(--muted);margin-top:5px;}
+  .campo-label{font-size:12.5px;color:var(--muted);margin:8px 0 5px;}
+  .campo-label:first-of-type{margin-top:2px;}
+  .wa-ficha select, .wa-ficha input[type=date]{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 12px;font-size:13.5px;font-weight:700;font-family:inherit;}
+  .wa-ficha select{appearance:none;-webkit-appearance:none;background:var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%230f172a'/%3E%3C/svg%3E") no-repeat right 12px center;}
+  .guardado-ok{font-size:11.5px;color:var(--green);font-weight:600;height:14px;margin-top:6px;}
+  .ficha-acciones{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .ficha-acciones button{background:var(--panel);border:1px solid var(--line);color:var(--text-2);border-radius:8px;padding:9px 6px;font-size:13px;font-weight:700;cursor:pointer;}
+  .ficha-acciones button:hover{border-color:var(--faint);}
+  .ficha-acciones button.primary{background:var(--green);border-color:var(--green);color:#fff;}
+  .ficha-acciones button.primary:hover{background:var(--green-hover);}
 
-  .empty-state{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;flex-direction:column;gap:8px;}
+  .empty-state{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13.5px;flex-direction:column;gap:8px;text-align:center;padding:20px;}
   ::-webkit-scrollbar{width:8px;height:8px;}
-  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+  ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px;}
+  :root[data-theme="dark"] ::-webkit-scrollbar-thumb{background:#334155;}
+
+  @media (max-width:1250px){ .wa-ficha{width:290px;} .wa-search{width:220px;} }
+  @media (max-width:1050px){ .wa-chats{width:290px;} .wa-ficha{position:absolute;right:0;top:0;bottom:0;box-shadow:var(--shadow);z-index:10;} .wa-crm{position:relative;} }
 </style>
 </head>
 <body>
@@ -135,19 +182,19 @@
       <span>🔍</span>
       <input type="text" id="buscarChat" placeholder="Buscar nombre, DNI o teléfono...">
     </div>
-    <button class="btn-pill btn-primary" id="btnNuevoChat">+ Nuevo chat</button>
-    <div class="wa-estado" id="waEstado"><span class="dot"></span><span id="waEstadoTexto">Sin conectar</span></div>
+    <button class="btn" id="btnPlantillas" title="Editar las plantillas en Envío de Mensajes">⚡ Plantillas</button>
+    <button class="btn btn-verde" id="btnNuevoChat">+ Nuevo chat</button>
   </div>
 </header>
 
 <div class="wa-crm">
   <aside class="wa-chats">
     <div class="wa-chats-head">
-      <select class="etapa-filtro" id="filtroEtapa"><option value="">Etapa: Todas</option></select>
+      <select class="select-pill" id="filtroEtapa"><option value="">Etapa: Todas</option></select>
       <div class="wa-tabs">
-        <button class="active" data-filtro="todos">Todos</button>
-        <button data-filtro="sinleer">Sin leer</button>
-        <button data-filtro="sinvincular">Sin vincular</button>
+        <button class="active" data-filtro="todos">Todos <span class="n" id="nTodos"></span></button>
+        <button data-filtro="sinleer">Sin leer <span class="n" id="nSinLeer"></span></button>
+        <button data-filtro="sinvincular">Sin vincular <span class="n" id="nSinVincular"></span></button>
       </div>
     </div>
     <div id="chatList"></div>
@@ -155,7 +202,7 @@
 
   <main class="wa-conv" id="wacConv">
     <div class="empty-state" id="convEmpty">
-      <div style="font-size:32px;">💬</div>
+      <div style="font-size:34px;">💬</div>
       <div>Elegí un chat de la izquierda para ver la conversación</div>
     </div>
   </main>
@@ -178,28 +225,91 @@ let nombreUsuarioCache = '';
 
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function iniciales(nombre){
-  const partes = String(nombre||'?').trim().split(/\s+/);
-  return ((partes[0]||'')[0] + (partes[1]||'')[0]).toUpperCase() || '?';
+  const s = String(nombre||'').trim();
+  if(!s || /^[+\d\s()-]+$/.test(s)) return '?';
+  const partes = s.split(/\s+/);
+  return (((partes[0]||'')[0]||'') + ((partes[1]||'')[0]||'')).toUpperCase() || '?';
 }
-const AVATAR_PALETTE = ['#3b6fd1','#0e9c87','#c9822a','#d14f4f','#1fa855','#8b5cf6','#ec4899','#8996ab'];
+// Mismos tonos que los avatares del plan (rosa, cian, violeta, naranja...).
+const AVATAR_PALETTE = ['#db2777','#0891b2','#7c3aed','#ea580c','#16a34a','#dc2626','#ca8a04','#2563eb'];
 function colorParaNombre(nombre){
+  if(iniciales(nombre) === '?') return '#64748b';
   let hash = 0;
   const s = String(nombre||'');
   for(let i=0;i<s.length;i++) hash = (hash*31 + s.charCodeAt(i)) % AVATAR_PALETTE.length;
   return AVATAR_PALETTE[Math.abs(hash)];
 }
-function atrasoPillInfo(diasAtraso){
-  const d = diasAtraso || 0;
-  if(d <= 0) return { cls:'ok', label:'Al día' };
-  if(d <= 7) return { cls:'leve', label:`Atraso ${d}d` };
-  return { cls:'alto', label:`Atraso ${d}d` };
+function fmtPesos(n){ return '$' + Math.round(Number(n)||0).toLocaleString('es-AR'); }
+function fmtFecha(iso){
+  if(!iso) return '—';
+  const [y,m,d] = String(iso).slice(0,10).split('-');
+  return `${d}/${m}/${y}`;
+}
+function diasHasta(iso){
+  if(!iso) return null;
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const f = new Date(String(iso).slice(0,10) + 'T00:00:00');
+  return Math.round((f - hoy) / 86400000);
 }
 function horaCorta(iso){
   if(!iso) return '';
   const d = new Date(iso);
   const hoy = new Date();
   if(d.toDateString() === hoy.toDateString()) return d.toTimeString().slice(0,5);
+  const ayer = new Date(Date.now() - 86400000);
+  if(d.toDateString() === ayer.toDateString()) return 'Ayer';
   return d.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit'});
+}
+
+// Etapa del Kanban -> etiqueta de color + emoji (como en el render 5.1).
+const ESTILO_ETAPA = {
+  a_contactar:    { cls:'gris',    emoji:'⚪' },
+  contactado:     { cls:'azul',    emoji:'🔵' },
+  promesa:        { cls:'ambar',   emoji:'🤝' },
+  verificar_pago: { cls:'violeta', emoji:'🟡' },
+  refinanciado:   { cls:'cian',    emoji:'🔁' },
+  cerrado:        { cls:'verde',   emoji:'✅' },
+};
+const ESTILO_ETIQUETA = {
+  'reclamo':          { cls:'rojo',    emoji:'⚠️' },
+  'comprobante':      { cls:'violeta', emoji:'📎' },
+  'pide refinanciar': { cls:'cian',    emoji:'🔁' },
+  'consulta':         { cls:'gris',    emoji:'❓' },
+};
+function etapaPorRowId(rowId){ return etapasCache.find(e => e._rowId === rowId) || null; }
+function tagEtiqueta(texto){
+  const est = ESTILO_ETIQUETA[String(texto).toLowerCase()] || { cls:'gris', emoji:'' };
+  return `<span class="tag ${est.cls}">${est.emoji ? est.emoji + ' ' : ''}${escapeHtml(texto)}</span>`;
+}
+function diaSemanaCorto(iso){
+  const d = new Date(String(iso).slice(0,10) + 'T00:00:00');
+  return ['dom','lun','mar','mié','jue','vie','sáb'][d.getDay()] + ' ' + String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+}
+function tagsDeChat(c){
+  if(c.es_grupo) return `<span class="tag gris">👥 Grupo</span>`;
+  if(!c.cliente_id) return `<span class="tag gris">❓ Sin cliente vinculado</span>`;
+  const out = [];
+  const cli = c.clientes || {};
+  const etapa = etapaPorRowId(cli.etapa_id);
+  const etiquetas = cli.etiquetas || [];
+  // Como en el render: la promesa (con su fecha) y el cerrado siempre se
+  // ven; si no, manda la etiqueta de la regla (Comprobante, Reclamo...) y
+  // solo si no hay ninguna se muestra la etapa.
+  if(etapa && etapa.id === 'promesa' && cli.promesa_fecha){
+    out.push(`<span class="tag ambar">🤝 Promesa · ${diaSemanaCorto(cli.promesa_fecha)}</span>`);
+  } else if(etapa && etapa.id === 'cerrado'){
+    out.push(`<span class="tag verde">✅ ${escapeHtml(etapa.name)}</span>`);
+  } else if(etiquetas.length){
+    etiquetas.slice(0, 2).forEach(e => out.push(tagEtiqueta(e)));
+  } else if(etapa && etapa.id !== 'a_contactar'){
+    const est = ESTILO_ETAPA[etapa.id] || { cls:'gris' };
+    out.push(`<span class="tag ${est.cls}">${escapeHtml(etapa.name)}</span>`);
+  }
+  const prestamo = resumenPrestamosCache[c.cliente_id];
+  if(prestamo && prestamo.dias_atraso > 0 && !(etapa && etapa.id === 'cerrado')){
+    out.push(`<span class="tag rojo">Atraso ${prestamo.dias_atraso} d</span>`);
+  }
+  return out.join('');
 }
 
 function nombreConversacion(c){
@@ -208,9 +318,7 @@ function nombreConversacion(c){
   return (window.formatearTelefonoAR && c.telefono && window.formatearTelefonoAR(c.telefono)) || c.telefono || c.nombre || 'Contacto sin agendar';
 }
 
-function pasaFiltro(c){
-  if(filtroActivo === 'sinleer' && !(c.no_leidos > 0)) return false;
-  if(filtroActivo === 'sinvincular' && c.cliente_id) return false;
+function pasaFiltroBase(c){
   const etapaSel = document.getElementById('filtroEtapa').value;
   if(etapaSel){
     const etapaId = c.clientes ? c.clientes.etapa_id : null;
@@ -222,15 +330,24 @@ function pasaFiltro(c){
   const dni = (c.clientes && c.clientes.dni || '').toLowerCase();
   return nombre.includes(q) || dni.includes(q) || (c.telefono||'').includes(q);
 }
+function pasaFiltro(c){
+  if(filtroActivo === 'sinleer' && !(c.no_leidos > 0)) return false;
+  if(filtroActivo === 'sinvincular' && (c.cliente_id || c.es_grupo)) return false;
+  return pasaFiltroBase(c);
+}
 
-function actualizarHeaderSub(){
+function actualizarContadores(){
   const sinLeer = conversaciones.filter(c => c.no_leidos > 0).length;
-  const sinAsignar = conversaciones.filter(c => !c.cliente_id).length;
-  document.getElementById('headerSub').textContent =
-    `${conversaciones.length} chats · ${sinLeer} sin leer · ${sinAsignar} sin vincular`;
+  const sinVincular = conversaciones.filter(c => !c.cliente_id && !c.es_grupo).length;
+  document.getElementById('headerSub').textContent = `${sinLeer} chats sin leer · ${sinVincular} sin vincular`;
+  const base = conversaciones.filter(pasaFiltroBase);
+  document.getElementById('nTodos').textContent = base.length;
+  document.getElementById('nSinLeer').textContent = base.filter(c => c.no_leidos > 0).length;
+  document.getElementById('nSinVincular').textContent = base.filter(c => !c.cliente_id && !c.es_grupo).length;
 }
 
 function renderChatList(){
+  actualizarContadores();
   const cont = document.getElementById('chatList');
   const lista = conversaciones.filter(pasaFiltro);
   if(!lista.length){
@@ -239,18 +356,15 @@ function renderChatList(){
   }
   cont.innerHTML = lista.map(c=>{
     const nombre = nombreConversacion(c);
-    const prestamo = c.cliente_id ? resumenPrestamosCache[c.cliente_id] : null;
-    const atraso = prestamo ? atrasoPillInfo(prestamo.dias_atraso) : null;
     return `<div class="chat-item ${conversacionActual && conversacionActual.id===c.id?'active':''}" data-id="${c.id}">
-      <div class="chat-avatar" style="background:${colorParaNombre(nombre)}">${iniciales(nombre)}</div>
+      <div class="avatar" style="background:${colorParaNombre(nombre)}">${iniciales(nombre)}</div>
       <div class="chat-info">
         <div class="row1"><span class="nombre">${escapeHtml(nombre)}</span><span class="hora">${horaCorta(c.ultimo_at)}</span></div>
-        <div class="preview">${escapeHtml(c.ultimo_texto || 'Sin mensajes todavía')}</div>
-        <div class="chat-badges">
-          ${c.no_leidos ? `<span class="badge no-leidos">${c.no_leidos}</span>` : ''}
-          ${atraso ? `<span class="atraso-pill ${atraso.cls}">${atraso.label}</span>` : ''}
-          ${(c.clientes && c.clientes.etiquetas || []).map(e=>`<span class="badge">${escapeHtml(e)}</span>`).join('')}
+        <div class="row2">
+          <span class="preview">${escapeHtml(c.ultimo_texto || 'Sin mensajes todavía')}</span>
+          ${c.no_leidos ? `<span class="no-leidos">${c.no_leidos}</span>` : ''}
         </div>
+        <div class="chat-tags">${tagsDeChat(c)}</div>
       </div>
     </div>`;
   }).join('');
@@ -261,13 +375,12 @@ function renderChatList(){
 
 async function cargarConversaciones(){
   conversaciones = await crmListConversaciones();
-  actualizarHeaderSub();
   renderChatList();
 }
 
-// Se llama seguido (realtime + polling), y con 248 chats salir a buscar de
-// nuevo el resumen de préstamos cada vez es caro y no cambia tan seguido —
-// se separa de cargarConversaciones() para no frenar la lista por esto.
+// Se llama seguido (realtime + polling), y con cientos de chats salir a
+// buscar de nuevo el resumen de préstamos cada vez es caro y no cambia tan
+// seguido — se separa de cargarConversaciones() para no frenar la lista.
 async function cargarResumenPrestamos(){
   resumenPrestamosCache = await crmListResumenPrestamos();
   renderChatList();
@@ -276,8 +389,7 @@ async function cargarResumenPrestamos(){
 // Token de carga: si el usuario hace clic en otro chat mientras este
 // todavía está trayendo datos, la carga vieja se da cuenta (compara su
 // propio número contra el actual) y no pisa la pantalla con datos de un
-// chat que ya no es el que está abierto. Sin esto, clickear rápido entre
-// chats podía dejar la pantalla "pegada" en uno viejo.
+// chat que ya no es el que está abierto.
 let cargaActual = 0;
 
 async function abrirConversacion(id){
@@ -285,15 +397,9 @@ async function abrirConversacion(id){
   conversacionActual = conversaciones.find(c=>c.id===id);
   if(!conversacionActual) return;
   renderChatList();
-  // (el placeholder "Elegí un chat..." vive adentro de #wacConv y
-  // renderConversacionShell() reemplaza todo ese contenido un par de
-  // líneas más abajo, así que desaparece solo — no hace falta ocultarlo a
-  // mano, y de hecho intentarlo rompía: en el segundo chat que abrías ese
-  // elemento ya no existía más porque el primero ya lo había reemplazado.)
 
-  // Se pinta el esqueleto de la conversación (header + "cargando...") al
-  // toque, sin esperar ningún pedido a Supabase — así el clic se siente
-  // instantáneo aunque los mensajes tarden un toque en llegar.
+  // Se pinta el esqueleto de la conversación al toque, sin esperar a
+  // Supabase — así el clic se siente instantáneo.
   mensajesActuales = [];
   eventosActuales = [];
   fichaActual = null;
@@ -303,19 +409,16 @@ async function abrirConversacion(id){
     crmListMensajes(id),
     conversacionActual.cliente_id ? crmListEventosConversacion(conversacionActual.cliente_id) : Promise.resolve([]),
   ]);
-  if (miCarga !== cargaActual) return; // se abrió otro chat mientras tanto
+  if (miCarga !== cargaActual) return;
 
   mensajesActuales = mensajes;
   eventosActuales = eventos;
   await renderMensajes();
 
-  // No bloquean la apertura del chat: se resuelven en paralelo y cada una
-  // actualiza su parte de la pantalla cuando esté lista.
   crmMarcarConversacionLeida(id).then(() => {
     if (miCarga !== cargaActual) return;
     conversacionActual.no_leidos = 0;
     renderChatList();
-    actualizarHeaderSub();
   });
 
   if (conversacionActual.cliente_id) {
@@ -339,8 +442,7 @@ async function abrirConversacion(id){
 }
 
 // El bucket de comprobantes es privado (puede traer datos personales), así
-// que las imágenes se muestran con una URL firmada de corta duración, no
-// con getPublicUrl. Se resuelven antes de pintar la conversación.
+// que las imágenes se muestran con una URL firmada de corta duración.
 async function resolverUrlsAdjuntos(mensajes){
   const urls = {};
   await Promise.all(mensajes.filter(m => m.media_path).map(async m=>{
@@ -352,49 +454,63 @@ async function resolverUrlsAdjuntos(mensajes){
 function burbujaAdjunto(m, urlsAdjuntos){
   const url = urlsAdjuntos[m.id];
   if(m.tipo === 'imagen' && m.media_path){
-    return url ? `<img src="${url}" alt="imagen">` : `<div>📷 Imagen</div>`;
+    return url ? `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="imagen"></a>` : `<div class="adjunto-card">📷 Imagen</div>`;
   }
   if(m.tipo === 'audio' && m.media_path){
-    return url ? `<audio controls src="${url}" style="max-width:220px;height:34px;"></audio>` : `<div>🎙️ Audio</div>`;
+    return url ? `<audio controls src="${url}" style="max-width:240px;height:36px;"></audio>` : `<div class="adjunto-card">🎙️ Audio</div>`;
   }
   if(m.tipo === 'pdf' && m.media_path){
-    return url ? `<a href="${url}" target="_blank" rel="noopener" style="color:var(--accent-2);">📄 Ver PDF</a>` : `<div>📄 PDF</div>`;
+    return `<div class="adjunto-card">📄 ${url ? `<a href="${url}" target="_blank" rel="noopener">Ver PDF</a>` : 'PDF'}</div>`;
   }
-  if(m.media_path) return `<div>📎 Adjunto recibido</div>`;
-  if(m.tipo === 'audio') return `<div style="color:var(--muted);font-style:italic;">🎙️ Audio (del historial, no se descargó)</div>`;
-  if(m.tipo === 'imagen') return `<div style="color:var(--muted);font-style:italic;">📷 Imagen (del historial, no se descargó)</div>`;
-  if(m.tipo === 'pdf') return `<div style="color:var(--muted);font-style:italic;">📄 PDF (del historial, no se descargó)</div>`;
+  if(m.media_path) return `<div class="adjunto-card">📎 Adjunto recibido</div>`;
+  if(m.tipo === 'audio') return `<div class="adjunto-nota">🎙️ Audio (del historial, no se descargó)</div>`;
+  if(m.tipo === 'imagen') return `<div class="adjunto-nota">📷 Imagen (no se pudo descargar)</div>`;
+  if(m.tipo === 'pdf') return `<div class="adjunto-nota">📄 PDF (no se pudo descargar)</div>`;
   return '';
 }
 
+// "🤖 Regla automática: imagen + 'transferí' → etiqueta Comprobante ·
+// movido a Verificar pago" (como en el render 5.1).
 function textoEventoRegla(ev){
   const d = ev.detalle || {};
-  let txt = `⚙️ Regla automática: "${d.regla || ''}"`;
-  if(d.fecha_detectada) txt += ` · fecha detectada ${d.fecha_detectada}`;
-  return txt;
+  const a = d.accion || {};
+  const partes = [];
+  if(a.etiqueta) partes.push(`etiqueta ${escapeHtml(a.etiqueta)}`);
+  if(d.fecha_detectada) partes.push(`fecha ${escapeHtml(fmtFecha(d.fecha_detectada).slice(0,5))}`);
+  if(a.mueve_a){
+    const destino = etapasCache.find(e => e.id === a.mueve_a);
+    const origen = a.mueve_de ? etapasCache.find(e => e.id === a.mueve_de) : null;
+    partes.push(`movido ${origen ? `de <b>${escapeHtml(origen.name)}</b> ` : ''}a <b>${escapeHtml(destino ? destino.name : a.mueve_a)}</b>`);
+  }
+  return `🤖 Regla automática: “${escapeHtml(d.regla || '')}”${partes.length ? ' → ' + partes.join(' · ') : ''}`;
 }
 
 // Dibuja el header + la caja de escribir UNA sola vez al abrir un chat. Los
-// mensajes nuevos (realtime) solo actualizan #convMessages (renderMensajes)
-// — antes se repintaba todo de nuevo con cada mensaje, lo que de paso
-// borraba lo que el usuario estuviera escribiendo a mitad de camino.
+// mensajes nuevos (realtime) solo actualizan #convMessages (renderMensajes),
+// así no se borra lo que el usuario está escribiendo.
 function renderConversacionShell(){
   const wrap = document.getElementById('wacConv');
   const nombre = nombreConversacion(conversacionActual);
   const dni = conversacionActual.clientes && conversacionActual.clientes.dni;
+  const telFmt = conversacionActual.telefono
+    ? ((window.formatearTelefonoAR && window.formatearTelefonoAR(conversacionActual.telefono)) || conversacionActual.telefono)
+    : (conversacionActual.es_grupo ? '' : 'Número todavía no disponible');
   const subLinea = conversacionActual.es_grupo
     ? 'Grupo de WhatsApp'
-    : escapeHtml((window.formatearTelefonoAR && conversacionActual.telefono ? window.formatearTelefonoAR(conversacionActual.telefono) : conversacionActual.telefono) || '') + (dni ? ' · DNI ' + escapeHtml(dni) : '');
+    : escapeHtml(telFmt) + (dni ? ' · DNI ' + escapeHtml(dni) : '');
   wrap.innerHTML = `
     <div class="conv-head">
       <div class="conv-head-id">
-        <div class="chat-avatar" style="background:${colorParaNombre(nombre)}">${iniciales(nombre)}</div>
+        <div class="avatar" style="background:${colorParaNombre(nombre)}">${iniciales(nombre)}</div>
         <div>
           <div class="nombre">${escapeHtml(nombre)}</div>
           <div class="sub">${subLinea}</div>
         </div>
       </div>
-      <button id="btnToggleFicha" class="btn-pill" style="width:auto;">Ficha →</button>
+      <div class="conv-head-tools">
+        ${nombreUsuarioCache ? `<span class="btn" style="cursor:default;">👤 ${escapeHtml(nombreUsuarioCache)}</span>` : ''}
+        <button id="btnToggleFicha" class="btn btn-cuadrado" title="Mostrar / ocultar la ficha">⋯</button>
+      </div>
     </div>
     <div id="convMessages"><div class="empty-state">Cargando mensajes...</div></div>
     <div class="wa-compose">
@@ -402,7 +518,7 @@ function renderConversacionShell(){
       <div class="plantilla-chips" id="plantillaChips"></div>
       <div class="compose-row">
         <textarea id="composeTexto" rows="1" placeholder="Escribí un mensaje... (usá / para plantillas)"></textarea>
-        <button id="btnEnviar">➤</button>
+        <button class="btn-enviar" id="btnEnviar" title="Enviar">➤</button>
       </div>
     </div>`;
 
@@ -433,7 +549,7 @@ async function renderMensajes(){
   ].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
   const msgs = document.getElementById('convMessages');
-  if (!msgs) return; // el chat se cerró/cambió mientras se resolvían las URLs
+  if (!msgs) return;
 
   let diaAnterior = null;
   const hoy = new Date().toDateString();
@@ -446,14 +562,10 @@ async function renderMensajes(){
       const etiqueta = dia === hoy ? 'Hoy' : dia === ayer ? 'Ayer' : new Date(it.fecha).toLocaleDateString('es-AR', {day:'2-digit', month:'long', year:'numeric'});
       divisor = `<div class="dia-divisor"><span>${escapeHtml(etiqueta)}</span></div>`;
     }
-    if(it.tipo === 'regla') return divisor + `<div class="regla-aviso">${escapeHtml(textoEventoRegla(it.data))}</div>`;
+    if(it.tipo === 'regla') return divisor + `<div class="regla-aviso">${textoEventoRegla(it.data)}</div>`;
     const m = it.data;
-    return divisor + `<div class="bubble ${m.direccion}">
-      ${m.direccion==='saliente' ? `<div class="autor">${escapeHtml(nombreUsuarioCache || 'Vos')}</div>` : ''}
-      ${m.texto ? escapeHtml(m.texto) : ''}
-      ${burbujaAdjunto(m, urlsAdjuntos)}
-      <div class="meta">${new Date(m.creado_at).toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit'})} ${m.direccion==='saliente' ? (m.estado==='leido'?'✓✓':m.estado==='entregado'?'✓✓':m.estado==='enviado'?'✓':'⏳') : ''}</div>
-    </div>`;
+    const tilde = m.direccion==='saliente' ? (m.estado==='leido'?' ✓✓':m.estado==='entregado'?' ✓✓':m.estado==='enviado'?' ✓':' 🕓') : '';
+    return divisor + `<div class="bubble ${m.direccion}">${m.direccion==='saliente' ? `<div class="autor">${escapeHtml(nombreUsuarioCache || 'Vos')}</div>` : ''}${burbujaAdjunto(m, urlsAdjuntos)}${m.texto ? escapeHtml(m.texto) : ''}<div class="meta">${new Date(m.creado_at).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false})}${tilde}</div></div>`;
   }).join('') || `<div class="empty-state">Todavía no hay mensajes en este chat.</div>`;
   msgs.scrollTop = msgs.scrollHeight;
 }
@@ -480,13 +592,15 @@ function renderPlantillaChips(){
     btn.addEventListener('click', ()=>{ document.getElementById('composeTexto').value = textoPlantillaConDatos(btn.dataset.n); });
   });
   const btnNota = cont.querySelector('[data-nota]');
-  if(btnNota) btnNota.addEventListener('click', async ()=>{
-    if(!fichaActual){ alert('Este chat no está vinculado a un cliente todavía.'); return; }
-    const texto = prompt('Nota interna (no la ve el cliente):');
-    if(!texto) return;
-    await crmAgregarNotaCliente(fichaActual.cliente.id, texto);
-    alert('Nota guardada en la ficha del cliente.');
-  });
+  if(btnNota) btnNota.addEventListener('click', agregarNotaInterna);
+}
+
+async function agregarNotaInterna(){
+  if(!fichaActual){ alert('Este chat no está vinculado a un cliente todavía.'); return; }
+  const texto = prompt('Nota interna (no la ve el cliente):');
+  if(!texto) return;
+  await crmAgregarNotaCliente(fichaActual.cliente.id, texto);
+  alert('Nota guardada en la ficha del cliente.');
 }
 
 function mostrarPopupPlantillas(filtro){
@@ -519,6 +633,8 @@ async function enviarMensajeActual(){
   }
 }
 
+function irAVista(view){ window.top.postMessage({ type:'cm-ir-a-vista', view }, '*'); }
+
 function renderFicha(){
   const el = document.getElementById('fichaLateral');
   if(conversacionActual && conversacionActual.es_grupo){
@@ -526,58 +642,82 @@ function renderFicha(){
     return;
   }
   if(!fichaActual){
-    el.innerHTML = `<div class="empty-state" style="height:200px;">Este chat todavía no está vinculado a ningún cliente de tu cartera.</div>`;
+    el.innerHTML = `<div class="card"><div class="card-head"><span class="card-titulo">Cliente</span></div>
+      <div style="color:var(--muted);font-size:13px;line-height:1.5;">Este chat todavía no está vinculado a ningún cliente de tu cartera.${conversacionActual && !conversacionActual.telefono ? '<br><br>WhatsApp todavía no informó el número de este contacto: se vincula solo apenas lo haga.' : ''}</div></div>`;
     return;
   }
-  const { cliente, prestamoActivo, prestamos } = fichaActual;
-  const saldoVencido = prestamoActivo ? (prestamoActivo.importe_atraso || 0) : 0;
-  const saldoTotal = prestamoActivo ? (prestamoActivo.saldo_total_punitorios || prestamoActivo.saldo_total || 0) : 0;
-  const cancelados = (prestamos || []).filter(p => p.estado === 'cancelado').length;
+  const { cliente, prestamoActivo: p, prestamos } = fichaActual;
+  const saldoVencido = p ? (p.importe_atraso || 0) : 0;
+  const cancelados = (prestamos || []).filter(x => x.estado === 'cancelado').length;
+  const totalCreditos = (prestamos || []).length;
   let progresoPct = 0;
-  if(prestamoActivo && prestamoActivo.cant_cuotas) progresoPct = Math.round(((prestamoActivo.cuotas_pagas||0) / prestamoActivo.cant_cuotas) * 100);
+  if(p && p.cant_cuotas) progresoPct = Math.round(((p.cuotas_pagas||0) / p.cant_cuotas) * 100);
+  const venc = p && p.proximo_vencimiento;
+  const dias = p ? (p.dias_atraso || 0) : 0;
+  const etapaSel = etapaPorRowId(cliente.etapa_id);
   el.innerHTML = `
-    <div>
-      <div class="ficha-nombre">${escapeHtml(cliente.nombre)}</div>
-      <div class="ficha-row"><span>DNI</span><span>${escapeHtml(cliente.dni||'—')}</span></div>
-      <div class="ficha-row"><span>Categoría</span><span>${escapeHtml(cliente.categoria||'—')}</span></div>
-      <div class="ficha-row"><span>Créditos históricos</span><span>${(prestamos||[]).length} (${cancelados} cancelados)</span></div>
-      <div class="ficha-row"><span>Localidad</span><span>${escapeHtml(cliente.localidad||'—')}</span></div>
+    <div class="card">
+      <div class="card-head"><span class="card-titulo">Cliente</span><button class="card-link" id="fichaVerCompleta">Ver ficha →</button></div>
+      <div class="fila"><span class="k">Nombre</span><span class="v">${escapeHtml(cliente.nombre)}</span></div>
+      <div class="fila"><span class="k">DNI</span><span class="v">${escapeHtml(cliente.dni||'—')}</span></div>
+      <div class="fila"><span class="k">Créditos históricos</span><span class="v">${totalCreditos}${totalCreditos ? ` (${cancelados === totalCreditos ? 'todos pagados' : cancelados + ' pagados'})` : ''}</span></div>
+      ${cliente.categoria ? `<div class="fila"><span class="k">Categoría</span><span class="tag verde">${escapeHtml(cliente.categoria)}</span></div>` : ''}
     </div>
-    ${prestamoActivo ? `
-    <div class="ficha-card">
-      <div class="label">Saldo vencido</div>
-      <div class="valor danger">$${Number(saldoVencido).toLocaleString('es-AR')}</div>
-    </div>
-    <div class="ficha-card">
-      <div class="label">Préstamo activo · Nº ${escapeHtml(prestamoActivo.nro||'')}</div>
-      <div class="valor">$${Number(saldoTotal).toLocaleString('es-AR')}</div>
-      <div class="ficha-row"><span>Monto otorgado</span><span>$${Number(prestamoActivo.monto||0).toLocaleString('es-AR')}</span></div>
-      <div class="ficha-row"><span>Días de atraso</span><span>${prestamoActivo.dias_atraso||0}</span></div>
-      <div class="ficha-row"><span>Próx. vencimiento</span><span>${prestamoActivo.proximo_vencimiento||'—'}</span></div>
-      ${prestamoActivo.cant_cuotas ? `
+    ${p ? `
+    <div class="card">
+      <div class="card-head"><span class="card-titulo">Préstamo activo</span>${p.nro ? `<span class="card-titulo">Nº ${escapeHtml(p.nro)}</span>` : ''}</div>
+      <div class="saldo-label">Saldo vencido</div>
+      <div class="saldo-grande">${fmtPesos(saldoVencido)}</div>
+      ${p.monto ? `<div class="fila"><span class="k">Monto otorgado</span><span class="v">${fmtPesos(p.monto)}</span></div>` : ''}
+      ${p.cant_cuotas ? `<div class="fila"><span class="k">Cuotas</span><span class="v">${p.cuotas_pagas||0} de ${p.cant_cuotas}${p.cuota_monto ? ' · ' + fmtPesos(p.cuota_monto) + ' c/u' : ''}</span></div>` : ''}
+      <div class="fila"><span class="k">Vencimiento</span><span class="v ${dias > 0 ? 'rojo' : ''}">${fmtFecha(venc)}${dias > 0 ? ` · ${dias} días` : ''}</span></div>
+      ${p.cant_cuotas ? `
       <div class="progreso-bar"><div class="fill" style="width:${progresoPct}%;"></div></div>
-      <div class="progreso-txt">${prestamoActivo.cuotas_pagas||0}/${prestamoActivo.cant_cuotas} cuotas pagadas (${progresoPct}%)</div>` : ''}
+      <div class="progreso-txt">${progresoPct}% del préstamo cancelado</div>` : ''}
     </div>` : ''}
-    <div>
-      <div class="label" style="font-size:11px;color:var(--muted);margin-bottom:4px;">Etapa en el Kanban</div>
-      <select id="fichaEtapa">${etapasCache.map(e=>`<option value="${e._rowId}" ${cliente.etapa_id===e._rowId?'selected':''}>${escapeHtml(e.name)}</option>`).join('')}</select>
-    </div>
-    <div>
-      <div class="label" style="font-size:11px;color:var(--muted);margin-bottom:4px;">Promesa de pago</div>
+    <div class="card">
+      <div class="card-head"><span class="card-titulo">Gestión</span></div>
+      <div class="campo-label">Etapa en el Kanban</div>
+      <select id="fichaEtapa">${etapasCache.map(e=>`<option value="${e._rowId}" ${cliente.etapa_id===e._rowId?'selected':''}>${(ESTILO_ETAPA[e.id]||{emoji:'⚫'}).emoji} ${escapeHtml(e.name)}</option>`).join('')}${etapaSel ? '' : '<option value="" selected>— Sin etapa —</option>'}</select>
+      <div class="campo-label">Promesa de pago</div>
       <input type="date" id="fichaPromesa" value="${cliente.promesa_fecha||''}">
+      <div class="guardado-ok" id="fichaGuardadoOk"></div>
     </div>
     <div class="ficha-acciones">
-      <button class="primary" id="fichaGuardar">💾 Guardar cambios</button>
-      <button id="fichaConfirmarPago">✓ Confirmar pago</button>
+      <button class="primary" id="fichaConfirmarPago">✅ Confirmar pago</button>
       <button id="fichaRefinanciar">🔁 Refinanciar</button>
-      <button onclick="window.top.postMessage({type:'cm-ir-a-clientes', id:'${cliente.id}'}, '*')">👤 Ver ficha completa</button>
+      <button id="fichaProxCredito">🧮 Próx. crédito</button>
+      <button id="fichaNota">📝 Agregar nota</button>
     </div>`;
-  document.getElementById('fichaGuardar').addEventListener('click', async ()=>{
-    const etapaId = document.getElementById('fichaEtapa').value;
-    const promesa = document.getElementById('fichaPromesa').value || null;
-    await crmActualizarCliente(cliente.id, { etapa_id: etapaId, promesa_fecha: promesa });
-    cliente.etapa_id = etapaId; cliente.promesa_fecha = promesa;
-    alert('Guardado.');
+
+  // Etapa y promesa se guardan solas al cambiarlas (como en el render, que
+  // no tiene botón "Guardar").
+  const avisarGuardado = (txt) => {
+    const ok = document.getElementById('fichaGuardadoOk');
+    if(ok){ ok.textContent = txt; setTimeout(()=>{ if(ok) ok.textContent = ''; }, 2500); }
+  };
+  document.getElementById('fichaEtapa').addEventListener('change', async (e)=>{
+    const etapaId = e.target.value || null;
+    try{
+      await crmActualizarCliente(cliente.id, { etapa_id: etapaId });
+      cliente.etapa_id = etapaId;
+      if(conversacionActual.clientes) conversacionActual.clientes.etapa_id = etapaId;
+      renderChatList();
+      avisarGuardado('✓ Etapa guardada');
+    }catch(err){ alert('No se pudo guardar la etapa.'); }
+  });
+  document.getElementById('fichaPromesa').addEventListener('change', async (e)=>{
+    const promesa = e.target.value || null;
+    try{
+      await crmActualizarCliente(cliente.id, { promesa_fecha: promesa });
+      cliente.promesa_fecha = promesa;
+      if(conversacionActual.clientes) conversacionActual.clientes.promesa_fecha = promesa;
+      renderChatList();
+      avisarGuardado('✓ Promesa guardada');
+    }catch(err){ alert('No se pudo guardar la promesa.'); }
+  });
+  document.getElementById('fichaVerCompleta').addEventListener('click', ()=>{
+    window.top.postMessage({type:'cm-ir-a-clientes', id: cliente.id}, '*');
   });
   document.getElementById('fichaConfirmarPago').addEventListener('click', async ()=>{
     const etapaCerrado = etapasCache.find(e => e.id === 'cerrado');
@@ -586,14 +726,22 @@ function renderFicha(){
     if(monto === null) return;
     await crmActualizarCliente(cliente.id, { etapa_id: etapaCerrado._rowId });
     await crmAddPago({ cliente_id: cliente.id, nombre: cliente.nombre, monto: parseFloat(monto)||0, fecha: new Date().toISOString().slice(0,10), estado: 'Cobrado', origen: 'whatsapp' });
-    alert('Pago confirmado, cliente movido a Cerrado (Cobrado).');
+    cliente.etapa_id = etapaCerrado._rowId;
+    if(conversacionActual.clientes) conversacionActual.clientes.etapa_id = etapaCerrado._rowId;
+    renderFicha(); renderChatList();
+    alert('Pago confirmado: cliente movido a Cerrado (Cobrado) y pago sumado en Sueldo & Cobros.');
   });
   document.getElementById('fichaRefinanciar').addEventListener('click', async ()=>{
     const etapaRef = etapasCache.find(e => e.id === 'refinanciado');
     if(!etapaRef){ alert('No se encontró la etapa "Refinanciado" en tu Kanban.'); return; }
     await crmActualizarCliente(cliente.id, { etapa_id: etapaRef._rowId });
-    alert('Cliente movido a Refinanciado.');
+    cliente.etapa_id = etapaRef._rowId;
+    if(conversacionActual.clientes) conversacionActual.clientes.etapa_id = etapaRef._rowId;
+    renderFicha(); renderChatList();
+    irAVista('view-refi');
   });
+  document.getElementById('fichaProxCredito').addEventListener('click', ()=> irAVista('view-calc'));
+  document.getElementById('fichaNota').addEventListener('click', agregarNotaInterna);
 }
 
 document.querySelectorAll('.wa-tabs button').forEach(btn=>{
@@ -606,6 +754,7 @@ document.querySelectorAll('.wa-tabs button').forEach(btn=>{
 });
 document.getElementById('buscarChat').addEventListener('input', renderChatList);
 document.getElementById('filtroEtapa').addEventListener('change', renderChatList);
+document.getElementById('btnPlantillas').addEventListener('click', ()=> irAVista('view-mensajes'));
 document.getElementById('btnNuevoChat').addEventListener('click', async ()=>{
   const tel = prompt('Número de WhatsApp (con código de área, ej: 11 4532-7781):');
   if(!tel) return;
@@ -618,9 +767,8 @@ document.getElementById('btnNuevoChat').addEventListener('click', async ()=>{
   }
 });
 
-/* ===== Tema (igual que el resto del panel) ===== */
-const THEME_KEY = 'cm_theme_v1';
-function applyTheme(theme){ document.documentElement.setAttribute('data-theme', theme==='light'?'light':'dark'); }
+/* ===== Tema (lo manda el panel principal) ===== */
+function applyTheme(theme){ document.documentElement.setAttribute('data-theme', theme==='dark'?'dark':'light'); }
 window.addEventListener('message', async e=>{
   if(e.data && e.data.type==='cm-theme') applyTheme(e.data.theme);
   if(e.data && e.data.type==='cm-abrir-chat-cliente' && e.data.clienteId){
@@ -643,18 +791,6 @@ async function abrirChatDeCliente(clienteId){
   abrirConversacion(conv.id);
 }
 
-/* ===== Estado de conexión de WhatsApp (wa_sesion) ===== */
-async function actualizarEstadoWa(){
-  const { data: { session } } = await window.sb.auth.getSession();
-  if(!session) return;
-  const { data } = await window.sb.from('wa_sesion').select('estado').eq('user_id', session.user.id).maybeSingle();
-  const estado = (data && data.estado) || 'desconectado';
-  const pill = document.getElementById('waEstado');
-  pill.className = 'wa-estado ' + estado;
-  document.getElementById('waEstadoTexto').textContent =
-    estado === 'conectado' ? 'WhatsApp conectado' : estado === 'conectando' ? 'Esperando QR...' : 'Sin conectar';
-}
-
 /* ===== Auth + carga inicial ===== */
 sb.auth.getSession().then(async ({ data: { session } }) => {
   if (!session) { location.href = 'index.html'; return; }
@@ -664,30 +800,23 @@ sb.auth.getSession().then(async ({ data: { session } }) => {
 sb.auth.onAuthStateChange((_event, session) => { if (!session) location.href = 'index.html'; });
 
 window.appReady.then(async ()=>{
-  const saved = await kvGet(THEME_KEY);
-  if (saved) applyTheme(saved);
-
   const { data: { session } } = await window.sb.auth.getSession();
   etapasCache = await crmListEtapas();
   const selEtapa = document.getElementById('filtroEtapa');
-  etapasCache.forEach(e => { selEtapa.innerHTML += `<option value="${e._rowId}">${escapeHtml(e.name)}</option>`; });
+  etapasCache.forEach(e => { selEtapa.innerHTML += `<option value="${e._rowId}">Etapa: ${escapeHtml(e.name)}</option>`; });
   plantillasCache = await crmListPlantillas();
   nombreUsuarioCache = await crmGetNombreUsuario();
   await cargarConversaciones();
   cargarResumenPrestamos();
-  await actualizarEstadoWa();
 
-  // Con cientos de chats (y más todavía mientras el worker importa el
-  // historial), la tabla conversaciones puede recibir una ráfaga de
-  // updates en pocos segundos. Sin este debounce, cada uno disparaba una
-  // recarga completa de la lista — eso es lo que hacía sentir el panel
-  // "colgado" al hacer clic en otro chat.
+  // Con cientos de chats la tabla conversaciones puede recibir una ráfaga
+  // de updates en pocos segundos — sin este debounce, cada uno disparaba
+  // una recarga completa de la lista.
   let pendienteRecarga = null;
   crmSuscribirConversaciones(session.user.id, () => {
     clearTimeout(pendienteRecarga);
     pendienteRecarga = setTimeout(cargarConversaciones, 1200);
   });
-  setInterval(actualizarEstadoWa, 15000);
   setInterval(cargarResumenPrestamos, 60000);
 });
 </script>
