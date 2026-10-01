@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Conexión WhatsApp — Cash Market</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase/config.js"></script>
 <script src="supabase/kv.js"></script>
@@ -11,113 +13,140 @@
 <script src="supabase/crm.js"></script>
 <script src="worker/src/reglas.js"></script>
 <style>
+  /* Paleta del plan (render 5.4): claro por defecto, oscuro opcional. */
   :root{
-    --bg:#0a0e14; --panel:#111826; --panel-2:#151d2e; --line:#212c40;
-    --text:#e7edf7; --muted:#8996ab; --accent:#3fd0c9; --accent-2:#5b8def;
-    --warn:#f0b866; --danger:#e8677c; --ok:#63d29a; --radius:10px;
-    --shadow:0 8px 24px rgba(0,0,0,.35);
+    --bg:#f8fafc; --panel:#ffffff; --panel-2:#f8fafc; --line:#e2e8f0; --line-2:#f1f5f9;
+    --text:#0f172a; --text-2:#334155; --muted:#64748b; --faint:#94a3b8;
+    --blue:#2563eb; --green:#16a34a; --red:#dc2626; --chip:#f1f5f9;
   }
-  :root[data-theme="light"]{
-    --bg:#f4f6f8; --panel:#ffffff; --panel-2:#eef1f4; --line:#dbe1e7;
-    --text:#1a2330; --muted:#5b6b7c; --accent:#0e9c87; --accent-2:#3b6fd1;
-    --warn:#c9822a; --danger:#d14f4f; --ok:#1fa855;
+  :root[data-theme="dark"]{
+    --bg:#0b1220; --panel:#0f172a; --panel-2:#111c33; --line:#1e293b; --line-2:#162036;
+    --text:#e2e8f0; --text-2:#cbd5e1; --muted:#94a3b8; --faint:#64748b;
+    --blue:#60a5fa; --green:#22c55e; --red:#f87171; --chip:#1e293b;
   }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}
-  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;min-height:100vh;}
-  header{padding:16px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);}
-  header h1{font-size:17px;margin:0;}
-  main{padding:20px 24px;display:grid;grid-template-columns:320px 1fr;gap:20px;align-items:start;}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px;}
-  .card h3{margin:0 0 12px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;}
-  .datos-row{display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px dashed var(--line);}
-  .datos-row:last-child{border-bottom:none;}
-  .datos-row .k{color:var(--muted);}
-  .estado-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:20px;background:var(--panel-2);border:1px solid var(--line);margin-bottom:10px;}
-  .estado-pill .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);}
-  .estado-pill.conectado .dot{background:var(--ok);}
-  .estado-pill.conectando .dot{background:var(--warn);}
-  .btn{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:8px 14px;font-size:12px;cursor:pointer;}
-  .btn:hover{border-color:var(--accent-2);}
-  .btn-danger{color:var(--danger);}
-  .btn-primary{background:var(--accent);border:none;color:#04121a;font-weight:700;}
-  .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
-  #qrBox{display:flex;justify-content:center;padding:16px;background:#fff;border-radius:8px;}
-  #qrBox canvas{display:block;}
-  .qr-steps{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.6;}
+  body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:13px;min-height:100vh;-webkit-font-smoothing:antialiased;}
+  button{font-family:inherit;cursor:pointer;}
+  header{padding:14px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line);background:var(--panel);}
+  .head-izq{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;}
+  header h1{font-size:19px;font-weight:800;margin:0;letter-spacing:-.01em;}
+  .header-sub{font-size:13px;color:var(--muted);}
+  main{padding:18px 22px;display:grid;grid-template-columns:400px minmax(0,1fr);gap:16px;align-items:start;}
+  .col{display:flex;flex-direction:column;gap:16px;min-width:0;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;}
+  .card-titulo{font-size:15px;font-weight:700;margin:0;display:flex;align-items:center;gap:8px;}
+  .card-sub{font-size:13px;color:var(--muted);margin:3px 0 14px;line-height:1.4;}
+  .dot-estado{width:12px;height:12px;border-radius:50%;background:var(--faint);box-shadow:0 0 0 3px #94a3b833;flex-shrink:0;}
+  .dot-estado.conectado{background:#16a34a;box-shadow:0 0 0 3px #16a34a33;}
+  .dot-estado.conectando{background:#f59e0b;box-shadow:0 0 0 3px #f59e0b33;}
+  .dot-estado.desconectado{background:#ef4444;box-shadow:0 0 0 3px #ef444433;}
+  .datos-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;}
+  .dato .k{font-size:12.5px;color:var(--muted);}
+  .dato .v{font-size:14px;font-weight:700;margin-top:1px;}
+  .dato .v.verde{color:var(--green);} .dato .v.rojo{color:var(--red);}
+  .btn{background:var(--panel);border:1px solid var(--line);color:var(--text-2);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;white-space:nowrap;}
+  .btn:hover{border-color:var(--faint);}
+  .btn-rojo{color:var(--red);border-color:#fecaca;}
+  .btn-azul{background:var(--blue);border-color:var(--blue);color:#fff;}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+  .qr-wrap{display:flex;gap:16px;align-items:center;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px;}
+  .qr-img{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px;flex-shrink:0;}
+  .qr-img img{display:block;width:170px;height:170px;}
+  .qr-steps{font-size:13px;color:var(--text-2);line-height:1.7;}
+  .qr-steps b{display:block;color:var(--text);}
+  .qr-aviso{display:inline-block;margin-top:6px;background:#fef3c7;color:#b45309;font-size:12px;font-weight:600;border-radius:6px;padding:2px 8px;}
+  .vacio{color:var(--muted);font-size:13px;line-height:1.5;background:var(--panel-2);border:1px dashed var(--line);border-radius:10px;padding:14px;}
 
+  .reglas-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
   table{width:100%;border-collapse:collapse;}
-  th{text-align:left;font-size:11px;color:var(--muted);text-transform:uppercase;padding:8px;border-bottom:1px solid var(--line);}
-  td{padding:8px;border-bottom:1px solid var(--line);font-size:12.5px;vertical-align:top;}
-  .badge{font-size:10px;padding:2px 7px;border-radius:5px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);}
-  .toggle{width:34px;height:18px;border-radius:10px;background:var(--line);position:relative;cursor:pointer;display:inline-block;flex-shrink:0;}
-  .toggle.on{background:var(--accent);}
-  .toggle::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s;}
-  .toggle.on::after{left:18px;}
-  .icon-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 4px;}
+  th{text-align:left;font-size:12.5px;font-weight:500;color:var(--muted);padding:9px 10px;background:var(--panel-2);border-bottom:1px solid var(--line);}
+  td{padding:10px;border-bottom:1px solid var(--line-2);font-size:13.5px;vertical-align:middle;}
+  td.num{color:var(--faint);width:28px;}
+  .tag{font-size:12px;font-weight:600;padding:3px 8px;border-radius:5px;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;}
+  .tag.rojo{background:#fee2e2;color:#b91c1c;} .tag.violeta{background:#ede9fe;color:#6d28d9;} .tag.ambar{background:#fef3c7;color:#b45309;}
+  .tag.cian{background:#cffafe;color:#0e7490;} .tag.gris{background:#f1f5f9;color:#475569;} .tag.azul{background:#dbeafe;color:#1d4ed8;}
+  .chips{display:flex;flex-wrap:wrap;gap:4px;}
+  .chip{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;background:var(--chip);color:var(--text-2);border-radius:4px;padding:1px 6px;white-space:nowrap;}
+  .toggle{width:38px;height:22px;border-radius:11px;background:#cbd5e1;position:relative;cursor:pointer;display:inline-block;flex-shrink:0;transition:background .15s;}
+  .toggle.on{background:#16a34a;}
+  .toggle::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.2);}
+  .toggle.on::after{left:19px;}
+  .icon-btn{background:none;border:none;color:var(--faint);font-size:14px;padding:2px 3px;}
   .icon-btn:hover{color:var(--text);}
+  .acciones-celda{white-space:nowrap;}
 
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .field{margin-bottom:10px;}
-  .field label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;}
-  .field input, .field select, .field textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:7px 9px;font-size:12.5px;}
-  .field textarea{resize:vertical;}
-  .check-row{display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:8px;}
+  .probador{border:1.5px dashed var(--line);border-radius:10px;padding:14px;margin-top:16px;background:var(--panel-2);}
+  .probador-titulo{font-size:14px;font-weight:700;margin-bottom:10px;}
+  .probador-row{display:flex;gap:8px;}
+  .probador-row input{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:14px;color:var(--text);font-family:inherit;outline:none;}
+  .probador-row input:focus{border-color:var(--blue);}
+  #probadorResultado{margin-top:10px;font-size:13.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:22px;}
+  .limites-titulo{font-size:14px;font-weight:700;margin:18px 0 10px;}
+  .limites-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+  .campo label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:5px;}
+  .campo .inputs{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;}
+  .campo input{background:none;border:none;outline:none;color:var(--text);font-size:14px;font-weight:700;font-family:inherit;width:100%;min-width:0;}
+  .campo span{color:var(--muted);font-size:13px;white-space:nowrap;}
 
-  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;z-index:50;}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);align-items:center;justify-content:center;z-index:50;}
   .modal-overlay.open{display:flex;}
-  .modal{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;width:420px;max-height:85vh;overflow-y:auto;}
-  .modal h2{margin:0 0 14px;font-size:15px;}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;width:440px;max-height:85vh;overflow-y:auto;}
+  .modal h2{margin:0 0 14px;font-size:16px;}
   .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
-
-  #probadorResultado{margin-top:10px;font-size:12.5px;padding:10px;background:var(--panel-2);border-radius:7px;border:1px solid var(--line);min-height:20px;}
-  .empty-state{color:var(--muted);font-size:12.5px;padding:16px;text-align:center;}
+  .field{margin-bottom:10px;}
+  .field label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px;}
+  .field input, .field select, .field textarea{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;}
+  .check-row{display:flex;align-items:center;gap:7px;font-size:13px;margin-bottom:8px;}
+  .empty-state{color:var(--muted);font-size:13px;padding:16px;text-align:center;}
+  @media (max-width:1150px){ main{grid-template-columns:1fr;} .limites-grid{grid-template-columns:1fr;} }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>⚙️ Conexión WhatsApp</h1>
+  <div class="head-izq">
+    <h1>⚙️ Conexión WhatsApp</h1>
+    <span class="header-sub">Sesión, reglas de clasificación y límites de envío</span>
+  </div>
   <button class="btn" id="btnRefrescar">↻ Refrescar</button>
 </header>
 
 <main>
-  <div>
+  <div class="col">
     <div class="card" id="cardEstado"></div>
     <div class="card" id="cardQr"></div>
-    <div class="card">
-      <h3>Límites anti-bloqueo</h3>
-      <div class="field"><label>Máx. mensajes por día</label><input type="number" id="limDiario"></div>
-      <div class="grid2">
-        <div class="field"><label>Intervalo mínimo (seg)</label><input type="number" id="limIntMin"></div>
-        <div class="field"><label>Intervalo máximo (seg)</label><input type="number" id="limIntMax"></div>
-      </div>
-      <div class="grid2">
-        <div class="field"><label>Horario desde</label><input type="time" id="limHorarioDesde"></div>
-        <div class="field"><label>Horario hasta</label><input type="time" id="limHorarioHasta"></div>
-      </div>
-      <button class="btn btn-primary" id="btnGuardarLimites" style="width:100%;">Guardar límites</button>
-    </div>
   </div>
 
-  <div>
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <h3 style="margin:0;">Reglas de clasificación automática</h3>
-        <button class="btn btn-primary" id="btnNuevaRegla">+ Nueva regla</button>
+  <div class="card">
+    <div class="reglas-head">
+      <div>
+        <h3 class="card-titulo">🤖 Reglas de clasificación automática</h3>
+        <div class="card-sub">Se evalúan en orden de prioridad sobre cada mensaje entrante. Gana la primera que coincide. Mover a mano siempre tiene prioridad.</div>
       </div>
-      <table>
-        <thead><tr><th>#</th><th>Regla</th><th>Se activa con</th><th>Acción</th><th>Activa</th><th></th></tr></thead>
-        <tbody id="tablaReglas"></tbody>
-      </table>
+      <button class="btn btn-azul" id="btnNuevaRegla">+ Nueva regla</button>
     </div>
+    <table>
+      <thead><tr><th>#</th><th>Resultado</th><th>Si el mensaje contiene...</th><th>Acción</th><th>Activa</th><th></th></tr></thead>
+      <tbody id="tablaReglas"></tbody>
+    </table>
 
-    <div class="card">
-      <h3>Probar reglas</h3>
-      <textarea id="probadorTexto" rows="2" placeholder="Escribí un mensaje de ejemplo..." style="width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:8px;"></textarea>
-      <div class="btn-row"><button class="btn btn-primary" id="btnProbar">Probar</button></div>
+    <div class="probador">
+      <div class="probador-titulo">🧪 Probar reglas</div>
+      <div class="probador-row">
+        <input type="text" id="probadorTexto" placeholder="Escribí un mensaje de ejemplo, ej: el viernes cuando cobro te pago la cuota">
+        <button class="btn" id="btnProbar">Probar</button>
+      </div>
       <div id="probadorResultado"></div>
     </div>
+
+    <div class="limites-titulo">🛡️ Límites anti-bloqueo (envíos)</div>
+    <div class="limites-grid">
+      <div class="campo"><label>Máx. mensajes por día</label><div class="inputs"><input type="number" id="limDiario" min="1"></div></div>
+      <div class="campo"><label>Intervalo entre envíos</label><div class="inputs"><input type="number" id="limIntMin" min="1"><span>–</span><input type="number" id="limIntMax" min="1"><span>seg (aleatorio)</span></div></div>
+      <div class="campo"><label>Horario de envío</label><div class="inputs"><input type="time" id="limHorarioDesde"><span>–</span><input type="time" id="limHorarioHasta"></div></div>
+    </div>
+    <div class="btn-row"><button class="btn btn-azul" id="btnGuardarLimites">Guardar límites</button><span id="limitesOk" style="color:var(--green);font-weight:600;align-self:center;"></span></div>
   </div>
 </main>
 
@@ -127,8 +156,8 @@
     <h2 id="reglaModalTitulo">Nueva regla</h2>
     <div class="field"><label>Nombre</label><input type="text" id="rNombre"></div>
     <div class="field"><label>Palabras clave (separadas por coma, vacío = cualquier mensaje)</label><textarea id="rPalabras" rows="2"></textarea></div>
-    <div class="field"><label>Solo si trae adjunto</label>
-      <select id="rTipoAdjunto"><option value="">No filtra por adjunto</option><option value="imagen_o_pdf">Imagen o PDF</option></select>
+    <div class="field"><label>Adjunto</label>
+      <select id="rTipoAdjunto"><option value="">No filtra por adjunto</option><option value="imagen_o_pdf">Imagen o PDF recibido</option></select>
     </div>
     <div class="field"><label>Mover tarjeta a la etapa</label>
       <select id="rMueveA"><option value="">No mueve</option></select>
@@ -140,7 +169,7 @@
     <div class="check-row"><input type="checkbox" id="rActiva" checked><label for="rActiva">Regla activa</label></div>
     <div class="modal-actions">
       <button class="btn" id="btnCancelarRegla">Cancelar</button>
-      <button class="btn btn-primary" id="btnGuardarRegla">Guardar</button>
+      <button class="btn btn-azul" id="btnGuardarRegla">Guardar</button>
     </div>
   </div>
 </div>
@@ -150,24 +179,39 @@ let sesion = null;
 let reglasCache = [];
 let etapasCache = [];
 let editandoReglaId = null;
+let recibidosHoy = null;
 
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function haceCuanto(iso){
+  const seg = Math.max(0, Math.round((Date.now() - new Date(iso).getTime())/1000));
+  if(seg < 60) return `hace ${seg} seg`;
+  if(seg < 3600) return `hace ${Math.round(seg/60)} min`;
+  return `hace ${Math.round(seg/3600)} h`;
+}
+function fmtNumero(num){
+  const n = String(num||'');
+  return (window.formatearTelefonoAR && window.formatearTelefonoAR(n)) || ('+' + n);
+}
 
+/* ===== Sesión ===== */
 function renderEstado(){
   const el = document.getElementById('cardEstado');
   const e = (sesion && sesion.estado) || 'desconectado';
+  const latidoViejo = sesion && sesion.ultimo_latido && (Date.now() - new Date(sesion.ultimo_latido).getTime()) > 120000;
   el.innerHTML = `
-    <h3>Número conectado</h3>
-    <div class="estado-pill ${e}"><span class="dot"></span>${e === 'conectado' ? 'Conectado' : e === 'conectando' ? 'Conectando...' : 'Sin conectar'}</div>
-    ${sesion && sesion.numero ? `
-    <div class="datos-row"><span class="k">Número</span><span>+${escapeHtml(sesion.numero)}</span></div>
-    <div class="datos-row"><span class="k">Nombre en WhatsApp</span><span>${escapeHtml(sesion.nombre_whatsapp||'—')}</span></div>
-    <div class="datos-row"><span class="k">Conectado desde</span><span>${sesion.conectado_desde ? new Date(sesion.conectado_desde).toLocaleString('es-AR') : '—'}</span></div>` : ''}
-    <div class="datos-row"><span class="k">Último latido</span><span>${sesion && sesion.ultimo_latido ? haceCuanto(sesion.ultimo_latido) : 'El worker nunca se conectó'}</span></div>
-    <div class="datos-row"><span class="k">Enviados hoy</span><span>${sesion ? (sesion.enviados_hoy||0) + ' / ' + (sesion.limite_diario||250) : '—'}</span></div>
+    <h3 class="card-titulo"><span class="dot-estado ${e}"></span>${e === 'conectado' ? 'Número conectado' : e === 'conectando' ? 'Esperando que escanees el QR' : 'WhatsApp sin conectar'}</h3>
+    <div class="card-sub">El worker mantiene la sesión abierta las 24 h</div>
+    <div class="datos-grid">
+      <div class="dato"><div class="k">Número</div><div class="v">${sesion && sesion.numero ? escapeHtml(fmtNumero(sesion.numero)) : '—'}</div></div>
+      <div class="dato"><div class="k">Nombre en WhatsApp</div><div class="v">${escapeHtml(sesion && sesion.nombre_whatsapp || '—')}</div></div>
+      <div class="dato"><div class="k">Conectado desde</div><div class="v">${sesion && sesion.conectado_desde ? new Date(sesion.conectado_desde).toLocaleString('es-AR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false }) : '—'}</div></div>
+      <div class="dato"><div class="k">Último latido</div><div class="v ${sesion && sesion.ultimo_latido ? (latidoViejo ? 'rojo' : 'verde') : ''}">${sesion && sesion.ultimo_latido ? haceCuanto(sesion.ultimo_latido) : 'nunca'}</div></div>
+      <div class="dato"><div class="k">Recibidos hoy</div><div class="v">${recibidosHoy == null ? '—' : recibidosHoy}</div></div>
+      <div class="dato"><div class="k">Enviados hoy</div><div class="v">${sesion ? (sesion.enviados_hoy||0) + ' / ' + (sesion.limite_diario||250) : '—'}</div></div>
+    </div>
     <div class="btn-row">
-      <button class="btn" id="btnReiniciar">Reiniciar sesión</button>
-      <button class="btn btn-danger" id="btnDesvincular">Desvincular</button>
+      <button class="btn" id="btnReiniciar">🔄 Reiniciar sesión</button>
+      <button class="btn btn-rojo" id="btnDesvincular">⏏️ Desvincular</button>
     </div>`;
   document.getElementById('btnReiniciar').addEventListener('click', async ()=>{
     if(!confirm('¿Reiniciar la conexión? El worker corta y vuelve a conectar solo.')) return;
@@ -181,32 +225,39 @@ function renderEstado(){
   });
 }
 
-function haceCuanto(iso){
-  const seg = Math.round((Date.now() - new Date(iso).getTime())/1000);
-  if(seg < 60) return `hace ${seg} seg`;
-  if(seg < 3600) return `hace ${Math.round(seg/60)} min`;
-  return `hace ${Math.round(seg/3600)} h`;
-}
-
 function renderQr(){
   const el = document.getElementById('cardQr');
   const tieneQr = sesion && sesion.estado !== 'conectado' && sesion.qr;
+  const cabecera = `<h3 class="card-titulo">📱 Vincular un número nuevo</h3><div class="card-sub">Se muestra solo cuando no hay sesión activa</div>`;
   if(!tieneQr){
-    el.innerHTML = `<h3>Vincular un número nuevo</h3><div class="empty-state">${sesion && sesion.estado === 'conectado' ? 'Ya hay un número conectado. Desvinculalo para mostrar un QR nuevo.' : 'Esperando que el worker genere un QR... arrancalo con <code>npm start</code> en la carpeta worker/.'}</div>`;
+    el.innerHTML = cabecera + `<div class="vacio">${sesion && sesion.estado === 'conectado' ? 'Ya hay un número conectado. Si lo desvinculás, acá aparece el QR para vincular otro.' : 'Esperando que el worker genere un QR... arrancalo con <code>npm.cmd start</code> en la carpeta worker.'}</div>`;
     return;
   }
-  // El worker manda el QR ya dibujado como imagen (data URL de PNG), no el
-  // texto crudo: el panel solo lo muestra, no depende de ninguna librería
-  // externa para dibujarlo (algunas redes bloquean los CDN de JS).
-  el.innerHTML = `<h3>Vincular un número nuevo</h3>
-    <div id="qrBox">${sesion.qr.startsWith('data:image') ? `<img src="${sesion.qr}" width="220" height="220" alt="Código QR">` : '<div style="color:#d14f4f;font-size:12px;padding:10px;">Este QR es de una versión vieja del worker — actualizalo (git pull + npm install) y reiniciá.</div>'}</div>
-    <div class="qr-steps">En el celular de la empresa:<br>1. Abrí WhatsApp<br>2. Menú → Dispositivos vinculados<br>3. Vincular un dispositivo<br>4. Escaneá este código</div>`;
+  // El worker manda el QR ya dibujado como imagen (data URL de PNG): el
+  // panel solo lo muestra, sin depender de librerías externas.
+  el.innerHTML = cabecera + `
+    <div class="qr-wrap">
+      <div class="qr-img">${sesion.qr.startsWith('data:image') ? `<img src="${sesion.qr}" alt="Código QR">` : '<div style="color:#dc2626;font-size:12px;padding:10px;width:170px;">Este QR es de una versión vieja del worker — actualizalo y reiniciá.</div>'}</div>
+      <div class="qr-steps"><b>En el celular de la empresa:</b>1. Abrí WhatsApp<br>2. ⋮ Menú › Dispositivos vinculados<br>3. Vincular un dispositivo<br>4. Escaneá este código<br><span class="qr-aviso">⏱️ El QR se renueva solo cada ~20 s</span></div>
+    </div>`;
+}
+
+async function contarRecibidosHoy(){
+  try{
+    const { data: { session } } = await window.sb.auth.getSession();
+    const desde = new Date(); desde.setHours(0,0,0,0);
+    const { count } = await window.sb.from('mensajes')
+      .select('id, conversaciones!inner(user_id)', { count:'exact', head:true })
+      .eq('conversaciones.user_id', session.user.id).eq('direccion', 'entrante').gte('creado_at', desde.toISOString());
+    recibidosHoy = count ?? null;
+  }catch(e){ recibidosHoy = null; }
 }
 
 async function cargarEstado(){
   sesion = await crmGetWaSesion();
+  await contarRecibidosHoy();
   renderEstado();
-  if(sesion){
+  if(sesion && !document.activeElement.closest('.limites-grid')){
     document.getElementById('limDiario').value = sesion.limite_diario || 250;
     document.getElementById('limIntMin').value = sesion.intervalo_min || 25;
     document.getElementById('limIntMax').value = sesion.intervalo_max || 60;
@@ -224,29 +275,51 @@ document.getElementById('btnGuardarLimites').addEventListener('click', async ()=
     horario_desde: document.getElementById('limHorarioDesde').value || '09:00',
     horario_hasta: document.getElementById('limHorarioHasta').value || '20:00',
   });
-  alert('Límites guardados.');
+  const ok = document.getElementById('limitesOk');
+  ok.textContent = '✓ Límites guardados';
+  setTimeout(()=> ok.textContent = '', 2500);
 });
 
 /* ===== Reglas ===== */
-function resumenCondicion(r){
-  const partes = [];
-  if(r.tipo_adjunto) partes.push('trae imagen/PDF');
-  if(r.palabras && r.palabras.length) partes.push('"' + r.palabras.slice(0,3).join('", "') + (r.palabras.length>3?'"...':'"'));
-  return partes.length ? partes.join(' + ') : 'cualquier mensaje';
+// Color y emoji de la etiqueta "Resultado", como en el render.
+function estiloRegla(r){
+  const n = String(r.nombre || '').toLowerCase();
+  if(/reclamo|riesgo/.test(n)) return ['rojo','⚠️'];
+  if(/comprobante/.test(n)) return ['violeta','📎'];
+  if(/promesa/.test(n)) return ['ambar','🤝'];
+  if(/refinanc/.test(n)) return ['cian','🔁'];
+  if(/consulta|saldo/.test(n)) return ['gris','❓'];
+  if(/respond/.test(n)) return ['azul','💬'];
+  if(/horario/.test(n)) return ['ambar','👋'];
+  return ['gris','🏷️'];
 }
-function resumenAccion(r){
+function tagRegla(r){
+  const [cls, emoji] = estiloRegla(r);
+  return `<span class="tag ${cls}">${emoji} ${escapeHtml(r.nombre)}</span>`;
+}
+function chipsCondicion(r){
   const a = r.accion || {};
-  const partes = [];
-  if(a.mueve_a) partes.push('Mover a ' + nombreEtapaClave(a.mueve_a));
-  if(a.etiqueta) partes.push('Etiqueta "' + a.etiqueta + '"');
-  if(a.avisa_admin) partes.push('Avisa admin');
-  if(a.detecta_fecha) partes.push('Detecta fecha');
-  if(a.crea_recordatorio) partes.push('+ recordatorio');
-  return partes.join(' · ') || '—';
+  const chips = [];
+  if(r.tipo_adjunto) chips.push('[imagen]', '[pdf]');
+  (r.palabras || []).forEach(p => chips.push(p));
+  if(!chips.length) chips.push(a.horario_desde ? `(fuera de ${a.horario_desde.slice(0,2).replace(/^0/,'')} a ${String(a.horario_hasta||'').slice(0,2).replace(/^0/,'')} h)` : '(cualquier mensaje)');
+  return `<div class="chips">${chips.map(c => `<span class="chip">${escapeHtml(c)}</span>`).join('')}</div>`;
 }
 function nombreEtapaClave(clave){
   const e = etapasCache.find(x => x.id === clave);
   return e ? e.name : clave;
+}
+function textoAccion(r){
+  const a = r.accion || {};
+  const partes = [];
+  if(a.mueve_a && a.mueve_de) partes.push(`${escapeHtml(nombreEtapaClave(a.mueve_de))} → ${escapeHtml(nombreEtapaClave(a.mueve_a))}`);
+  else if(a.mueve_a) partes.push(`Mover a ${escapeHtml(nombreEtapaClave(a.mueve_a))}${a.detecta_fecha ? ' + detectar fecha' : ''}`);
+  if(a.etiqueta){ const [, emoji] = estiloRegla({ nombre: a.etiqueta }); partes.push(`Etiqueta ${emoji} ${escapeHtml(a.etiqueta)}`); }
+  if(a.avisa_admin) partes.push('avisa al admin');
+  if(a.sugiere_plantilla) partes.push(`sugiere ${escapeHtml(a.sugiere_plantilla)}`);
+  if(a.respuesta_automatica) partes.push('Respuesta automática de horario');
+  if(a.crea_recordatorio && !a.mueve_a) partes.push('crea recordatorio');
+  return partes.join(' · ') || '—';
 }
 
 function renderReglas(){
@@ -254,12 +327,12 @@ function renderReglas(){
   if(!reglasCache.length){ tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Sin reglas todavía.</td></tr>`; return; }
   tbody.innerHTML = reglasCache.map((r,i) => `
     <tr>
-      <td>${i+1}</td>
-      <td><b>${escapeHtml(r.nombre)}</b></td>
-      <td>${escapeHtml(resumenCondicion(r))}</td>
-      <td>${escapeHtml(resumenAccion(r))}</td>
-      <td><span class="toggle ${r.activa?'on':''}" data-id="${r.id}"></span></td>
-      <td><button class="icon-btn" data-editar="${r.id}">✎</button> <button class="icon-btn" data-borrar="${r.id}">🗑️</button></td>
+      <td class="num">${i+1}</td>
+      <td>${tagRegla(r)}</td>
+      <td>${chipsCondicion(r)}</td>
+      <td>${textoAccion(r)}</td>
+      <td><span class="toggle ${r.activa?'on':''}" data-id="${r.id}" title="${r.activa ? 'Desactivar' : 'Activar'}"></span></td>
+      <td class="acciones-celda"><button class="icon-btn" data-editar="${r.id}" title="Editar">✎</button><button class="icon-btn" data-borrar="${r.id}" title="Eliminar">🗑️</button></td>
     </tr>`).join('');
   tbody.querySelectorAll('.toggle').forEach(t => t.addEventListener('click', async ()=>{
     const r = reglasCache.find(x=>x.id===t.dataset.id);
@@ -307,7 +380,11 @@ document.getElementById('btnGuardarRegla').addEventListener('click', async ()=>{
   const nombre = document.getElementById('rNombre').value.trim();
   if(!nombre){ alert('Ponele un nombre a la regla.'); return; }
   const palabras = document.getElementById('rPalabras').value.split(',').map(s=>s.trim()).filter(Boolean);
-  const accion = {};
+  // Se parte de la acción que ya tenía la regla, para no perder campos que
+  // este formulario no muestra (mueve_de, sugiere_plantilla, horarios...).
+  const previa = editandoReglaId ? ((reglasCache.find(r=>r.id===editandoReglaId)||{}).accion || {}) : {};
+  const accion = { ...previa };
+  ['mueve_a','etiqueta','detecta_fecha','crea_recordatorio','avisa_admin'].forEach(k => delete accion[k]);
   if(document.getElementById('rMueveA').value) accion.mueve_a = document.getElementById('rMueveA').value;
   if(document.getElementById('rEtiqueta').value.trim()) accion.etiqueta = document.getElementById('rEtiqueta').value.trim();
   if(document.getElementById('rDetectaFecha').checked) accion.detecta_fecha = true;
@@ -326,19 +403,29 @@ document.getElementById('btnGuardarRegla').addEventListener('click', async ()=>{
   await cargarReglas();
 });
 
-document.getElementById('btnProbar').addEventListener('click', ()=>{
+const DIAS_CORTOS = ['dom','lun','mar','mié','jue','vie','sáb'];
+function probar(){
   const texto = document.getElementById('probadorTexto').value;
-  const resultado = window.clasificarMensaje(reglasCache, { texto, tieneAdjunto: false, tipoAdjunto: null, etapaActualClave: 'a_contactar' });
   const el = document.getElementById('probadorResultado');
-  if(!resultado){ el.textContent = 'Ninguna regla coincide con este mensaje.'; return; }
-  el.innerHTML = `Resultado: <b>${escapeHtml(resultado.regla.nombre)}</b>${resultado.fechaDetectada ? ' · fecha detectada: <b>' + resultado.fechaDetectada + '</b>' : ''} · coincidió con: ${escapeHtml((resultado.regla.palabras||[]).filter(p => window.normalizar(texto).includes(window.normalizar(p))).join(', ') || '(sin palabras clave)')}`;
-});
+  if(!texto.trim()){ el.innerHTML = ''; return; }
+  const resultado = window.clasificarMensaje(reglasCache, { texto, tieneAdjunto: false, tipoAdjunto: null, etapaActualClave: 'a_contactar' });
+  if(!resultado){ el.innerHTML = 'Resultado: <b>ninguna regla coincide</b> — el chat solo queda como no leído.'; return; }
+  const coincidio = (resultado.regla.palabras||[]).filter(p => window.normalizar(texto).includes(window.normalizar(p)));
+  let fecha = '';
+  if(resultado.fechaDetectada){
+    const [y,m,d] = resultado.fechaDetectada.split('-');
+    fecha = ` · fecha detectada <b>${DIAS_CORTOS[new Date(resultado.fechaDetectada + 'T00:00:00').getDay()]} ${d}/${m}/${y}</b>`;
+  }
+  el.innerHTML = `Resultado: ${tagRegla(resultado.regla)}${fecha}${coincidio.length ? ' · coincidió con ' + coincidio.map(c => `<span class="chip">${escapeHtml(c)}</span>`).join(' ') : ''}`;
+}
+document.getElementById('btnProbar').addEventListener('click', probar);
+document.getElementById('probadorTexto').addEventListener('keydown', e => { if(e.key === 'Enter') probar(); });
 
 document.getElementById('btnRefrescar').addEventListener('click', cargarEstado);
 
-/* ===== Tema ===== */
-const THEME_KEY = 'cm_theme_v1';
-function applyTheme(theme){ document.documentElement.setAttribute('data-theme', theme==='light'?'light':'dark'); }
+/* ===== Tema (lo manda el panel principal) ===== */
+const THEME_KEY = 'cm_theme_v2';
+function applyTheme(theme){ document.documentElement.setAttribute('data-theme', theme==='dark'?'dark':'light'); }
 window.addEventListener('message', e=>{ if(e.data && e.data.type==='cm-theme') applyTheme(e.data.theme); });
 
 /* ===== Auth + carga inicial ===== */
