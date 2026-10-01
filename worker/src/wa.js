@@ -25,11 +25,26 @@ const { clasificarMensaje } = require('./reglas');
 const AUTH_DIR = path.join(__dirname, '..', 'auth');
 const logger = pino({ level: process.env.LOG_LEVEL || 'warn' });
 
-function jidATelefono(jid) {
-  // "5491145327781@s.whatsapp.net" -> "5491145327781". Los jid de grupo
-  // (@g.us) se descartan: este worker es 1 a 1 con clientes, no atiende grupos.
-  if (!jid || jid.endsWith('@g.us')) return null;
-  return normalizarTelefonoAR(jid.split('@')[0]);
+// "5491145327781@s.whatsapp.net" -> "5491145327781". Los jid de grupo
+// (@g.us) se descartan: este worker es 1 a 1 con clientes, no atiende
+// grupos.
+//
+// WhatsApp viene migrando las cuentas a un identificador nuevo que no trae
+// el número de teléfono ("Linked ID", jid terminado en "@lid") — ahí el
+// propio jid no sirve para nada, pero Baileys manda el jid "de toda la
+// vida" (el que sí tiene el número) en un campo aparte cuando lo conoce.
+// jidAlt es ese campo (remoteJidAlt del mensaje, o lid/id del chat según
+// de dónde venga).
+function jidATelefono(jid, jidAlt) {
+  if (jid && jid.endsWith('@g.us')) return null;
+  if (jid && !jid.endsWith('@lid')) {
+    const tel = normalizarTelefonoAR(jid.split('@')[0]);
+    if (tel) return tel;
+  }
+  if (jidAlt && !jidAlt.endsWith('@g.us')) {
+    return normalizarTelefonoAR(jidAlt.split('@')[0]);
+  }
+  return null;
 }
 
 function tipoDeMensaje(msg) {
@@ -134,9 +149,9 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
   const { descargarAdjuntos = true, aplicarAutomatizacion = true, silencioso = false } = opciones;
   const direccion = msg.key.fromMe ? 'saliente' : 'entrante';
 
-  const telefono = jidATelefono(msg.key.remoteJid);
+  const telefono = jidATelefono(msg.key.remoteJid, msg.key.remoteJidAlt);
   if (!telefono) {
-    if (!silencioso) logger.warn({ remoteJid: msg.key.remoteJid }, 'No se pudo sacar un teléfono válido de este remitente — se descarta');
+    if (!silencioso) logger.warn({ key: msg.key }, 'No se pudo sacar un teléfono válido de este remitente — se descarta');
     return;
   }
 
@@ -206,11 +221,13 @@ async function sincronizarHistorial(sock, supabase, userId, config, { chats, mes
       logger.error({ err: e }, 'Error importando un mensaje del historial');
     }
   }
+  // Se matchea por jid (tal cual lo manda WhatsApp, @lid incluido) y no por
+  // teléfono: así no depende de poder resolver el número para este paso,
+  // que solo corrige el contador de no leídos.
   for (const chat of chats || []) {
-    const telefono = jidATelefono(chat.id);
-    if (!telefono) continue;
-    await supabase.from('conversaciones').update({ no_leidos: chat.unreadCount || 0 })
-      .eq('user_id', userId).eq('telefono', telefono);
+    if (!chat.id || chat.id.endsWith('@g.us') || !chat.unreadCount) continue;
+    await supabase.from('conversaciones').update({ no_leidos: chat.unreadCount })
+      .eq('user_id', userId).eq('jid', chat.id);
   }
   logger.info({ guardados }, 'Historial de WhatsApp importado.');
 }
