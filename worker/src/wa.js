@@ -63,18 +63,27 @@ function textoDeMensaje(msg) {
     || '';
 }
 
-async function obtenerOCrearConversacion(supabase, userId, telefono, jid) {
+// jid es la clave real (sirve tanto para 1 a 1 como para grupos, que no
+// tienen teléfono). telefono va null para grupos. nombreGrupo solo se usa
+// la primera vez que se crea la conversación de un grupo.
+async function obtenerOCrearConversacion(supabase, userId, telefono, jid, nombreGrupo) {
   const { data: existente } = await supabase
-    .from('conversaciones').select('*').eq('user_id', userId).eq('telefono', telefono).maybeSingle();
+    .from('conversaciones').select('*').eq('user_id', userId).eq('jid', jid).maybeSingle();
   if (existente) return existente;
 
-  const { data: tel } = await supabase
-    .from('clientes_telefonos').select('cliente_id, clientes!inner(user_id)').eq('telefono', telefono).maybeSingle();
-  const clienteId = (tel && tel.clientes && tel.clientes.user_id === userId) ? tel.cliente_id : null;
+  let clienteId = null;
+  if (telefono) {
+    const { data: tel } = await supabase
+      .from('clientes_telefonos').select('cliente_id, clientes!inner(user_id)').eq('telefono', telefono).maybeSingle();
+    clienteId = (tel && tel.clientes && tel.clientes.user_id === userId) ? tel.cliente_id : null;
+  }
 
   const { data: nueva, error } = await supabase
     .from('conversaciones')
-    .insert({ user_id: userId, jid, telefono, cliente_id: clienteId, no_leidos: 0 })
+    .insert({
+      user_id: userId, jid, telefono, cliente_id: clienteId, no_leidos: 0,
+      es_grupo: jid.endsWith('@g.us'), nombre: nombreGrupo || null,
+    })
     .select('*').single();
   if (error) throw error;
   return nueva;
@@ -146,13 +155,20 @@ function previewTexto(texto, tipo) {
 // sentido que las reglas muevan tarjetas del Kanban por mensajes de hace
 // semanas que ya se gestionaron a mano.
 async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}) {
-  const { descargarAdjuntos = true, aplicarAutomatizacion = true, silencioso = false } = opciones;
+  const { descargarAdjuntos = true, aplicarAutomatizacion = true, silencioso = false, nombreGrupo = null } = opciones;
   const direccion = msg.key.fromMe ? 'saliente' : 'entrante';
+  const jid = msg.key.remoteJid;
+  const esGrupo = !!jid && jid.endsWith('@g.us');
 
-  const telefono = jidATelefono(msg.key.remoteJid, msg.key.remoteJidAlt);
-  if (!telefono) {
-    if (!silencioso) logger.warn({ key: msg.key }, 'No se pudo sacar un teléfono válido de este remitente — se descarta');
-    return;
+  let telefono = null;
+  if (esGrupo) {
+    // Los grupos no tienen teléfono propio — se identifican solo por jid.
+  } else {
+    telefono = jidATelefono(jid, msg.key.remoteJidAlt);
+    if (!telefono) {
+      if (!silencioso) logger.warn({ key: msg.key }, 'No se pudo sacar un teléfono válido de este remitente — se descarta');
+      return;
+    }
   }
 
   const waId = msg.key.id;
@@ -160,10 +176,20 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
   if (errorExiste) logger.error({ err: errorExiste }, 'Error chequeando duplicado de mensaje');
   if (yaExiste) return;
 
-  const conversacion = await obtenerOCrearConversacion(supabase, userId, telefono, msg.key.remoteJid);
+  let nombreGrupoResuelto = nombreGrupo;
+  if (esGrupo && !nombreGrupoResuelto) {
+    try {
+      const meta = await sock.groupMetadata(jid);
+      nombreGrupoResuelto = meta?.subject || null;
+    } catch (e) {
+      logger.warn({ err: e, jid }, 'No se pudo obtener el nombre del grupo');
+    }
+  }
+
+  const conversacion = await obtenerOCrearConversacion(supabase, userId, telefono, jid, nombreGrupoResuelto);
   const tipo = tipoDeMensaje(msg);
   const texto = textoDeMensaje(msg);
-  if (!silencioso) logger.info({ telefono, direccion, conversacionId: conversacion.id, tipo, texto }, 'Guardando mensaje');
+  if (!silencioso) logger.info({ telefono, esGrupo, grupo: nombreGrupoResuelto, direccion, conversacionId: conversacion.id, tipo, texto }, 'Guardando mensaje');
 
   let mediaPath = null;
   if (descargarAdjuntos && (tipo === 'imagen' || tipo === 'pdf' || tipo === 'audio')) {
@@ -208,12 +234,19 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
 // chat con el contador real que manda WhatsApp.
 async function sincronizarHistorial(sock, supabase, userId, config, { chats, messages }) {
   logger.info({ chats: chats?.length || 0, mensajes: messages?.length || 0 }, 'Sincronizando historial de WhatsApp...');
+  // El nombre de los grupos viene en el array de chats (chat.name) — se
+  // arma un mapa para no tener que pedirle a WhatsApp el nombre de cada
+  // grupo mensaje por mensaje durante la importación masiva.
+  const nombresGrupo = {};
+  (chats || []).forEach(c => { if (c.id && c.id.endsWith('@g.us') && c.name) nombresGrupo[c.id] = c.name; });
+
   let guardados = 0;
   for (const msg of messages || []) {
     if (!msg.message) continue;
     try {
       await guardarMensaje(sock, supabase, userId, config, msg, {
         descargarAdjuntos: false, aplicarAutomatizacion: false, noContarNoLeido: true, silencioso: true,
+        nombreGrupo: nombresGrupo[msg.key.remoteJid] || null,
       });
       guardados++;
       if (guardados % 50 === 0) logger.info({ guardados, de: messages.length }, 'Importando historial...');
@@ -221,11 +254,11 @@ async function sincronizarHistorial(sock, supabase, userId, config, { chats, mes
       logger.error({ err: e }, 'Error importando un mensaje del historial');
     }
   }
-  // Se matchea por jid (tal cual lo manda WhatsApp, @lid incluido) y no por
-  // teléfono: así no depende de poder resolver el número para este paso,
-  // que solo corrige el contador de no leídos.
+  // Se matchea por jid (tal cual lo manda WhatsApp, @lid o @g.us incluido)
+  // y no por teléfono: así no depende de poder resolver el número para
+  // este paso, que solo corrige el contador de no leídos.
   for (const chat of chats || []) {
-    if (!chat.id || chat.id.endsWith('@g.us') || !chat.unreadCount) continue;
+    if (!chat.id || !chat.unreadCount) continue;
     await supabase.from('conversaciones').update({ no_leidos: chat.unreadCount })
       .eq('user_id', userId).eq('jid', chat.id);
   }

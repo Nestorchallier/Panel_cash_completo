@@ -199,8 +199,9 @@ function horaCorta(iso){
 }
 
 function nombreConversacion(c){
+  if(c.es_grupo) return c.nombre || 'Grupo';
   if(c.clientes && c.clientes.nombre) return c.clientes.nombre;
-  return (window.formatearTelefonoAR && window.formatearTelefonoAR(c.telefono)) || c.telefono;
+  return (window.formatearTelefonoAR && c.telefono && window.formatearTelefonoAR(c.telefono)) || c.telefono || c.nombre || '(sin nombre)';
 }
 
 function pasaFiltro(c){
@@ -250,37 +251,76 @@ function renderChatList(){
 
 async function cargarConversaciones(){
   conversaciones = await crmListConversaciones();
-  resumenPrestamosCache = await crmListResumenPrestamos();
   actualizarHeaderSub();
   renderChatList();
 }
 
+// Se llama seguido (realtime + polling), y con 248 chats salir a buscar de
+// nuevo el resumen de préstamos cada vez es caro y no cambia tan seguido —
+// se separa de cargarConversaciones() para no frenar la lista por esto.
+async function cargarResumenPrestamos(){
+  resumenPrestamosCache = await crmListResumenPrestamos();
+  renderChatList();
+}
+
+// Token de carga: si el usuario hace clic en otro chat mientras este
+// todavía está trayendo datos, la carga vieja se da cuenta (compara su
+// propio número contra el actual) y no pisa la pantalla con datos de un
+// chat que ya no es el que está abierto. Sin esto, clickear rápido entre
+// chats podía dejar la pantalla "pegada" en uno viejo.
+let cargaActual = 0;
+
 async function abrirConversacion(id){
+  const miCarga = ++cargaActual;
   conversacionActual = conversaciones.find(c=>c.id===id);
   if(!conversacionActual) return;
   renderChatList();
   document.getElementById('convEmpty').style.display = 'none';
 
-  mensajesActuales = await crmListMensajes(id);
-  eventosActuales = conversacionActual.cliente_id ? await crmListEventosConversacion(conversacionActual.cliente_id) : [];
-  await renderConversacion();
-  await crmMarcarConversacionLeida(id);
-  conversacionActual.no_leidos = 0;
-  renderChatList();
-  actualizarHeaderSub();
+  // Se pinta el esqueleto de la conversación (header + "cargando...") al
+  // toque, sin esperar ningún pedido a Supabase — así el clic se siente
+  // instantáneo aunque los mensajes tarden un toque en llegar.
+  mensajesActuales = [];
+  eventosActuales = [];
+  fichaActual = null;
+  renderConversacionShell();
 
-  if(conversacionActual.cliente_id){
-    fichaActual = await crmGetFichaCliente(conversacionActual.cliente_id);
+  const [mensajes, eventos] = await Promise.all([
+    crmListMensajes(id),
+    conversacionActual.cliente_id ? crmListEventosConversacion(conversacionActual.cliente_id) : Promise.resolve([]),
+  ]);
+  if (miCarga !== cargaActual) return; // se abrió otro chat mientras tanto
+
+  mensajesActuales = mensajes;
+  eventosActuales = eventos;
+  await renderMensajes();
+
+  // No bloquean la apertura del chat: se resuelven en paralelo y cada una
+  // actualiza su parte de la pantalla cuando esté lista.
+  crmMarcarConversacionLeida(id).then(() => {
+    if (miCarga !== cargaActual) return;
+    conversacionActual.no_leidos = 0;
+    renderChatList();
+    actualizarHeaderSub();
+  });
+
+  if (conversacionActual.cliente_id) {
+    crmGetFichaCliente(conversacionActual.cliente_id).then(f => {
+      if (miCarga !== cargaActual) return;
+      fichaActual = f;
+      renderFicha();
+    });
   } else {
-    fichaActual = null;
+    renderFicha();
   }
-  renderFicha();
   document.getElementById('fichaLateral').classList.add('open');
 
   if(canalMensajes) window.sb.removeChannel(canalMensajes);
   canalMensajes = crmSuscribirMensajes(id, async ()=>{
+    if (miCarga !== cargaActual) return;
     mensajesActuales = await crmListMensajes(id);
-    await renderConversacion();
+    if (miCarga !== cargaActual) return;
+    await renderMensajes();
   });
 }
 
@@ -311,22 +351,29 @@ function textoEventoRegla(ev){
   return txt;
 }
 
-async function renderConversacion(){
+// Dibuja el header + la caja de escribir UNA sola vez al abrir un chat. Los
+// mensajes nuevos (realtime) solo actualizan #convMessages (renderMensajes)
+// — antes se repintaba todo de nuevo con cada mensaje, lo que de paso
+// borraba lo que el usuario estuviera escribiendo a mitad de camino.
+function renderConversacionShell(){
   const wrap = document.getElementById('wacConv');
   const nombre = nombreConversacion(conversacionActual);
   const dni = conversacionActual.clientes && conversacionActual.clientes.dni;
+  const subLinea = conversacionActual.es_grupo
+    ? 'Grupo de WhatsApp'
+    : escapeHtml((window.formatearTelefonoAR && conversacionActual.telefono ? window.formatearTelefonoAR(conversacionActual.telefono) : conversacionActual.telefono) || '') + (dni ? ' · DNI ' + escapeHtml(dni) : '');
   wrap.innerHTML = `
     <div class="conv-head">
       <div class="conv-head-id">
         <div class="chat-avatar" style="background:${colorParaNombre(nombre)}">${iniciales(nombre)}</div>
         <div>
           <div class="nombre">${escapeHtml(nombre)}</div>
-          <div class="sub">${escapeHtml(window.formatearTelefonoAR ? window.formatearTelefonoAR(conversacionActual.telefono) : conversacionActual.telefono)}${dni ? ' · DNI ' + escapeHtml(dni) : ''}</div>
+          <div class="sub">${subLinea}</div>
         </div>
       </div>
       <button id="btnToggleFicha" class="btn-pill" style="width:auto;">Ficha →</button>
     </div>
-    <div id="convMessages"></div>
+    <div id="convMessages"><div class="empty-state">Cargando mensajes...</div></div>
     <div class="wa-compose">
       <div id="plantillasPopup"></div>
       <div class="plantilla-chips" id="plantillaChips"></div>
@@ -335,28 +382,6 @@ async function renderConversacion(){
         <button id="btnEnviar">➤</button>
       </div>
     </div>`;
-
-  const urlsAdjuntos = await resolverUrlsAdjuntos(mensajesActuales);
-  // Mezcla mensajes + eventos de regla en una sola línea de tiempo, para
-  // que el aviso "Regla automática: ..." aparezca pegado al mensaje que lo
-  // disparó, igual que en el render del plan.
-  const items = [
-    ...mensajesActuales.map(m => ({ tipo: 'mensaje', fecha: m.creado_at, data: m })),
-    ...eventosActuales.map(ev => ({ tipo: 'regla', fecha: ev.creado_at, data: ev })),
-  ].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-
-  const msgs = document.getElementById('convMessages');
-  msgs.innerHTML = items.map(it=>{
-    if(it.tipo === 'regla') return `<div class="regla-aviso">${escapeHtml(textoEventoRegla(it.data))}</div>`;
-    const m = it.data;
-    return `<div class="bubble ${m.direccion}">
-      ${m.direccion==='saliente' ? `<div class="autor">${escapeHtml(nombreUsuarioCache || 'Vos')}</div>` : ''}
-      ${m.texto ? escapeHtml(m.texto) : ''}
-      ${burbujaAdjunto(m, urlsAdjuntos)}
-      <div class="meta">${new Date(m.creado_at).toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})} ${m.direccion==='saliente' ? (m.estado==='leido'?'✓✓':m.estado==='entregado'?'✓✓':m.estado==='enviado'?'✓':'⏳') : ''}</div>
-    </div>`;
-  }).join('') || `<div class="empty-state">Todavía no hay mensajes en este chat.</div>`;
-  msgs.scrollTop = msgs.scrollHeight;
 
   renderPlantillaChips();
 
@@ -372,6 +397,31 @@ async function renderConversacion(){
     if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); enviarMensajeActual(); }
   });
   document.getElementById('btnEnviar').addEventListener('click', enviarMensajeActual);
+}
+
+async function renderMensajes(){
+  const urlsAdjuntos = await resolverUrlsAdjuntos(mensajesActuales);
+  // Mezcla mensajes + eventos de regla en una sola línea de tiempo, para
+  // que el aviso "Regla automática: ..." aparezca pegado al mensaje que lo
+  // disparó, igual que en el render del plan.
+  const items = [
+    ...mensajesActuales.map(m => ({ tipo: 'mensaje', fecha: m.creado_at, data: m })),
+    ...eventosActuales.map(ev => ({ tipo: 'regla', fecha: ev.creado_at, data: ev })),
+  ].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+  const msgs = document.getElementById('convMessages');
+  if (!msgs) return; // el chat se cerró/cambió mientras se resolvían las URLs
+  msgs.innerHTML = items.map(it=>{
+    if(it.tipo === 'regla') return `<div class="regla-aviso">${escapeHtml(textoEventoRegla(it.data))}</div>`;
+    const m = it.data;
+    return `<div class="bubble ${m.direccion}">
+      ${m.direccion==='saliente' ? `<div class="autor">${escapeHtml(nombreUsuarioCache || 'Vos')}</div>` : ''}
+      ${m.texto ? escapeHtml(m.texto) : ''}
+      ${burbujaAdjunto(m, urlsAdjuntos)}
+      <div class="meta">${new Date(m.creado_at).toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})} ${m.direccion==='saliente' ? (m.estado==='leido'?'✓✓':m.estado==='entregado'?'✓✓':m.estado==='enviado'?'✓':'⏳') : ''}</div>
+    </div>`;
+  }).join('') || `<div class="empty-state">Todavía no hay mensajes en este chat.</div>`;
+  msgs.scrollTop = msgs.scrollHeight;
 }
 
 function textoPlantillaConDatos(nombrePlantilla){
@@ -426,7 +476,7 @@ async function enviarMensajeActual(){
   if(!texto || !conversacionActual) return;
   textarea.value = '';
   mensajesActuales.push({ id:'tmp_'+Date.now(), direccion:'saliente', tipo:'texto', texto, estado:'pendiente', creado_at:new Date().toISOString() });
-  renderConversacion();
+  renderMensajes();
   try{
     await crmEnviarMensaje(conversacionActual.id, texto);
     await cargarConversaciones();
@@ -437,6 +487,10 @@ async function enviarMensajeActual(){
 
 function renderFicha(){
   const el = document.getElementById('fichaLateral');
+  if(conversacionActual && conversacionActual.es_grupo){
+    el.innerHTML = `<div class="empty-state" style="height:200px;">Este es un chat grupal — no tiene ficha de cliente.</div>`;
+    return;
+  }
   if(!fichaActual){
     el.innerHTML = `<div class="empty-state" style="height:200px;">Este chat todavía no está vinculado a ningún cliente de tu cartera.</div>`;
     return;
@@ -564,10 +618,21 @@ window.appReady.then(async ()=>{
   plantillasCache = await crmListPlantillas();
   nombreUsuarioCache = await crmGetNombreUsuario();
   await cargarConversaciones();
+  cargarResumenPrestamos();
   await actualizarEstadoWa();
 
-  crmSuscribirConversaciones(session.user.id, cargarConversaciones);
+  // Con cientos de chats (y más todavía mientras el worker importa el
+  // historial), la tabla conversaciones puede recibir una ráfaga de
+  // updates en pocos segundos. Sin este debounce, cada uno disparaba una
+  // recarga completa de la lista — eso es lo que hacía sentir el panel
+  // "colgado" al hacer clic en otro chat.
+  let pendienteRecarga = null;
+  crmSuscribirConversaciones(session.user.id, () => {
+    clearTimeout(pendienteRecarga);
+    pendienteRecarga = setTimeout(cargarConversaciones, 1200);
+  });
   setInterval(actualizarEstadoWa, 15000);
+  setInterval(cargarResumenPrestamos, 60000);
 });
 </script>
 </body>
