@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kanban de Cartera — Cash Market</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase/config.js"></script>
@@ -15,32 +17,32 @@
 <script src="google-config.js?v=2"></script>
 <script src="google-sync.js?v=2"></script>
 <style>
+  /* Paleta del plan (render 5.2): claro por defecto, oscuro opcional. */
   :root{
-    --bg:#0a0e14;
-    --panel:#111826;
-    --panel-2:#151d2e;
-    --line:#212c40;
-    --text:#e7edf7;
-    --muted:#8996ab;
-    --accent:#3fd0c9;
-    --accent-2:#5b8def;
-    --warn:#f0b866;
-    --danger:#e8677c;
-    --ok:#63d29a;
+    --bg:#ffffff;
+    --panel:#ffffff;
+    --panel-2:#f8fafc;
+    --line:#e2e8f0;
+    --text:#0f172a;
+    --muted:#64748b;
+    --accent:#2563eb;
+    --accent-2:#2563eb;
+    --warn:#b45309;
+    --danger:#b91c1c;
+    --ok:#15803d;
     --radius:10px;
-    --shadow:0 8px 24px rgba(0,0,0,.35);
+    --shadow:0 10px 30px rgba(15,23,42,.12);
+    --col-bg:#f1f5f9;
   }
   *{box-sizing:border-box;}
   html,body{height:100%;}
   body{
     margin:0;
-    background:
-      radial-gradient(1200px 600px at 90% -10%, rgba(63,208,201,.08), transparent 60%),
-      radial-gradient(1000px 500px at -10% 110%, rgba(91,141,239,.08), transparent 60%),
-      var(--bg);
+    background:var(--bg);
     color:var(--text);
-    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
     min-height:100vh;
+    -webkit-font-smoothing:antialiased;
   }
   header{
     padding:20px 28px 14px;
@@ -337,19 +339,151 @@
     .column{max-height:none;}
   }
 
-  :root[data-theme="light"]{
-    --bg:#f4f6f8; --panel:#ffffff; --panel-2:#eef1f4; --line:#dbe1e7;
-    --text:#1a2330; --muted:#5b6b7c; --accent:#0e9c87; --accent-2:#3b6fd1;
-    --warn:#c9822a; --danger:#d14f4f; --ok:#1fa855;
+  :root[data-theme="dark"]{
+    --bg:#0b1220; --panel:#0f172a; --panel-2:#111c33; --line:#1e293b;
+    --text:#e2e8f0; --muted:#94a3b8; --accent:#60a5fa; --accent-2:#60a5fa;
+    --warn:#fbbf24; --danger:#f87171; --ok:#4ade80; --col-bg:#0b1324;
+    --shadow:0 10px 30px rgba(0,0,0,.5);
   }
-  [data-theme="light"] body{
-    background:
-      radial-gradient(1200px 600px at 90% -10%, rgba(14,156,135,.06), transparent 60%),
-      radial-gradient(1000px 500px at -10% 110%, rgba(59,111,209,.06), transparent 60%),
-      var(--bg);
-  }
-  [data-theme="light"] .highlight{background:rgba(14,156,135,.22);}
-  [data-theme="light"] ::-webkit-scrollbar-thumb{background:#c7d0d9;}
+  .highlight{background:#fef08a;}
+  :root[data-theme="dark"] .highlight{background:rgba(250,204,21,.3);}
+  ::-webkit-scrollbar-thumb{background:#cbd5e1 !important;}
+  :root[data-theme="dark"] ::-webkit-scrollbar-thumb{background:#334155 !important;}
+
+  /* ================= Diseño del plan (render 5.2) ================= */
+  header{padding:14px 22px;border-bottom:1px solid var(--line);background:var(--panel);}
+  .page-title{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;}
+  .page-title h1{font-size:19px;font-weight:800;margin:0;letter-spacing:-.01em;}
+  .page-title span{font-size:13px;color:var(--muted);}
+  .toolbar{gap:8px;}
+  button{font-weight:600;}
+  .btn-ghost{background:var(--panel);color:#334155;border:1px solid var(--line);}
+  :root[data-theme="dark"] .btn-ghost{color:var(--text);}
+  .btn-ghost:hover{border-color:#94a3b8;}
+  .btn-primary{background:#2563eb;color:#fff;}
+  .btn-primary:hover{background:#1d4ed8;opacity:1;}
+  #btnRecordatorios .rec-n{background:#fee2e2;color:#b91c1c;font-size:11px;font-weight:700;border-radius:5px;padding:1px 6px;margin-left:4px;}
+  #btnRecordatorios.has-alert{background:var(--panel);color:#334155;border:1px solid var(--line);}
+  :root[data-theme="dark"] #btnRecordatorios.has-alert{color:var(--text);}
+  .mas-wrap{position:relative;}
+  .mas-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:6px;z-index:30;min-width:220px;flex-direction:column;}
+  .mas-menu.open{display:flex;}
+  .mas-menu button{background:none;border:none;text-align:left;color:var(--text);padding:9px 12px;border-radius:7px;font-weight:500;}
+  .mas-menu button:hover{background:var(--panel-2);}
+  .mas-menu button.danger{color:#dc2626;}
+  .mas-menu .is-connected{color:#15803d;}
+
+  .stats{display:none !important;}
+  .filters-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 22px;border-bottom:1px solid var(--line);background:var(--panel);}
+  .filters-bar{padding:0;gap:8px;}
+  .filters-bar .filters-label{display:none;}
+  .filters-bar select{appearance:none;-webkit-appearance:none;background:var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23334155'/%3E%3C/svg%3E") no-repeat right 11px center;border:1px solid var(--line);color:#334155;font-weight:600;font-size:13px;padding:8px 28px 8px 12px;border-radius:8px;}
+  :root[data-theme="dark"] .filters-bar select{color:var(--text);}
+  .filters-bar select.active-filter{border-color:#2563eb;color:#2563eb;}
+  .chip-sinleer{background:var(--panel);border:1px solid var(--line);color:#334155;font-size:13px;padding:8px 12px;border-radius:8px;}
+  .chip-sinleer.on{background:#f0fdf4;border-color:#86efac;color:#15803d;}
+  :root[data-theme="dark"] .chip-sinleer{color:var(--text);}
+  :root[data-theme="dark"] .chip-sinleer.on{background:#052e16;border-color:#166534;color:#4ade80;}
+  .filters-bar .btn-clear-filters{font-size:12.5px;padding:8px 12px;}
+  .filters-row .search input{width:270px;background:var(--panel);border-color:var(--line);}
+  .clasif-auto{margin-left:auto;font-size:13px;color:var(--muted);white-space:nowrap;}
+  .clasif-auto b{color:#15803d;}
+
+  main{padding:16px 22px 30px;gap:14px;background:var(--bg);}
+  #fileInput,#fileInputPagos{display:none;}
+  .column{background:var(--col-bg) !important;border:none !important;border-radius:12px;min-width:205px;max-height:calc(100vh - 150px);min-height:calc(100vh - 150px);}
+  .column-head{border-bottom:none;padding:14px 14px 8px;align-items:flex-start;}
+  .column-head h3{font-size:14px;font-weight:700;letter-spacing:0;gap:9px;}
+  .column-sub{font-size:12px;margin-left:19px;margin-top:0;}
+  .column .dot{width:10px;height:10px;border-radius:3px;}
+  .count{background:var(--panel);color:#334155;font-weight:700;font-size:12px;padding:2px 9px;border-radius:7px;}
+  :root[data-theme="dark"] .count{color:var(--text);}
+  .cards{padding:6px 12px 12px;gap:10px;}
+  .cards.drag-over{background:transparent;outline:none;}
+  .cards.drag-over::after{content:'Soltá acá para mover';display:block;text-align:center;border:2px dashed #93c5fd;background:#eff6ff;color:#2563eb;font-size:13px;font-weight:600;border-radius:10px;padding:18px 8px;}
+  .empty-col{color:#94a3b8;}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;box-shadow:0 1px 2px rgba(15,23,42,.05);}
+  .card:hover{border-color:#93c5fd;}
+  .card-alert{border-color:#fca5a5 !important;}
+  .card-top h4{font-size:14px;font-weight:700;}
+  .card-sub{font-size:12.5px;color:var(--muted);margin-top:2px;}
+  .card-nl{background:#16a34a;color:#fff;font-size:11px;font-weight:700;border-radius:10px;min-width:20px;height:20px;padding:0 6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .card-amount{display:block;font-size:18px;font-weight:800;margin-top:8px;letter-spacing:-.01em;}
+  .card-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;}
+  .tag{font-size:12px;font-weight:600;padding:2px 8px;border-radius:5px;white-space:nowrap;background:#f1f5f9;color:#475569;display:inline-flex;align-items:center;line-height:1.5;}
+  .tag.rojo{background:#fee2e2;color:#b91c1c;}
+  .tag.ambar{background:#fef3c7;color:#b45309;}
+  .tag.verde{background:#dcfce7;color:#15803d;}
+  .tag.violeta{background:#ede9fe;color:#6d28d9;}
+  .tag.cian{background:#cffafe;color:#0e7490;}
+  .tag.azul{background:#dbeafe;color:#1d4ed8;}
+  .cf-badge{font-size:12px;font-weight:600;padding:2px 8px;border-radius:5px;box-shadow:none;}
+  .card .meta{font-size:12px;margin-top:6px;}
+  .card .meta b{color:var(--muted);}
+  .chat-preview-row{margin-top:10px;padding:6px 10px;border-radius:8px;font-size:12.5px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;}
+  .chat-preview-row.saliente{background:var(--panel-2);border-color:var(--line);color:#475569;}
+  :root[data-theme="dark"] .chat-preview-row{background:#052e16;border-color:#14532d;color:#86efac;}
+  :root[data-theme="dark"] .chat-preview-row.saliente{background:var(--panel-2);border-color:var(--line);color:var(--muted);}
+  .card-footer{justify-content:space-between;margin-top:10px;padding-top:9px;border-top:1px dashed var(--line);}
+  .card-cobrador{display:flex;align-items:center;gap:7px;font-size:12.5px;color:#94a3b8;min-width:0;}
+  .card-cobrador .mini-avatar{width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .card-cobrador span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .card-acciones{display:flex;align-items:center;gap:1px;flex-shrink:0;}
+  .card .wa,.card .chat-open,.card .del{opacity:1 !important;font-size:14px;color:#475569;padding:3px 4px;}
+  :root[data-theme="dark"] .card .wa,:root[data-theme="dark"] .card .chat-open,:root[data-theme="dark"] .card .del{color:var(--muted);}
+  .card .wa:hover,.card .chat-open:hover{color:#16a34a;}
+  .card .del{font-size:16px;letter-spacing:1px;}
+  .card .del:hover{color:#dc2626;}
+  /* ---- Calendario (render 5.5) ---- */
+  #calendarView{background:var(--panel-2);padding:16px 22px;min-height:calc(100vh - 70px);}
+  #calendarView .cal-layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start;}
+  #calendarView .cal-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+  #calendarView .cal-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap;}
+  #calendarView .cal-nav{display:flex;align-items:center;gap:8px;}
+  #calendarView .cal-nav button{height:32px;min-width:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:#334155;font-size:14px;font-weight:600;}
+  :root[data-theme="dark"] #calendarView .cal-nav button{color:var(--text);}
+  #calendarView .cal-title{font-size:17px;font-weight:800;padding:0 4px;}
+  #calendarView .cal-legend{display:flex;gap:14px;font-size:12.5px;color:var(--muted);flex-wrap:wrap;}
+  #calendarView .cal-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;}
+  #calendarView .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:0;background:none;border:none;border-radius:0;margin:0;}
+  #calendarView .cal-weekday{background:var(--panel-2);padding:8px 10px;font-size:12px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--line);}
+  #calendarView .cal-day{background:var(--panel);height:122px;padding:6px 6px 4px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:3px;overflow:hidden;}
+  #calendarView .cal-day:nth-child(7n+7){border-right:none;}
+  #calendarView .cal-day.fuera .cal-day-num{color:#cbd5e1;}
+  #calendarView .cal-day.today{background:#eff6ff;}
+  :root[data-theme="dark"] #calendarView .cal-day.today{background:#132443;}
+  #calendarView .cal-day-num{font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:2px;}
+  #calendarView .cal-day.today .cal-day-num span{background:#2563eb;color:#fff;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;}
+  #calendarView .cal-day.has-items{cursor:pointer;}
+  #calendarView .cal-day.has-items:hover{background:var(--panel-2);}
+  #calendarView .cal-ev{font-size:11.5px;font-weight:600;padding:2px 6px;border-radius:5px;border-left:3px solid;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;}
+  #calendarView .cal-ev.promesa{background:#fef3c7;color:#92400e;border-color:#f59e0b;}
+  #calendarView .cal-ev.vence{background:#fee2e2;color:#b91c1c;border-color:#ef4444;}
+  #calendarView .cal-ev.cobrado{background:#dcfce7;color:#15803d;border-color:#22c55e;}
+  #calendarView .cal-mas{font-size:11px;color:var(--muted);font-weight:600;padding-left:4px;}
+  #calendarView .cal-agenda{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;}
+  #calendarView .cal-agenda-titulo{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
+  #calendarView .agenda-item{border:1px solid var(--line);border-radius:10px;padding:10px 12px;}
+  #calendarView .agenda-top{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13.5px;}
+  #calendarView .agenda-badge{font-size:11px;font-weight:700;border-radius:5px;padding:1px 7px;}
+  #calendarView .agenda-badge.hoy{background:#ede9fe;color:#6d28d9;}
+  #calendarView .agenda-badge.vencida{background:#fee2e2;color:#b91c1c;}
+  #calendarView .agenda-sub{font-size:12.5px;color:var(--muted);margin:3px 0 8px;line-height:1.4;}
+  #calendarView .agenda-acciones{display:flex;gap:6px;flex-wrap:wrap;}
+  #calendarView .agenda-acciones button{font-size:12px;padding:5px 9px;border-radius:7px;background:var(--panel);border:1px solid var(--line);color:#334155;}
+  :root[data-theme="dark"] #calendarView .agenda-acciones button{color:var(--text);}
+  #calendarView .agenda-acciones .ag-recordar{background:#16a34a;border-color:#16a34a;color:#fff;}
+  #calendarView .agenda-vacia{color:var(--muted);font-size:13px;text-align:center;padding:16px 0;}
+  #calendarView .agenda-masivo{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px;font-size:12.5px;color:#166534;display:flex;flex-direction:column;gap:6px;}
+  :root[data-theme="dark"] #calendarView .agenda-masivo{background:#052e16;border-color:#14532d;color:#86efac;}
+  #calendarView .agenda-masivo button{align-self:flex-start;background:#16a34a;color:#fff;font-size:12px;padding:6px 10px;border-radius:7px;}
+  @media (max-width:1100px){ .cal-layout{grid-template-columns:1fr;} }
+
+  .modal{border-radius:14px;}
+  .modal-overlay{background:rgba(15,23,42,.45);}
+  .field input,.field select,.field textarea{background:var(--panel);}
+  .toast{background:#0f172a;color:#fff;border:none;}
 
   #calendarView{display:none;}
   .cal-header{display:flex;align-items:center;justify-content:space-between;padding:0 24px 12px;}
@@ -405,28 +539,25 @@
 <body>
 
 <header>
-  <div class="brand">
-    <div class="mark">CM</div>
-    <div>
-      <h1>Kanban de Cartera</h1>
-      <span>Gestión de clientes por etapa</span>
-    </div>
+  <div class="page-title">
+    <h1 id="pageTitle">🗂️ Kanban de Cartera</h1>
+    <span id="headerSub"></span>
   </div>
   <div class="toolbar">
-    <div class="search">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8996ab" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input id="searchInput" type="text" placeholder="Buscar por nombre o DNI...">
-    </div>
-    <button class="btn-ghost" id="btnAdd">+ Cliente</button>
     <button class="btn-ghost" id="btnRecordatorios">🔔 Recordatorios</button>
     <button class="btn-ghost" id="btnConfigTarjeta">⚙️ Configurar tarjeta</button>
     <button class="btn-ghost" id="btnConfigColumnas">🗂️ Configurar columnas</button>
-    <button class="btn-ghost" id="btnToggleTheme">🌙</button>
-    <button class="btn-ghost" id="btnGoogleSync" title="Sincronizar promesas de pago con Google Calendar y Google Tasks">🔗 Conectar Google</button>
-    <button class="btn-danger-ghost" id="btnClear">Vaciar cartera</button>
-    <button class="btn-ghost" id="btnImport">Importar vencimientos</button>
-    <button class="btn-primary" id="btnImportPagos">Importar pagos</button>
-    <button class="btn-primary" id="btnImportCartera" title="Sube los dos Excel del CRM (Préstamos + Hoja de Ruta): arma la ficha completa de cada cliente">📥 Importar cartera</button>
+    <div class="mas-wrap">
+      <button class="btn-ghost" id="btnMas" title="Más acciones">⋯</button>
+      <div class="mas-menu" id="masMenu">
+        <button id="btnAdd">➕ Cliente nuevo</button>
+        <button id="btnImport">📄 Importar vencimientos</button>
+        <button id="btnImportPagos">💵 Importar pagos</button>
+        <button id="btnGoogleSync" title="Sincronizar promesas de pago con Google Calendar y Google Tasks">🔗 Conectar Google</button>
+        <button id="btnClear" class="danger">🗑️ Vaciar cartera</button>
+      </div>
+    </div>
+    <button class="btn-primary" id="btnImportCartera" title="Sube los dos Excel del CRM (Préstamos + Hoja de Ruta): arma la ficha completa de cada cliente">⬆️ Importar cartera</button>
     <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
     <input type="file" id="fileInputPagos" accept=".xlsx,.xls,.csv">
   </div>
@@ -434,7 +565,14 @@
 
 <div class="stats" id="stats"></div>
 
-<div class="filters-bar" id="filtersBar"></div>
+<div class="filters-row" id="filtersRow">
+  <div class="filters-bar" id="filtersBar"></div>
+  <div class="search">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input id="searchInput" type="text" placeholder="Buscar cliente, DNI o préstamo...">
+  </div>
+  <span class="clasif-auto">🤖 Clasif. automática <b>ON</b></span>
+</div>
 
 <main id="board"></main>
 
@@ -712,12 +850,10 @@ function getCfColor(id){ return CF_PALETTE.find(c=>c.id===id) || CF_PALETTE[0]; 
 
 // Fondo + borde de cada columna del tablero, tenido con el color que el
 // usuario le asigno a esa etapa (Configurar columnas).
+// En el diseño del plan todas las columnas son gris claro iguales; el color
+// de la etapa queda solo en el cuadradito al lado del nombre.
 function stageColumnStyle(color){
-  const hex = (color||'#8996ab').replace('#','');
-  const r = parseInt(hex.substr(0,2),16) || 137;
-  const g = parseInt(hex.substr(2,2),16) || 150;
-  const b = parseInt(hex.substr(4,2),16) || 171;
-  return `background:rgba(${r},${g},${b},.08);border-color:rgba(${r},${g},${b},.35);border-top:3px solid ${color};`;
+  return '';
 }
 
 const CONFIG_KEY = 'cm_kanban_config_v1';
@@ -799,25 +935,35 @@ function renderStageSelect(sel, includeAll){
 renderStageSelect(document.getElementById('fEtapa'));
 renderStageSelect(document.getElementById('mapEtapaDefault'));
 
+// "$124.500" / "124500" / 124500 -> 124500
+function montoANumero(m){
+  if(typeof m === 'number') return m;
+  const limpio = String(m||'').replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',', '.');
+  return parseFloat(limpio) || 0;
+}
+// Resumen arriba, al lado del título (render 5.2): "85 clientes · $ 7.842.300 en gestión".
 function renderStats(){
-  const el = document.getElementById('stats');
+  if(typeof kanbanViewMode !== 'undefined' && kanbanViewMode === 'calendar'){
+    document.getElementById('headerSub').textContent = 'Promesas de pago, vencimientos y cobros';
+    return;
+  }
   const total = state.clients.length;
-  el.innerHTML = `<div class="stat"><b>${total}</b><span>Total cartera</span></div>` +
-    STAGES.map(s=>{
-      const n = state.clients.filter(c=>c.stage===s.id).length;
-      return `<div class="stat"><b style="color:${s.color}">${n}</b><span>${s.name}</span></div>`;
-    }).join('');
+  const enGestion = state.clients.filter(c => c.stage !== 'cerrado').reduce((s, c) => s + montoANumero(c.monto), 0);
+  document.getElementById('headerSub').textContent =
+    `${total} clientes · $ ${Math.round(enGestion).toLocaleString('es-AR')} en gestión`;
 }
 
 function matchesSearch(c, q){
   if(!q) return true;
   q = q.toLowerCase();
-  return (c.nombre||'').toLowerCase().includes(q) || (c.dni||'').toLowerCase().includes(q);
+  return (c.nombre||'').toLowerCase().includes(q) || (c.dni||'').toLowerCase().includes(q)
+    || String(c.prestamo && c.prestamo.nro || '').toLowerCase().includes(q);
 }
 
 // --- Filtros por campo personalizado (ej: Método) y por promesa de pago ---
-let activeFilters = { customFields: {}, promesa: '', sort: '' };
+let activeFilters = { customFields: {}, promesa: '', sort: '', sinLeer: false };
 function matchesFilters(c){
+  if(activeFilters.sinLeer && !(c.chat && c.chat.noLeidos > 0)) return false;
   for(const fieldId in activeFilters.customFields){
     const val = activeFilters.customFields[fieldId];
     if(val && (!c.customFields || c.customFields[fieldId] !== val)) return false;
@@ -837,40 +983,48 @@ function renderFiltersBar(){
   if(!selectFields.length && !document.getElementById('filterPromesa')){
     // igual mostramos el filtro de promesa aunque no haya campos con opciones
   }
-  let html = `<span class="filters-label">Filtrar:</span>`;
+  let html = '';
   html += `
     <select id="filterPromesa">
-      <option value="">Promesa: todas</option>
-      <option value="con">Con fecha cargada</option>
-      <option value="vencida">Vencidas</option>
-      <option value="hoy">Es hoy</option>
-      <option value="sin">Sin fecha</option>
+      <option value="">Promesa: Todas</option>
+      <option value="con">Promesa: Con fecha</option>
+      <option value="vencida">Promesa: Vencidas</option>
+      <option value="hoy">Promesa: Es hoy</option>
+      <option value="sin">Promesa: Sin fecha</option>
     </select>`;
   selectFields.forEach(f=>{
-    html += `<select data-filter-field="${f.id}"><option value="">${escapeHtml(f.label)}: todos</option>`;
-    html += f.options.map(o=>`<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+    html += `<select data-filter-field="${f.id}"><option value="">${escapeHtml(f.label)}: Todos</option>`;
+    html += f.options.map(o=>`<option value="${escapeHtml(o)}">${escapeHtml(f.label)}: ${escapeHtml(o)}</option>`).join('');
     html += `</select>`;
   });
-  html += `<span class="filters-label" style="margin-left:6px;">Ordenar:</span>`;
+  html += `<button class="chip-sinleer ${activeFilters.sinLeer ? 'on' : ''}" id="btnSoloSinLeer">💬 Solo con mensajes sin leer</button>`;
   html += `
     <select id="filterSort">
-      <option value="">Sin ordenar</option>
-      <option value="recent">Más recientes primero</option>
-      <option value="oldest">Más antiguos primero</option>
+      <option value="">Orden: Último movimiento</option>
+      <option value="recent">Orden: Más reciente</option>
+      <option value="oldest">Orden: Más antiguo</option>
     </select>`;
-  html += `<button class="btn-clear-filters" id="btnClearFilters">Limpiar filtros</button>`;
+  const hayFiltros = activeFilters.promesa || activeFilters.sort || activeFilters.sinLeer || Object.values(activeFilters.customFields).some(Boolean);
+  if(hayFiltros) html += `<button class="btn-clear-filters" id="btnClearFilters">✕ Limpiar</button>`;
   bar.innerHTML = html;
+  document.getElementById('btnSoloSinLeer').addEventListener('click', ()=>{
+    activeFilters.sinLeer = !activeFilters.sinLeer;
+    renderFiltersBar();
+    renderBoard();
+  });
 
   document.getElementById('filterPromesa').value = activeFilters.promesa;
+  document.getElementById('filterPromesa').classList.toggle('active-filter', !!activeFilters.promesa);
   document.getElementById('filterPromesa').addEventListener('change', e=>{
     activeFilters.promesa = e.target.value;
-    e.target.classList.toggle('active-filter', !!e.target.value);
+    renderFiltersBar();
     renderBoard();
   });
   document.getElementById('filterSort').value = activeFilters.sort;
+  document.getElementById('filterSort').classList.toggle('active-filter', !!activeFilters.sort);
   document.getElementById('filterSort').addEventListener('change', e=>{
     activeFilters.sort = e.target.value;
-    e.target.classList.toggle('active-filter', !!e.target.value);
+    renderFiltersBar();
     renderBoard();
   });
   bar.querySelectorAll('select[data-filter-field]').forEach(sel=>{
@@ -878,12 +1032,13 @@ function renderFiltersBar(){
     sel.classList.toggle('active-filter', !!sel.value);
     sel.addEventListener('change', e=>{
       activeFilters.customFields[sel.dataset.filterField] = e.target.value;
-      e.target.classList.toggle('active-filter', !!e.target.value);
+      renderFiltersBar();
       renderBoard();
     });
   });
-  document.getElementById('btnClearFilters').addEventListener('click', ()=>{
-    activeFilters = { customFields: {}, promesa: '', sort: '' };
+  const btnClear = document.getElementById('btnClearFilters');
+  if(btnClear) btnClear.addEventListener('click', ()=>{
+    activeFilters = { customFields: {}, promesa: '', sort: '', sinLeer: false };
     renderFiltersBar();
     renderBoard();
   });
@@ -911,6 +1066,36 @@ function colorParaNombre(nombre){
   for(let i=0;i<s.length;i++) hash = (hash*31 + s.charCodeAt(i)) % CF_PALETTE.length;
   return CF_PALETTE[Math.abs(hash)].text;
 }
+// Helpers de la tarjeta (render 5.2).
+function formatearDni(dni){
+  const d = String(dni||'').replace(/\D/g,'');
+  return d.length >= 7 ? Number(d).toLocaleString('es-AR') : String(dni||'');
+}
+function fmtMontoCorto(m){
+  const n = montoANumero(m);
+  return n ? '$' + Math.round(n).toLocaleString('es-AR') : String(m||'');
+}
+function diaCorto(iso){
+  const d = new Date(String(iso).slice(0,10) + 'T00:00:00');
+  return ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()] + ' ' + String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+}
+const ESTILO_ETIQUETA = { 'reclamo':['rojo','⚠️'], 'comprobante':['violeta','📎'], 'pide refinanciar':['cian','🔁'], 'consulta':['gris','❓'] };
+function tagDeEtiqueta(texto){
+  const [cls, emoji] = ESTILO_ETIQUETA[String(texto).toLowerCase()] || ['azul', ''];
+  return `<span class="tag ${cls}">${emoji ? emoji + ' ' : ''}${escapeHtml(texto)}</span>`;
+}
+// El cobrador de cada tarjeta es el usuario de la cuenta (una cartera por
+// cobrador), como el "NC Nestor C." del render.
+let nombreUsuarioCorto = '', inicialesUsuario = '';
+window.appReady && window.appReady.then(async ()=>{
+  try{
+    const nombre = (await crmGetNombreUsuario()) || '';
+    const partes = nombre.trim().split(/\s+/).filter(Boolean);
+    nombreUsuarioCorto = partes.length > 1 ? `${partes[0]} ${partes[1][0]}.` : nombre;
+    inicialesUsuario = ((partes[0]||'?')[0] + ((partes[1]||'')[0]||'')).toUpperCase();
+    renderBoard();
+  }catch(e){}
+});
 function atrasoPillInfo(diasAtraso){
   const d = diasAtraso || 0;
   if(d <= 0) return { cls:'ok', label:'Al día' };
@@ -976,37 +1161,47 @@ function renderBoard(){
             return `<span class="cf-badge" title="${escapeHtml(f.label)}" style="background:${col.text};">${escapeHtml(val)}</span>`;
           })
           .join('');
-        const atraso = c.prestamo ? atrasoPillInfo(c.prestamo.dias_atraso) : null;
+        const dias = c.prestamo ? (c.prestamo.dias_atraso || 0) : 0;
         const subPartes = [];
-        if(config.visibleFields.dni && c.dni) subPartes.push('DNI ' + highlight(c.dni, q));
+        if(config.visibleFields.dni && c.dni) subPartes.push('DNI ' + highlight(formatearDni(c.dni), q));
         if(c.prestamo && c.prestamo.nro) subPartes.push('#' + escapeHtml(c.prestamo.nro));
+        // Etiquetas como en el render 5.2: las de las reglas (Comprobante...),
+        // atraso en rojo, promesa en ámbar (roja si venció) y cobrado en verde.
+        const tags = [];
+        (c.etiquetas || []).slice(0, 2).forEach(e => tags.push(tagDeEtiqueta(e)));
+        if(stage.id === 'cerrado'){
+          tags.push(`<span class="tag verde">✅ Cobrado${c.montoPagado ? ' ' + escapeHtml(fmtMontoCorto(c.montoPagado)) : ''}</span>`);
+        } else if(dias > 0){
+          tags.push(`<span class="tag rojo">${(c.etiquetas||[]).length ? '' : 'Atraso '}${dias} d</span>`);
+        }
+        if(config.visibleFields.fechaPromesa && pInfo && stage.id !== 'cerrado'){
+          tags.push(pInfo.diffDias < 0
+            ? `<span class="tag rojo">📅 Vencida ${pInfo.fechaTxt}</span>`
+            : `<span class="tag ambar">📅 ${pInfo.diffDias === 0 ? 'Hoy' : diaCorto(c.fechaPromesa)}</span>`);
+        }
+        const ultimo = (c.chat && c.chat.ultimoTexto) || '';
+        const esNuestro = /^vos:/i.test(ultimo);
         card.innerHTML = `
           <div class="card-top">
-            <div class="card-avatar" style="background:${colorParaNombre(c.nombre)}">${iniciales(c.nombre)}</div>
             <div class="card-id">
               <h4>${highlight(c.nombre, q)}</h4>
               ${subPartes.length ? `<div class="card-sub">${subPartes.join(' · ')}</div>` : ''}
             </div>
-            <button class="del" title="Eliminar" data-id="${c.id}">×</button>
+            ${c.chat && c.chat.noLeidos ? `<span class="card-nl">${c.chat.noLeidos}</span>` : ''}
           </div>
-          ${(config.visibleFields.monto && c.monto) || atraso ? `<div class="card-amount-row">
-            ${config.visibleFields.monto && c.monto ? `<span class="card-amount">${escapeHtml(c.monto)}</span>` : '<span></span>'}
-            ${atraso ? `<span class="atraso-pill ${atraso.cls}">${atraso.label}</span>` : ''}
-          </div>` : ''}
-          ${(config.visibleFields.montoPagado && c.montoPagado) || (config.visibleFields.telefono && c.telefono) ? `<div class="meta">
-            ${config.visibleFields.montoPagado && c.montoPagado ? `<b>Pagado:</b> $${escapeHtml(String(c.montoPagado))}<br>`:''}
-            ${config.visibleFields.telefono && c.telefono ? `📞 ${escapeHtml(c.telefono)}`:''}
-          </div>` : ''}
-          ${(cfBadges || (config.visibleFields.fechaPromesa && pInfo)) ? `<div class="cf-badges-row">${cfBadges}${(config.visibleFields.fechaPromesa && pInfo) ? pInfo.html : ''}</div>` : ''}
-          ${c.chat ? `<div class="chat-preview-row" title="${escapeHtml(c.chat.ultimoTexto || '')}">
-            <span>💬 ${escapeHtml((c.chat.ultimoTexto || '').slice(0, 28))}${(c.chat.ultimoTexto||'').length > 28 ? '…' : ''}</span>
-            ${c.chat.noLeidos ? `<span class="chat-no-leidos">${c.chat.noLeidos}</span>` : ''}
+          ${config.visibleFields.monto && (c.monto || (c.prestamo && c.prestamo.saldo_total)) ? `<span class="card-amount">${escapeHtml(fmtMontoCorto(c.monto || c.prestamo.saldo_total))}</span>` : ''}
+          ${(tags.length || cfBadges) ? `<div class="card-tags">${tags.join('')}${cfBadges}</div>` : ''}
+          ${(config.visibleFields.telefono && c.telefono) ? `<div class="meta">📞 ${escapeHtml(c.telefono)}</div>` : ''}
+          ${ultimo ? `<div class="chat-preview-row ${esNuestro ? 'saliente' : ''}" title="${escapeHtml(ultimo)}">
+            <span>${esNuestro ? '↩️' : '💬'} ${escapeHtml(ultimo)}</span>
           </div>` : ''}
           <div class="card-footer">
-            <button class="chat-open" title="Abrir en WhatsApp CRM" data-id="${c.id}">💬</button>
-            <button class="wa ${c.telefono ? '' : 'disabled'}" title="${c.telefono ? 'Enviar WhatsApp' : 'Sin teléfono cargado'}" data-id="${c.id}">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.87 9.87 0 0 0 4.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91C21.96 6.45 17.5 2 12.04 2zm5.8 14.03c-.24.68-1.4 1.3-1.94 1.38-.5.08-1.12.11-1.81-.12-.42-.13-.95-.31-1.64-.6-2.88-1.24-4.76-4.15-4.9-4.34-.14-.19-1.17-1.55-1.17-2.96 0-1.4.74-2.09 1-2.38.26-.28.57-.35.76-.35.19 0 .38 0 .55.01.18.01.41-.07.64.49.24.57.81 1.98.88 2.12.07.15.12.32.02.51-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.13-.28.28-.12.55.16.28.72 1.19 1.55 1.93 1.06.95 1.96 1.24 2.24 1.38.28.14.44.12.6-.07.16-.19.7-.82.89-1.1.19-.28.37-.23.63-.14.26.1 1.66.78 1.94.93.28.14.47.21.54.33.07.12.07.68-.16 1.36z"/></svg>
-            </button>
+            <div class="card-cobrador"><span class="mini-avatar">${escapeHtml(inicialesUsuario)}</span><span>${escapeHtml(nombreUsuarioCorto)}</span></div>
+            <div class="card-acciones">
+              <button class="chat-open" title="Abrir el chat en WhatsApp CRM" data-id="${c.id}">💬</button>
+              <button class="wa ${c.telefono ? '' : 'disabled'}" title="${c.telefono ? 'Enviar WhatsApp con plantilla' : 'Sin teléfono cargado'}" data-id="${c.id}">📞</button>
+              <button class="del" title="Eliminar de la cartera" data-id="${c.id}">🗑️</button>
+            </div>
           </div>
         `;
         card.addEventListener('dragstart', e=>{
@@ -1601,7 +1796,7 @@ function renderRecordatoriosBadge(){
   const btn = document.getElementById('btnRecordatorios');
   const list = getRecordatorios();
   if(list.length){
-    btn.textContent = `🔔 Recordatorios (${list.length})`;
+    btn.innerHTML = `🔔 Recordatorios <span class="rec-n">${list.length}</span>`;
     btn.classList.add('has-alert');
   } else {
     btn.textContent = `🔔 Recordatorios`;
@@ -1924,23 +2119,27 @@ document.getElementById('btnCloseConfig').addEventListener('click', ()=>{
 // --- Modo oscuro / claro ---
 // Comparte la misma clave que el panel general (kv_store en Supabase) y además
 // escucha cambios en vivo por postMessage, para no depender de recargar el iframe.
-const THEME_KEY = 'cm_theme_v1';
+// El modo claro/oscuro lo maneja el menú lateral del panel principal (🌙)
+// y lo avisa por postMessage; acá solo se aplica. Arranca en claro, como
+// el diseño del plan.
+const THEME_KEY = 'cm_theme_v2';
 function applyTheme(theme){
-  document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
-  document.getElementById('btnToggleTheme').textContent = theme === 'light' ? '🌙' : '☀️';
-  document.getElementById('btnToggleTheme').title = theme === 'light' ? 'Cambiar a modo oscuro' : 'Cambiar a modo claro';
+  document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
 }
-let currentTheme = 'dark';
-applyTheme(currentTheme);
+applyTheme('light');
 window.appReady.then(async () => {
   const saved = await kvGet(THEME_KEY);
-  if (saved) { currentTheme = saved; applyTheme(currentTheme); }
+  if (saved) applyTheme(saved);
 });
-document.getElementById('btnToggleTheme').addEventListener('click', ()=>{
-  currentTheme = currentTheme === 'light' ? 'dark' : 'light';
-  kvSet(THEME_KEY, currentTheme).catch(e => console.error(e));
-  applyTheme(currentTheme);
+window.addEventListener('message', e=>{ if(e.data && e.data.type === 'cm-theme') applyTheme(e.data.theme); });
+
+// Menú "⋯" con las acciones menos usadas (cliente nuevo, importar
+// vencimientos/pagos, Google, vaciar cartera).
+document.getElementById('btnMas').addEventListener('click', e=>{
+  e.stopPropagation();
+  document.getElementById('masMenu').classList.toggle('open');
 });
+document.addEventListener('click', ()=> document.getElementById('masMenu').classList.remove('open'));
 // --- Sincronizacion con Google Calendar + Tasks (promesas de pago) ---
 const btnGoogleSync = document.getElementById('btnGoogleSync');
 function setGoogleSyncBtnState(connected){
@@ -1995,102 +2194,154 @@ window.addEventListener('message', e=>{
 // postMessage (misma pestaña del sidebar reusa este iframe).
 let calDate = new Date();
 let kanbanViewMode = 'kanban'; // 'kanban' | 'calendar'
-const CAL_WEEKDAYS = ['LUN','MAR','MIE','JUE','VIE','SAB','DOM'];
+const CAL_WEEKDAYS = ['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'];
 const CAL_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 function setKanbanViewMode(mode){
   kanbanViewMode = mode === 'calendar' ? 'calendar' : 'kanban';
   const isCal = kanbanViewMode === 'calendar';
   document.getElementById('board').style.display = isCal ? 'none' : '';
-  document.getElementById('filtersBar').style.display = isCal ? 'none' : '';
+  document.getElementById('filtersRow').style.display = isCal ? 'none' : '';
+  document.querySelector('header .toolbar').style.display = isCal ? 'none' : '';
+  document.getElementById('pageTitle').textContent = isCal ? '📅 Calendario' : '🗂️ Kanban de Cartera';
   document.getElementById('stats').style.display = isCal ? 'none' : '';
   document.getElementById('calendarView').style.display = isCal ? 'block' : 'none';
+  renderStats();
   if(isCal) renderCalendar();
 }
 
+// Calendario como el render 5.5 del plan: grilla del mes con eventos de
+// color (ámbar promesas, rojo vencimientos de cuotas, verde cobrados) y
+// a la derecha la "Agenda de hoy" con atajos para recordar / ver chat /
+// mover, más el recordatorio masivo de las promesas de mañana.
+function isoLocal(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function nombreCortoCal(n){
+  const p = String(n||'').trim().split(/\s+/);
+  return p.length > 1 ? `${p[0][0]}. ${p.slice(1).join(' ')}` : (n||'');
+}
+function eventosCalendario(){
+  const ev = {};
+  const add = (fecha, e) => { if(!fecha) return; (ev[fecha] = ev[fecha] || []).push(e); };
+  state.clients.forEach(c=>{
+    if(c.fechaPromesa && c.stage !== 'cerrado') add(c.fechaPromesa, { tipo:'promesa', c, txt:`🤝 ${nombreCortoCal(c.nombre)}${c.monto ? ' ' + fmtMontoCorto(c.monto) : ''}` });
+    const p = c.prestamo;
+    if(p && p.proximo_vencimiento && c.stage !== 'cerrado'){
+      const cuota = p.cant_cuotas ? ` cuota ${Math.min((p.cuotas_pagas||0)+1, p.cant_cuotas)}` : '';
+      add(String(p.proximo_vencimiento).slice(0,10), { tipo:'vence', c, txt:`📌 Vence${cuota} · ${nombreCortoCal(c.nombre)}` });
+    }
+    if(c.stage === 'cerrado' && c.stageChangedAt) add(isoLocal(new Date(c.stageChangedAt)), { tipo:'cobrado', c, txt:`✅ ${nombreCortoCal(c.nombre)}` });
+  });
+  return ev;
+}
 function renderCalendar(){
   const wrap = document.getElementById('calendarView');
   if(!wrap) return;
   const year = calDate.getFullYear();
   const month = calDate.getMonth();
-
-  const byDay = {};
-  state.clients.forEach(c=>{
-    if(!c.fechaPromesa) return;
-    (byDay[c.fechaPromesa] = byDay[c.fechaPromesa] || []).push(c);
-  });
+  const ev = eventosCalendario();
+  const todayStr = isoLocal(new Date());
 
   const firstOfMonth = new Date(year, month, 1);
   let startOffset = firstOfMonth.getDay() - 1; // semana arranca en lunes
   if(startOffset < 0) startOffset = 6;
   const daysInMonth = new Date(year, month+1, 0).getDate();
-  const todayStr = new Date().toISOString().slice(0,10);
+  const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
 
   let cellsHtml = '';
-  for(let i=0;i<startOffset;i++) cellsHtml += `<div class="cal-day" style="opacity:.35;"></div>`;
-
-  for(let day=1; day<=daysInMonth; day++){
-    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const isToday = dateStr === todayStr;
-    const items = (byDay[dateStr]||[]).slice().sort((a,b)=> (a.nombre||'').localeCompare(b.nombre||''));
-    const itemsHtml = items.map(c=>{
-      const pInfo = promesaInfo(c.fechaPromesa);
-      const cls = pInfo ? pInfo.cls : 'promesa-future';
-      const borderColor = cls==='promesa-vencida' ? 'var(--danger)' : cls==='promesa-hoy' ? 'var(--warn)' : 'var(--accent)';
-      const bg = cls==='promesa-vencida' ? 'rgba(232,103,124,.14)' : cls==='promesa-hoy' ? 'rgba(240,184,102,.14)' : 'rgba(63,208,201,.12)';
-      const badges = config.customFields
-        .filter(f => c.customFields && c.customFields[f.id])
-        .map(f=>{
-          const val = c.customFields[f.id];
-          const colorId = (f.options && f.options.length) ? ((f.optionColors && f.optionColors[val]) || 'blue') : (f.color || 'blue');
-          const col = getCfColor(colorId);
-          return `<span class="cf-badge" style="background:${col.text};">${escapeHtml(val)}</span>`;
-        }).join('');
-      return `<div class="cal-item" data-id="${c.id}" style="background:${bg};border-left-color:${borderColor};">
-        <div class="cal-item-name">${escapeHtml(c.nombre)}</div>
-        <div class="cal-item-row">
-          <span style="color:${borderColor};">${c.monto ? escapeHtml(String(c.monto)) : ''}</span>
-          ${badges}
-        </div>
-      </div>`;
-    }).join('');
-    cellsHtml += `<div class="cal-day ${isToday?'today':''} ${items.length?'has-items':''}" data-date="${dateStr}">
-      <div class="cal-day-num">${day}</div>
-      ${itemsHtml}
+  for(let i=0;i<totalCells;i++){
+    const d = new Date(year, month, 1 - startOffset + i);
+    const dateStr = isoLocal(d);
+    const fuera = d.getMonth() !== month;
+    const items = ev[dateStr] || [];
+    const visibles = items.slice(0, 3);
+    cellsHtml += `<div class="cal-day ${fuera?'fuera':''} ${dateStr===todayStr?'today':''} ${items.length?'has-items':''}" data-date="${dateStr}">
+      <div class="cal-day-num"><span>${d.getDate()}</span></div>
+      ${visibles.map(e=>`<div class="cal-ev ${e.tipo}" data-id="${e.c.id}" title="${escapeHtml(e.c.nombre)}">${escapeHtml(e.txt)}</div>`).join('')}
+      ${items.length > 3 ? `<div class="cal-mas">+${items.length - 3} más</div>` : ''}
     </div>`;
   }
 
-  const totalCells = startOffset + daysInMonth;
-  const trailing = (7 - (totalCells % 7)) % 7;
-  for(let i=0;i<trailing;i++) cellsHtml += `<div class="cal-day" style="opacity:.35;"></div>`;
+  // Agenda de hoy: promesas de hoy, vencimientos de hoy y promesas vencidas.
+  const agenda = [];
+  state.clients.forEach(c=>{
+    if(c.stage === 'cerrado') return;
+    const info = promesaInfo(c.fechaPromesa);
+    if(info && info.diffDias === 0) agenda.push({ c, orden:0, badge:'hoy', titulo:`🤝 ${c.nombre}`, sub:`Prometió${c.monto ? ' ' + fmtMontoCorto(c.monto) : ''} · hoy${(c.etiquetas||[]).some(e=>/comprobante/i.test(e)) ? ' · Ya mandó comprobante 📎' : ''}` });
+    else if(info && info.diffDias < 0) agenda.push({ c, orden:2, badge:'vencida', titulo:`🔔 ${c.nombre}`, sub:`Promesa vencida ${info.diffDias === -1 ? 'ayer' : 'hace ' + Math.abs(info.diffDias) + ' días'} · Reprogramar o escalar` });
+    const p = c.prestamo;
+    if(p && p.proximo_vencimiento && String(p.proximo_vencimiento).slice(0,10) === todayStr){
+      agenda.push({ c, orden:1, badge:'hoy', titulo:`📌 ${p.cant_cuotas ? 'Cuota ' + Math.min((p.cuotas_pagas||0)+1, p.cant_cuotas) + ' · ' : ''}${c.nombre}`, sub:`Vence hoy${p.cuota_monto ? ' · ' + fmtMontoCorto(p.cuota_monto) : ''}${(c.etiquetas||[]).some(e=>/reclamo/i.test(e)) ? ' · ⚠️ Tiene reclamo abierto' : ''}` });
+    }
+  });
+  agenda.sort((a,b)=> a.orden - b.orden);
+  const manana = isoLocal(new Date(Date.now() + 86400000));
+  const promesasManana = state.clients.filter(c => c.fechaPromesa === manana && c.stage !== 'cerrado').length;
+  const hoyD = new Date();
+  const hoyTxt = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'][hoyD.getDay()] + ' ' + String(hoyD.getDate()).padStart(2,'0') + '/' + String(hoyD.getMonth()+1).padStart(2,'0');
 
   wrap.innerHTML = `
-    <div class="cal-header">
-      <div class="cal-title">${CAL_MESES[month]} ${year}</div>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <span class="cal-legend">Promesa: <span style="color:var(--warn)">hoy</span> &middot; <span style="color:var(--danger)">vencida</span> &middot; <span style="color:var(--accent)">futura</span></span>
-        <div class="cal-nav">
-          <button id="calPrev">&lsaquo;</button>
-          <button id="calToday">Hoy</button>
-          <button id="calNext">&rsaquo;</button>
+    <div class="cal-layout">
+      <div class="cal-card">
+        <div class="cal-header">
+          <div class="cal-nav">
+            <button id="calPrev" title="Mes anterior">‹</button>
+            <div class="cal-title">${CAL_MESES[month]} ${year}</div>
+            <button id="calNext" title="Mes siguiente">›</button>
+            <button id="calToday" class="cal-hoy">Hoy</button>
+          </div>
+          <div class="cal-legend">
+            <span><i style="background:#f59e0b"></i>Promesa de pago</span>
+            <span><i style="background:#ef4444"></i>Vencimiento de cuotas</span>
+            <span><i style="background:#22c55e"></i>Cobrado</span>
+          </div>
+        </div>
+        <div class="cal-grid">
+          ${CAL_WEEKDAYS.map(w=>`<div class="cal-weekday">${w}</div>`).join('')}
+          ${cellsHtml}
         </div>
       </div>
-    </div>
-    <div class="cal-grid">
-      ${CAL_WEEKDAYS.map(w=>`<div class="cal-weekday">${w}</div>`).join('')}
-      ${cellsHtml}
+      <aside class="cal-agenda">
+        <div class="cal-agenda-titulo">Agenda de hoy · ${hoyTxt}</div>
+        ${agenda.length ? agenda.map(a=>`
+          <div class="agenda-item">
+            <div class="agenda-top"><b>${escapeHtml(a.titulo)}</b><span class="agenda-badge ${a.badge}">${a.badge === 'hoy' ? 'Hoy' : 'Vencida'}</span></div>
+            <div class="agenda-sub">${escapeHtml(a.sub)}</div>
+            <div class="agenda-acciones">
+              <button class="ag-recordar" data-id="${a.c.id}">💬 Recordar</button>
+              <button class="ag-chat" data-id="${a.c.id}">👁️ Ver chat</button>
+              <button class="ag-mover" data-id="${a.c.id}">📅 Mover</button>
+            </div>
+          </div>`).join('') : `<div class="agenda-vacia">Nada para hoy 🎉</div>`}
+        ${promesasManana ? `
+          <div class="agenda-masivo">
+            <b>💡 Recordatorio masivo</b>
+            <div>Enviar plantilla "/recordatorio" a ${promesasManana === 1 ? 'la promesa' : `las ${promesasManana} promesas`} de mañana usando Envío de Mensajes.</div>
+            <button id="agPrepararEnvio">📨 Preparar envío</button>
+          </div>` : ''}
+      </aside>
     </div>
   `;
 
   document.getElementById('calPrev').addEventListener('click', ()=>{ calDate = new Date(year, month-1, 1); renderCalendar(); });
   document.getElementById('calNext').addEventListener('click', ()=>{ calDate = new Date(year, month+1, 1); renderCalendar(); });
   document.getElementById('calToday').addEventListener('click', ()=>{ calDate = new Date(); renderCalendar(); });
-  wrap.querySelectorAll('.cal-item').forEach(el=>{
+  wrap.querySelectorAll('.cal-ev').forEach(el=>{
     el.addEventListener('click', (e)=>{ e.stopPropagation(); openClientModal(el.dataset.id); });
   });
   wrap.querySelectorAll('.cal-day.has-items').forEach(el=>{
     el.addEventListener('click', ()=> openDayModal(el.dataset.date));
   });
+  wrap.querySelectorAll('.ag-recordar').forEach(b=> b.addEventListener('click', ()=>{
+    const c = state.clients.find(x=>x.id===b.dataset.id);
+    if(!c || !c.telefono){ toast('Este cliente no tiene teléfono cargado'); return; }
+    openWaModal(c.id);
+  }));
+  wrap.querySelectorAll('.ag-chat').forEach(b=> b.addEventListener('click', ()=>{
+    window.top.postMessage({ type: 'cm-abrir-chat-cliente', clienteId: b.dataset.id }, '*');
+  }));
+  wrap.querySelectorAll('.ag-mover').forEach(b=> b.addEventListener('click', ()=> openClientModal(b.dataset.id)));
+  const prep = document.getElementById('agPrepararEnvio');
+  if(prep) prep.addEventListener('click', ()=> window.top.postMessage({ type:'cm-ir-a-vista', view:'view-mensajes' }, '*'));
 }
 
 const CAL_DIAS_SEMANA = ['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];

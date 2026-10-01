@@ -86,6 +86,9 @@ function _filaAObjetoCliente(row, etapaIdPorRowId) {
     montoPagado: extra.montoPagado || '',
     customFields: extra.customFields || {},
     stageChangedAt: extra.stageChangedAt || null,
+    // Solo lectura en el Kanban (las ponen las reglas del worker); no se
+    // manda de vuelta en crmSaveClientes, así que no se pisa.
+    etiquetas: row.etiquetas || [],
   };
 }
 
@@ -319,7 +322,7 @@ function crmSuscribirMensajes(conversacionId, onChange) {
 async function crmListResumenPrestamos() {
   const uid = await _uid();
   const { data, error } = await window.sb
-    .from('prestamos').select('cliente_id, nro, dias_atraso, saldo_total').eq('user_id', uid).eq('estado', 'activo');
+    .from('prestamos').select('cliente_id, nro, dias_atraso, saldo_total, proximo_vencimiento, cuota_monto, cuotas_pagas, cant_cuotas').eq('user_id', uid).eq('estado', 'activo');
   if (error) { console.error('crmListResumenPrestamos', error); return {}; }
   const out = {};
   (data || []).forEach(p => {
