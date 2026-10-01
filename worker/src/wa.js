@@ -78,10 +78,25 @@ async function buscarClientePorTelefono(supabase, userId, telefono) {
   return (tel && tel.clientes && tel.clientes.user_id === userId) ? tel.cliente_id : null;
 }
 
-async function obtenerOCrearConversacion(supabase, userId, telefono, jid, nombreGrupo) {
-  const { data: existente } = await supabase
+async function obtenerOCrearConversacion(supabase, userId, telefono, jid, nombre) {
+  let { data: existente } = await supabase
     .from('conversaciones').select('*').eq('user_id', userId).eq('jid', jid).maybeSingle();
+  // El mismo contacto puede llegar a veces con su jid @lid y a veces con el
+  // de toda la vida (@s.whatsapp.net) — si ya hay una conversación con ese
+  // teléfono se reusa, en vez de chocar contra el índice único de
+  // (user_id, telefono) y perder el mensaje.
+  if (!existente && telefono) {
+    ({ data: existente } = await supabase
+      .from('conversaciones').select('*').eq('user_id', userId).eq('telefono', telefono).maybeSingle());
+  }
   if (existente) {
+    // Chats sin teléfono (ver guardarMensaje): si ahora llega un nombre y
+    // antes no lo tenía, se completa para que la Bandeja no muestre
+    // "(sin nombre)".
+    if (!existente.nombre && nombre && !existente.es_grupo) {
+      await supabase.from('conversaciones').update({ nombre }).eq('id', existente.id);
+      existente.nombre = nombre;
+    }
     // Esta conversación puede haber quedado sin cliente vinculado por el
     // bug de los jid @lid de hoy (el teléfono no se podía resolver
     // todavía cuando se creó). Si ahora sí hay teléfono y matchea con
@@ -110,7 +125,7 @@ async function obtenerOCrearConversacion(supabase, userId, telefono, jid, nombre
     .from('conversaciones')
     .insert({
       user_id: userId, jid, telefono, cliente_id: clienteId, no_leidos: 0,
-      es_grupo: jid.endsWith('@g.us'), nombre: nombreGrupo || null,
+      es_grupo: jid.endsWith('@g.us'), nombre: nombre || null,
     })
     .select('*').single();
   if (error) throw error;
@@ -183,7 +198,7 @@ function previewTexto(texto, tipo) {
 // sentido que las reglas muevan tarjetas del Kanban por mensajes de hace
 // semanas que ya se gestionaron a mano.
 async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}) {
-  const { descargarAdjuntos = true, tiposAdjuntoADescargar = ['imagen', 'pdf', 'audio'], aplicarAutomatizacion = true, silencioso = false, nombreGrupo = null, resolverNombreGrupo = true } = opciones;
+  const { descargarAdjuntos = true, tiposAdjuntoADescargar = ['imagen', 'pdf', 'audio'], aplicarAutomatizacion = true, silencioso = false, nombreGrupo = null, resolverNombreGrupo = true, jidAlt = null, nombreContacto = null } = opciones;
   const direccion = msg.key.fromMe ? 'saliente' : 'entrante';
   const jid = msg.key.remoteJid;
   // Los "Estados" (historias) de WhatsApp llegan con remoteJid
@@ -191,16 +206,31 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
   // se descartan derecho, sin intentar sacarles teléfono ni loguear nada
   // (si no, generan un warning por cada vista de estado de cada contacto).
   if (jid === 'status@broadcast') return;
+  // Mensajes internos de WhatsApp (borrados, ediciones, sincronización
+  // entre dispositivos) — no son algo que se escribió en el chat.
+  if (msg.message?.protocolMessage) return;
   const esGrupo = !!jid && jid.endsWith('@g.us');
 
   let telefono = null;
+  let nombreContactoResuelto = null;
   if (esGrupo) {
     // Los grupos no tienen teléfono propio — se identifican solo por jid.
   } else {
-    telefono = jidATelefono(jid, msg.key.remoteJidAlt);
+    // Esta versión de Baileys manda el número "de toda la vida" de un
+    // contacto @lid en key.senderPn (remoteJidAlt es el nombre que usan
+    // versiones más nuevas); jidAlt viene de la importación del historial.
+    telefono = jidATelefono(jid, msg.key.remoteJidAlt || msg.key.senderPn || jidAlt);
     if (!telefono) {
-      if (!silencioso) logger.warn({ key: msg.key }, 'No se pudo sacar un teléfono válido de este remitente — se descarta');
-      return;
+      // Antes estos chats se descartaban — ahora se guardan igual (como
+      // los grupos, identificados solo por jid; se puede contestar porque
+      // la cola manda al jid). Quedan sin cliente vinculado hasta que
+      // WhatsApp revele el número, y ahí obtenerOCrearConversacion los
+      // vincula solos. Para que se reconozcan en la Bandeja se les guarda
+      // el nombre que tenga el contacto, o el número tal cual si no es
+      // argentino.
+      const digitos = jid && !jid.endsWith('@lid') ? jid.split('@')[0] : null;
+      nombreContactoResuelto = nombreContacto || (!msg.key.fromMe && msg.pushName) || (digitos ? '+' + digitos : null);
+      if (!silencioso) logger.info({ jid, nombre: nombreContactoResuelto }, 'Remitente sin teléfono argentino reconocible — se guarda igual, sin vincular a cliente');
     }
   }
 
@@ -225,7 +255,7 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
     }
   }
 
-  const conversacion = await obtenerOCrearConversacion(supabase, userId, telefono, jid, nombreGrupoResuelto);
+  const conversacion = await obtenerOCrearConversacion(supabase, userId, telefono, jid, esGrupo ? nombreGrupoResuelto : nombreContactoResuelto);
   const tipo = tipoDeMensaje(msg);
   const texto = textoDeMensaje(msg);
   if (!silencioso) logger.info({ telefono, esGrupo, grupo: nombreGrupoResuelto, direccion, conversacionId: conversacion.id, tipo, texto }, 'Guardando mensaje');
@@ -271,13 +301,29 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
 // (sin bajar adjuntos viejos ni mover tarjetas del Kanban por mensajes
 // pasados, ver guardarMensaje) y al final se corrige no_leidos de cada
 // chat con el contador real que manda WhatsApp.
-async function sincronizarHistorial(sock, supabase, userId, config, { chats, messages }) {
+async function sincronizarHistorial(sock, supabase, userId, config, { chats, contacts, messages }) {
   logger.info({ chats: chats?.length || 0, mensajes: messages?.length || 0 }, 'Sincronizando historial de WhatsApp...');
   // El nombre de los grupos viene en el array de chats (chat.name) — se
   // arma un mapa para no tener que pedirle a WhatsApp el nombre de cada
   // grupo mensaje por mensaje durante la importación masiva.
   const nombresGrupo = {};
   (chats || []).forEach(c => { if (c.id && c.id.endsWith('@g.us') && c.name) nombresGrupo[c.id] = c.name; });
+  // Los mensajes del historial de chats @lid no traen el número, pero el
+  // array de chats (pnJid) y el de contactos (lid + jid) sí suelen traer la
+  // equivalencia — y el nombre del contacto, para los que no se resuelvan.
+  const pnPorLid = {};
+  const nombresContacto = {};
+  (chats || []).forEach(c => {
+    if (!c.id) return;
+    if (c.id.endsWith('@lid') && c.pnJid) pnPorLid[c.id] = c.pnJid;
+    if (c.lidJid && !c.id.endsWith('@lid')) pnPorLid[c.lidJid] = c.id;
+    if (!c.id.endsWith('@g.us') && c.name) nombresContacto[c.id] = c.name;
+  });
+  (contacts || []).forEach(c => {
+    if (c.lid && c.jid) pnPorLid[c.lid] = c.jid;
+    const nombre = c.name || c.notify || c.verifiedName;
+    if (c.id && nombre && !nombresContacto[c.id]) nombresContacto[c.id] = nombre;
+  });
 
   let guardados = 0;
   for (const msg of messages || []) {
@@ -292,6 +338,7 @@ async function sincronizarHistorial(sock, supabase, userId, config, { chats, mes
         descargarAdjuntos: true, tiposAdjuntoADescargar: ['imagen', 'pdf'],
         aplicarAutomatizacion: false, noContarNoLeido: true, silencioso: true,
         nombreGrupo: nombresGrupo[msg.key.remoteJid] || null, resolverNombreGrupo: false,
+        jidAlt: pnPorLid[msg.key.remoteJid] || null, nombreContacto: nombresContacto[msg.key.remoteJid] || null,
       });
       guardados++;
       if (guardados % 50 === 0) logger.info({ guardados, de: messages.length }, 'Importando historial...');
