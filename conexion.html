@@ -10,8 +10,6 @@
 <script src="js/telefonos.js"></script>
 <script src="supabase/crm.js"></script>
 <script src="worker/src/reglas.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"
-  onerror="var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js';document.head.appendChild(s);"></script>
 <style>
   :root{
     --bg:#0a0e14; --panel:#111826; --panel-2:#151d2e; --line:#212c40;
@@ -197,22 +195,12 @@ function renderQr(){
     el.innerHTML = `<h3>Vincular un número nuevo</h3><div class="empty-state">${sesion && sesion.estado === 'conectado' ? 'Ya hay un número conectado. Desvinculalo para mostrar un QR nuevo.' : 'Esperando que el worker genere un QR... arrancalo con <code>npm start</code> en la carpeta worker/.'}</div>`;
     return;
   }
-  el.innerHTML = `<h3>Vincular un número nuevo</h3><div id="qrBox"></div>
+  // El worker manda el QR ya dibujado como imagen (data URL de PNG), no el
+  // texto crudo: el panel solo lo muestra, no depende de ninguna librería
+  // externa para dibujarlo (algunas redes bloquean los CDN de JS).
+  el.innerHTML = `<h3>Vincular un número nuevo</h3>
+    <div id="qrBox">${sesion.qr.startsWith('data:image') ? `<img src="${sesion.qr}" width="220" height="220" alt="Código QR">` : '<div style="color:#d14f4f;font-size:12px;padding:10px;">Este QR es de una versión vieja del worker — actualizalo (git pull + npm install) y reiniciá.</div>'}</div>
     <div class="qr-steps">En el celular de la empresa:<br>1. Abrí WhatsApp<br>2. Menú → Dispositivos vinculados<br>3. Vincular un dispositivo<br>4. Escaneá este código</div>`;
-  try {
-    if (typeof QRCode === 'undefined') throw new Error('La librería para dibujar el QR no cargó (¿bloqueada por la red?).');
-    const canvas = document.createElement('canvas');
-    document.getElementById('qrBox').appendChild(canvas);
-    QRCode.toCanvas(canvas, sesion.qr, { width: 220, margin: 1 }, (err) => {
-      if (err) {
-        console.error('No se pudo dibujar el QR', err);
-        document.getElementById('qrBox').innerHTML = '<div style="color:#d14f4f;font-size:12px;padding:10px;">No se pudo dibujar el QR. Mirá la consola (F12) para el detalle.</div>';
-      }
-    });
-  } catch (e) {
-    console.error('renderQr', e);
-    document.getElementById('qrBox').innerHTML = `<div style="color:#d14f4f;font-size:12px;padding:10px;">${escapeHtml(e.message)}<br>Probá recargar la página (Ctrl+Shift+R). Si sigue sin aparecer, avisale a quien armó el panel.</div>`;
-  }
 }
 
 async function cargarEstado(){

@@ -17,6 +17,7 @@ const {
   downloadMediaMessage,
 } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
+const QRCode = require('qrcode');
 const pino = require('pino');
 const { normalizarTelefonoAR } = require('./telefonos');
 const { clasificarMensaje } = require('./reglas');
@@ -174,7 +175,12 @@ async function iniciarWhatsApp({ supabase, userId, config, onReady }) {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      await supabase.from('wa_sesion').upsert({ user_id: userId, estado: 'conectando', qr });
+      // Se manda ya dibujado como imagen (data URL) en vez del texto crudo
+      // del QR: así el panel solo tiene que mostrar un <img>, sin depender
+      // de ninguna librería externa en el navegador (algunas redes de
+      // oficina bloquean los CDN de JS y el QR quedaba sin poder dibujarse).
+      const qrImagen = await QRCode.toDataURL(qr, { width: 300, margin: 1 });
+      await supabase.from('wa_sesion').upsert({ user_id: userId, estado: 'conectando', qr: qrImagen });
       logger.info('QR nuevo generado — escanealo desde el panel (Conexión WhatsApp) o la terminal.');
     }
 
