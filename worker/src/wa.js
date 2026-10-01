@@ -118,20 +118,40 @@ async function aplicarReglas(supabase, userId, conversacion, mensajeTexto, tipo)
   });
 }
 
-async function manejarMensajeEntrante(sock, supabase, userId, config, msg) {
+function previewTexto(texto, tipo) {
+  return texto || (tipo === 'imagen' ? '📷 Imagen' : tipo === 'pdf' ? '📄 PDF' : tipo === 'audio' ? '🎙️ Audio' : '...');
+}
+
+// Guarda un mensaje (en vivo o del historial) en conversaciones/mensajes.
+// opciones.descargarAdjuntos: false durante la sincronización inicial del
+// historial (puede traer cientos de mensajes viejos de una — bajar y subir
+// a Storage cada foto vieja sería lento y llenaría el bucket de golpe; los
+// mensajes nuevos que lleguen de ahí en adelante sí bajan el adjunto).
+// opciones.aplicarAutomatizacion: false para el historial — no tiene
+// sentido que las reglas muevan tarjetas del Kanban por mensajes de hace
+// semanas que ya se gestionaron a mano.
+async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}) {
+  const { descargarAdjuntos = true, aplicarAutomatizacion = true, silencioso = false } = opciones;
+  const direccion = msg.key.fromMe ? 'saliente' : 'entrante';
+
   const telefono = jidATelefono(msg.key.remoteJid);
-  if (!telefono) return;
+  if (!telefono) {
+    if (!silencioso) logger.warn({ remoteJid: msg.key.remoteJid }, 'No se pudo sacar un teléfono válido de este remitente — se descarta');
+    return;
+  }
 
   const waId = msg.key.id;
-  const { data: yaExiste } = await supabase.from('mensajes').select('id').eq('wa_id', waId).maybeSingle();
-  if (yaExiste) return; // Baileys puede reentregar el mismo mensaje
+  const { data: yaExiste, error: errorExiste } = await supabase.from('mensajes').select('id').eq('wa_id', waId).maybeSingle();
+  if (errorExiste) logger.error({ err: errorExiste }, 'Error chequeando duplicado de mensaje');
+  if (yaExiste) return;
 
   const conversacion = await obtenerOCrearConversacion(supabase, userId, telefono, msg.key.remoteJid);
   const tipo = tipoDeMensaje(msg);
   const texto = textoDeMensaje(msg);
+  if (!silencioso) logger.info({ telefono, direccion, conversacionId: conversacion.id, tipo, texto }, 'Guardando mensaje');
 
   let mediaPath = null;
-  if (tipo === 'imagen' || tipo === 'pdf' || tipo === 'audio') {
+  if (descargarAdjuntos && (tipo === 'imagen' || tipo === 'pdf' || tipo === 'audio')) {
     try {
       const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger, reuploadRequest: sock.updateMediaMessage });
       const ext = tipo === 'imagen' ? 'jpg' : tipo === 'pdf' ? 'pdf' : 'ogg';
@@ -141,23 +161,58 @@ async function manejarMensajeEntrante(sock, supabase, userId, config, msg) {
     }
   }
 
-  await supabase.from('mensajes').insert({
+  const creadoAt = msg.messageTimestamp ? new Date(Number(msg.messageTimestamp) * 1000).toISOString() : new Date().toISOString();
+  const { error: errorInsert } = await supabase.from('mensajes').insert({
     conversacion_id: conversacion.id,
     wa_id: waId,
-    direccion: 'entrante',
+    direccion,
     tipo,
     texto: texto || null,
     media_path: mediaPath,
-    estado: 'entregado',
+    estado: direccion === 'entrante' ? 'entregado' : 'enviado',
+    creado_at: creadoAt,
   });
+  if (errorInsert) { logger.error({ err: errorInsert }, 'No se pudo guardar el mensaje'); return; }
 
-  await supabase.from('conversaciones').update({
-    ultimo_texto: texto || (tipo === 'imagen' ? '📷 Imagen' : tipo === 'pdf' ? '📄 PDF' : tipo === 'audio' ? '🎙️ Audio' : '...'),
-    ultimo_at: new Date().toISOString(),
-    no_leidos: (conversacion.no_leidos || 0) + 1,
+  const esMasNuevo = !conversacion.ultimo_at || creadoAt >= conversacion.ultimo_at;
+  const { error: errorUpdate } = await supabase.from('conversaciones').update({
+    ...(esMasNuevo ? { ultimo_texto: previewTexto(texto, tipo), ultimo_at: creadoAt } : {}),
+    ...(direccion === 'entrante' && !opciones.noContarNoLeido ? { no_leidos: (conversacion.no_leidos || 0) + 1 } : {}),
   }).eq('id', conversacion.id);
+  if (errorUpdate) logger.error({ err: errorUpdate }, 'No se pudo actualizar la conversación');
 
-  await aplicarReglas(supabase, userId, conversacion, texto, tipo).catch(e => logger.error({ err: e }, 'Error aplicando reglas'));
+  if (aplicarAutomatizacion && direccion === 'entrante') {
+    await aplicarReglas(supabase, userId, conversacion, texto, tipo).catch(e => logger.error({ err: e }, 'Error aplicando reglas'));
+  }
+}
+
+// Primera vinculación (o reconexión): WhatsApp manda de a tandas todo el
+// historial de chats que había antes de conectar el panel. Se guarda todo
+// (sin bajar adjuntos viejos ni mover tarjetas del Kanban por mensajes
+// pasados, ver guardarMensaje) y al final se corrige no_leidos de cada
+// chat con el contador real que manda WhatsApp.
+async function sincronizarHistorial(sock, supabase, userId, config, { chats, messages }) {
+  logger.info({ chats: chats?.length || 0, mensajes: messages?.length || 0 }, 'Sincronizando historial de WhatsApp...');
+  let guardados = 0;
+  for (const msg of messages || []) {
+    if (!msg.message) continue;
+    try {
+      await guardarMensaje(sock, supabase, userId, config, msg, {
+        descargarAdjuntos: false, aplicarAutomatizacion: false, noContarNoLeido: true, silencioso: true,
+      });
+      guardados++;
+      if (guardados % 50 === 0) logger.info({ guardados, de: messages.length }, 'Importando historial...');
+    } catch (e) {
+      logger.error({ err: e }, 'Error importando un mensaje del historial');
+    }
+  }
+  for (const chat of chats || []) {
+    const telefono = jidATelefono(chat.id);
+    if (!telefono) continue;
+    await supabase.from('conversaciones').update({ no_leidos: chat.unreadCount || 0 })
+      .eq('user_id', userId).eq('telefono', telefono);
+  }
+  logger.info({ guardados }, 'Historial de WhatsApp importado.');
 }
 
 async function iniciarWhatsApp({ supabase, userId, config, onReady }) {
@@ -167,6 +222,7 @@ async function iniciarWhatsApp({ supabase, userId, config, onReady }) {
     logger,
     printQRInTerminal: false,
     browser: ['Cash Market CRM', 'Chrome', '1.0'],
+    syncFullHistory: true, // trae todos los chats/mensajes previos, no solo los recientes
   });
 
   sock.ev.on('creds.update', saveCreds);
@@ -212,12 +268,20 @@ async function iniciarWhatsApp({ supabase, userId, config, onReady }) {
     }
   });
 
+  sock.ev.on('messaging-history.set', async (payload) => {
+    try {
+      await sincronizarHistorial(sock, supabase, userId, config, payload);
+    } catch (e) {
+      logger.error({ err: e }, 'Error sincronizando el historial de WhatsApp');
+    }
+  });
+
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return;
     for (const msg of messages) {
-      if (!msg.message || msg.key.fromMe) continue;
+      if (!msg.message) continue;
       try {
-        await manejarMensajeEntrante(sock, supabase, userId, config, msg);
+        await guardarMensaje(sock, supabase, userId, config, msg);
       } catch (e) {
         logger.error({ err: e }, 'Error procesando mensaje entrante');
       }
