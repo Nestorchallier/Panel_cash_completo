@@ -205,7 +205,7 @@ function horaCorta(iso){
 function nombreConversacion(c){
   if(c.es_grupo) return c.nombre || 'Grupo';
   if(c.clientes && c.clientes.nombre) return c.clientes.nombre;
-  return (window.formatearTelefonoAR && c.telefono && window.formatearTelefonoAR(c.telefono)) || c.telefono || c.nombre || '(sin nombre)';
+  return (window.formatearTelefonoAR && c.telefono && window.formatearTelefonoAR(c.telefono)) || c.telefono || c.nombre || 'Contacto sin agendar';
 }
 
 function pasaFiltro(c){

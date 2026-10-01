@@ -219,7 +219,7 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
     // Esta versión de Baileys manda el número "de toda la vida" de un
     // contacto @lid en key.senderPn (remoteJidAlt es el nombre que usan
     // versiones más nuevas); jidAlt viene de la importación del historial.
-    telefono = jidATelefono(jid, msg.key.remoteJidAlt || msg.key.senderPn || jidAlt);
+    telefono = jidATelefono(jid, msg.key.remoteJidAlt || msg.key.senderPn || jidAlt || pnPorLidGlobal[jid]);
     if (!telefono) {
       // Antes estos chats se descartaban — ahora se guardan igual (como
       // los grupos, identificados solo por jid; se puede contestar porque
@@ -229,7 +229,7 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
       // el nombre que tenga el contacto, o el número tal cual si no es
       // argentino.
       const digitos = jid && !jid.endsWith('@lid') ? jid.split('@')[0] : null;
-      nombreContactoResuelto = nombreContacto || (!msg.key.fromMe && msg.pushName) || (digitos ? '+' + digitos : null);
+      nombreContactoResuelto = nombreContacto || nombrePorJidGlobal[jid] || (!msg.key.fromMe && msg.pushName) || (digitos ? '+' + digitos : null);
       if (!silencioso) logger.info({ jid, nombre: nombreContactoResuelto }, 'Remitente sin teléfono argentino reconocible — se guarda igual, sin vincular a cliente');
     }
   }
@@ -296,6 +296,53 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
   }
 }
 
+// Esta versión de Baileys no tiene forma de preguntarle a WhatsApp el
+// número de un contacto @lid, pero sí avisa cuando se entera: contactos
+// agendados (contacts.upsert, con lid + jid), nombres de perfil
+// (contacts.update / notify) y cuando alguien comparte su número
+// (chats.phoneNumberShare). Se guarda en memoria para los mensajes que
+// lleguen después, y se completan las conversaciones que ya se crearon sin
+// teléfono o sin nombre.
+const pnPorLidGlobal = {};
+let contactosResincronizados = false;
+const nombrePorJidGlobal = {};
+
+async function actualizarContacto(supabase, userId, { lid, jid, nombre }) {
+  if (lid && jid && lid.endsWith('@lid') && !jid.endsWith('@lid')) {
+    pnPorLidGlobal[lid] = jid;
+    const telefono = jidATelefono(jid);
+    const { data: convLid } = await supabase.from('conversaciones').select('*')
+      .eq('user_id', userId).eq('jid', lid).is('telefono', null).maybeSingle();
+    if (convLid && telefono) {
+      const { data: convTel } = await supabase.from('conversaciones').select('*')
+        .eq('user_id', userId).eq('telefono', telefono).maybeSingle();
+      if (convTel) {
+        // Ya había un chat con ese número (bajo el jid de toda la vida):
+        // se pasan los mensajes del chat @lid ahí y se borra el duplicado.
+        await supabase.from('mensajes').update({ conversacion_id: convTel.id }).eq('conversacion_id', convLid.id);
+        const cambios = { no_leidos: (convTel.no_leidos || 0) + (convLid.no_leidos || 0) };
+        if (convLid.ultimo_at && (!convTel.ultimo_at || convLid.ultimo_at > convTel.ultimo_at)) {
+          cambios.ultimo_at = convLid.ultimo_at;
+          cambios.ultimo_texto = convLid.ultimo_texto;
+        }
+        await supabase.from('conversaciones').update(cambios).eq('id', convTel.id);
+        await supabase.from('conversaciones').delete().eq('id', convLid.id);
+      } else {
+        const clienteId = await buscarClientePorTelefono(supabase, userId, telefono);
+        await supabase.from('conversaciones').update({ telefono, cliente_id: clienteId }).eq('id', convLid.id);
+      }
+    }
+  }
+  if (nombre) {
+    for (const id of [jid, lid]) {
+      if (!id || id.endsWith('@g.us')) continue;
+      nombrePorJidGlobal[id] = nombre;
+      await supabase.from('conversaciones').update({ nombre })
+        .eq('user_id', userId).eq('jid', id).eq('es_grupo', false).is('nombre', null);
+    }
+  }
+}
+
 // Primera vinculación (o reconexión): WhatsApp manda de a tandas todo el
 // historial de chats que había antes de conectar el panel. Se guarda todo
 // (sin bajar adjuntos viejos ni mover tarjetas del Kanban por mensajes
@@ -349,6 +396,19 @@ async function sincronizarHistorial(sock, supabase, userId, config, { chats, con
   // Se matchea por jid (tal cual lo manda WhatsApp, @lid o @g.us incluido)
   // y no por teléfono: así no depende de poder resolver el número para
   // este paso, que solo corrige el contador de no leídos.
+  // Equivalencias lid -> número y nombres de esta tanda: completan los chats
+  // @lid que se crearon sin teléfono o sin nombre en tandas anteriores (hay
+  // tandas, las de "nombres de perfil", que traen solo esto, sin mensajes).
+  for (const c of contacts || []) {
+    const nombre = c.name || c.notify || c.verifiedName || null;
+    const lid = c.lid || (c.id && c.id.endsWith('@lid') ? c.id : null);
+    const jid = c.jid || (c.id && !c.id.endsWith('@lid') ? c.id : null);
+    if ((lid && jid) || (nombre && lid)) {
+      await actualizarContacto(supabase, userId, { lid, jid, nombre })
+        .catch(e => logger.error({ err: e }, 'Error actualizando contacto del historial'));
+    }
+  }
+  for (const lid of Object.keys(pnPorLid)) pnPorLidGlobal[lid] = pnPorLid[lid];
   for (const chat of chats || []) {
     if (!chat.id || !chat.unreadCount) continue;
     await supabase.from('conversaciones').update({ no_leidos: chat.unreadCount })
@@ -409,6 +469,26 @@ async function iniciarWhatsApp({ supabase, userId, config, onReady }) {
       });
       logger.info('WhatsApp conectado.');
       if (onReady) onReady(sock);
+      // WhatsApp manda la lista completa de contactos agendados (con la
+      // equivalencia lid -> número) una sola vez, al vincular. Para no
+      // depender de eso, una vez por arranque del worker se pide de nuevo
+      // desde cero (versión en null = snapshot completo; es lo mismo que
+      // hace Baileys cuando una sincronización falla) — dispara
+      // contacts.upsert y completa los chats @lid. Se espera un rato para
+      // no pisarse con la importación del historial recién conectado.
+      if (!contactosResincronizados) {
+        contactosResincronizados = true;
+        setTimeout(async () => {
+          try {
+            await state.keys.set({ 'app-state-sync-version': { critical_unblock_low: null } });
+            await sock.resyncAppState(['critical_unblock_low'], true);
+            logger.info('Lista de contactos de WhatsApp actualizada.');
+          } catch (e) {
+            logger.warn({ err: e }, 'No se pudo re-sincronizar la lista de contactos');
+            contactosResincronizados = false; // se reintenta en la próxima conexión
+          }
+        }, 60000);
+      }
     }
 
     if (connection === 'close') {
@@ -435,6 +515,20 @@ async function iniciarWhatsApp({ supabase, userId, config, onReady }) {
       logger.error({ err: e }, 'Error sincronizando el historial de WhatsApp');
     }
   });
+
+  const alActualizarContactos = async (contactos) => {
+    for (const c of contactos || []) {
+      const nombre = c.name || c.notify || c.verifiedName || null;
+      const lid = c.lid || (c.id && c.id.endsWith('@lid') ? c.id : null);
+      const jid = c.jid || (c.id && !c.id.endsWith('@lid') ? c.id : null);
+      if (!(lid && jid) && !(nombre && lid)) continue;
+      await actualizarContacto(supabase, userId, { lid, jid, nombre })
+        .catch(e => logger.error({ err: e }, 'Error actualizando contacto'));
+    }
+  };
+  sock.ev.on('contacts.upsert', alActualizarContactos);
+  sock.ev.on('contacts.update', alActualizarContactos);
+  sock.ev.on('chats.phoneNumberShare', ({ lid, jid }) => alActualizarContactos([{ lid, jid }]));
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return;
