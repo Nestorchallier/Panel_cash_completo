@@ -3164,6 +3164,9 @@
       document.getElementById('importStatus').textContent = '';
       document.getElementById('importStatus').className = 'import-status';
       document.getElementById('footNote').textContent = 'Datos reiniciados — importá tu Excel para actualizar';
+      // Antes faltaba guardar: se vaciaba la pantalla pero al recargar
+      // volvían los datos viejos.
+      saveState();
       render();
     });
 
@@ -3328,6 +3331,47 @@
       } catch (e) { console.error('sincronizarKanbanConCobros', e); return { synced: false, matched: 0 }; }
     }
 
+    /* ================= PAGOS CONFIRMADOS EN EL CRM ================= */
+    // Los pagos que se confirman fuera de esta pantalla (botón "Confirmar
+    // pago" de la Bandeja de WhatsApp, o tarjeta pasada a "Cerrado
+    // (Cobrado)" en el Kanban) quedan en la tabla pagos. Acá se suman al
+    // Registro de pagos — con la misma regla de duplicados que "Importar
+    // cobros" — y se anota el id de cada uno para no sumarlo dos veces. Los de
+    // origen 'excel' no: esos ya entran al registro desde el propio import.
+    let integrandoPagosCRM = false;
+    async function integrarPagosCRM() {
+      if (integrandoPagosCRM) return;
+      integrandoPagosCRM = true;
+      try {
+        const pagos = await crmListPagos();
+        if (!Array.isArray(state.pagosCRMIntegrados)) state.pagosCRMIntegrados = [];
+        if (!Array.isArray(state.pendingDuplicates)) state.pendingDuplicates = [];
+        const yaIntegrados = new Set(state.pagosCRMIntegrados);
+        const nuevos = pagos.filter(p => p.origen !== 'excel' && !yaIntegrados.has(p.id)).reverse();
+        if (!nuevos.length) return;
+        let nextId = state.payments.length ? Math.max(...state.payments.map(p => p.id)) + 1 : 1;
+        let nextDupId = state.pendingDuplicates.length ? Math.max(...state.pendingDuplicates.map(d => d.dupId || 0)) + 1 : 1;
+        nuevos.forEach(p => {
+          const name = p.nombre || '(sin nombre)';
+          const monto = Number(p.monto) || 0;
+          const estado = String(p.estado || '').toLowerCase() === 'cobrado' ? 'Cobrado' : null;
+          const existing = state.payments.find(x => (x.name || '').trim().toLowerCase() === name.trim().toLowerCase() && Math.round(x.monto) === Math.round(monto));
+          if (existing) {
+            state.pendingDuplicates.push({ dupId: nextDupId++, existingId: existing.id, incoming: { name, monto, estado: estado || 'Cobrado' } });
+          } else {
+            state.payments.push({ id: nextId++, name, monto, estado });
+          }
+          state.pagosCRMIntegrados.push(p.id);
+        });
+        saveState();
+        render();
+      } catch (e) {
+        console.error('integrarPagosCRM', e);
+      } finally {
+        integrandoPagosCRM = false;
+      }
+    }
+
     /* ================= INIT ================= */
     window.appReady.then(async () => {
       if (!(await loadState())) {
@@ -3335,6 +3379,11 @@
       }
       if (!state.myCobrador) state.myCobrador = 'Nestor Challier';
       render();
+      await integrarPagosCRM();
+      // Así, con esta pantalla abierta, un pago confirmado desde la Bandeja
+      // o el Kanban aparece solo (cada 30 s, o al volver a esta pestaña).
+      setInterval(integrarPagosCRM, 30000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) integrarPagosCRM(); });
     });
   </script>
 

@@ -1376,31 +1376,22 @@ function normalizeDni(v){ return String(v||'').replace(/\D/g,''); }
 // + mismo monto redondeado ya existente = posible duplicado, va a la cola de revisión
 // en vez de sumarse dos veces).
 // Devuelve {synced, added, dup}.
+//
+// Ya no escribe directo en el estado de Sueldo & Cobros (si esa pantalla
+// estaba abierta en otra pestaña, al guardar pisaba el pago y se perdía):
+// lo deja en la tabla pagos, igual que "Confirmar pago" de la Bandeja, y
+// Sueldo & Cobros lo suma solo (integrarPagosCRM en index.html), aplicando
+// ahí la regla de duplicados.
 async function registrarPagosEnPanel(list){
   if(!list || !list.length) return {synced:false, added:0, dup:0};
   try{
-    const panelState = await kvGet(PANEL_STORAGE_KEY);
-    if(!panelState) return {synced:false, added:0, dup:0};
-    if(!Array.isArray(panelState.payments)) panelState.payments = [];
-    if(!Array.isArray(panelState.pendingDuplicates)) panelState.pendingDuplicates = [];
-    let nextId = panelState.payments.length ? Math.max(...panelState.payments.map(p=>p.id||0)) + 1 : 1;
-    let nextDupId = panelState.pendingDuplicates.length ? Math.max(...panelState.pendingDuplicates.map(d=>d.dupId||0)) + 1 : 1;
-    let added = 0, dup = 0;
-    list.forEach(p=>{
-      const nameNorm = (p.name||'').trim().toLowerCase();
-      const montoRounded = Math.round(p.monto);
-      const existing = panelState.payments.find(x => (x.name||'').trim().toLowerCase() === nameNorm && Math.round(x.monto) === montoRounded);
-      if(existing){
-        panelState.pendingDuplicates.push({ dupId: nextDupId++, existingId: existing.id, incoming: { name: p.name, monto: p.monto, estado: 'Cobrado' } });
-        dup++;
-      } else {
-        panelState.payments.push({ id: nextId++, name: p.name, monto: p.monto, estado: 'Cobrado' });
-        added++;
-      }
-    });
-    await kvSet(PANEL_STORAGE_KEY, panelState);
-    return { synced:true, added, dup };
-  }catch(e){ return {synced:false, added:0, dup:0}; }
+    const hoy = new Date().toISOString().slice(0,10);
+    await Promise.all(list.map(p => crmAddPago({
+      cliente_id: p.clienteId || null, nombre: p.name, monto: p.monto || 0,
+      fecha: hoy, estado: 'Cobrado', origen: 'kanban',
+    })));
+    return { synced:true, added:list.length, dup:0 };
+  }catch(e){ console.error('registrarPagosEnPanel', e); return {synced:false, added:0, dup:0}; }
 }
 
 // --- Modal: registrar pago (drag o cambio manual a Cerrado) ---
@@ -1428,14 +1419,12 @@ async function confirmCobrado(){
   stampStageChange(c);
   c.montoPagado = monto;
   save(); renderBoard(); renderStats(); renderCalendar();
-  const result = await registrarPagosEnPanel([{name: c.nombre, monto}]);
+  const result = await registrarPagosEnPanel([{name: c.nombre, monto, clienteId: c.id}]);
   document.getElementById('cobradoModal').classList.remove('open');
   if(!result.synced){
-    toast('Cliente movido a Cerrado (abrí Sueldo & Cobros al menos una vez para sincronizar montos)');
-  } else if(result.dup){
-    toast('Cliente movido a Cerrado — ya había un pago igual registrado, quedó para revisar en Sueldo & Cobros');
+    toast('Cliente movido a Cerrado, pero no se pudo registrar el pago — reintentá');
   } else {
-    toast('Pago registrado y sumado a Sueldo & Cobros');
+    toast('Pago registrado — se suma solo en Sueldo & Cobros');
   }
   pendingCobradoId = null;
 }
@@ -1575,7 +1564,7 @@ document.getElementById('btnConfirmImportPagos').addEventListener('click', async
       stampStageChange(client);
       client.montoPagado = monto;
       matched++;
-      newPayments.push({name: client.nombre, monto});
+      newPayments.push({name: client.nombre, monto, clienteId: client.id});
     } else {
       unmatched.push(nombreRaw || dniRaw || '(sin datos)');
     }
@@ -1587,8 +1576,8 @@ document.getElementById('btnConfirmImportPagos').addEventListener('click', async
 
   let msg = `${matched} clientes movidos a Cerrado`;
   if(unmatched.length) msg += ` · ${unmatched.length} sin coincidencia`;
-  if(matched && !result.synced) msg += ' (abrí Sueldo & Cobros una vez para sincronizar montos)';
-  else if(result.dup) msg += ` · ${result.dup} ya estaban cargados, quedaron para revisar en Sueldo & Cobros`;
+  if(matched && !result.synced) msg += ' (no se pudieron registrar los pagos — reintentá)';
+  else if(matched) msg += ' · pagos registrados en Sueldo & Cobros';
   toast(msg);
 });
 

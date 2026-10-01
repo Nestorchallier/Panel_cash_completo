@@ -4,3 +4,4 @@ worker/.env
 worker/auth/
 worker/auth*/
 worker/*.log
+respaldos/
