@@ -178,7 +178,7 @@ function previewTexto(texto, tipo) {
 // sentido que las reglas muevan tarjetas del Kanban por mensajes de hace
 // semanas que ya se gestionaron a mano.
 async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}) {
-  const { descargarAdjuntos = true, tiposAdjuntoADescargar = ['imagen', 'pdf', 'audio'], aplicarAutomatizacion = true, silencioso = false, nombreGrupo = null } = opciones;
+  const { descargarAdjuntos = true, tiposAdjuntoADescargar = ['imagen', 'pdf', 'audio'], aplicarAutomatizacion = true, silencioso = false, nombreGrupo = null, resolverNombreGrupo = true } = opciones;
   const direccion = msg.key.fromMe ? 'saliente' : 'entrante';
   const jid = msg.key.remoteJid;
   const esGrupo = !!jid && jid.endsWith('@g.us');
@@ -200,7 +200,13 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
   if (yaExiste) return;
 
   let nombreGrupoResuelto = nombreGrupo;
-  if (esGrupo && !nombreGrupoResuelto) {
+  // Solo se le pregunta el nombre a WhatsApp para mensajes en vivo (un
+  // grupo nuevo por vez, es raro). Durante la importación masiva del
+  // historial NUNCA se llama acá — si no vino en el array de chats, pasa
+  // null y listo (el panel muestra "Grupo" como respaldo); pedirlo mensaje
+  // por mensaje del mismo grupo dispara el límite de pedidos de WhatsApp
+  // ("rate-overlimit") y frena toda la sincronización.
+  if (esGrupo && !nombreGrupoResuelto && resolverNombreGrupo) {
     try {
       const meta = await sock.groupMetadata(jid);
       nombreGrupoResuelto = meta?.subject || null;
@@ -275,7 +281,7 @@ async function sincronizarHistorial(sock, supabase, userId, config, { chats, mes
         // momento en que WhatsApp lo entrega — después ya no hay forma.
         descargarAdjuntos: true, tiposAdjuntoADescargar: ['imagen', 'pdf'],
         aplicarAutomatizacion: false, noContarNoLeido: true, silencioso: true,
-        nombreGrupo: nombresGrupo[msg.key.remoteJid] || null,
+        nombreGrupo: nombresGrupo[msg.key.remoteJid] || null, resolverNombreGrupo: false,
       });
       guardados++;
       if (guardados % 50 === 0) logger.info({ guardados, de: messages.length }, 'Importando historial...');
