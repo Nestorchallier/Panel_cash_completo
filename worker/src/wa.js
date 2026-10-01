@@ -178,7 +178,7 @@ function previewTexto(texto, tipo) {
 // sentido que las reglas muevan tarjetas del Kanban por mensajes de hace
 // semanas que ya se gestionaron a mano.
 async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}) {
-  const { descargarAdjuntos = true, aplicarAutomatizacion = true, silencioso = false, nombreGrupo = null } = opciones;
+  const { descargarAdjuntos = true, tiposAdjuntoADescargar = ['imagen', 'pdf', 'audio'], aplicarAutomatizacion = true, silencioso = false, nombreGrupo = null } = opciones;
   const direccion = msg.key.fromMe ? 'saliente' : 'entrante';
   const jid = msg.key.remoteJid;
   const esGrupo = !!jid && jid.endsWith('@g.us');
@@ -215,7 +215,7 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
   if (!silencioso) logger.info({ telefono, esGrupo, grupo: nombreGrupoResuelto, direccion, conversacionId: conversacion.id, tipo, texto }, 'Guardando mensaje');
 
   let mediaPath = null;
-  if (descargarAdjuntos && (tipo === 'imagen' || tipo === 'pdf' || tipo === 'audio')) {
+  if (descargarAdjuntos && tiposAdjuntoADescargar.includes(tipo)) {
     try {
       const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger, reuploadRequest: sock.updateMediaMessage });
       const ext = tipo === 'imagen' ? 'jpg' : tipo === 'pdf' ? 'pdf' : 'ogg';
@@ -268,7 +268,13 @@ async function sincronizarHistorial(sock, supabase, userId, config, { chats, mes
     if (!msg.message) continue;
     try {
       await guardarMensaje(sock, supabase, userId, config, msg, {
-        descargarAdjuntos: false, aplicarAutomatizacion: false, noContarNoLeido: true, silencioso: true,
+        // Fotos y PDFs sí se bajan durante la importación (comprobantes de
+        // pago, principalmente — es justo lo que más importa ver) aunque
+        // tarde más; los audios no, para no llenar el Storage de golpe con
+        // notas de voz viejas. Solo se puede bajar un adjunto en el
+        // momento en que WhatsApp lo entrega — después ya no hay forma.
+        descargarAdjuntos: true, tiposAdjuntoADescargar: ['imagen', 'pdf'],
+        aplicarAutomatizacion: false, noContarNoLeido: true, silencioso: true,
         nombreGrupo: nombresGrupo[msg.key.remoteJid] || null,
       });
       guardados++;
