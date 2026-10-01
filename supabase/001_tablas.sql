@@ -84,7 +84,11 @@ create table clientes (
 create unique index clientes_user_dni_idx on clientes(user_id, dni) where dni is not null and dni <> '';
 create index clientes_user_etapa_idx on clientes(user_id, etapa_id);
 
-create or replace function set_updated_at()
+-- Nombre distinto a propósito: kv_store (schema.sql) ya tiene su propia
+-- función set_updated_at() que pone new.updated_at — usar el mismo nombre
+-- acá la pisaría (create or replace reemplaza la función sin importar qué
+-- tabla la use) y rompería en silencio cada UPDATE sobre kv_store.
+create or replace function set_actualizado_at()
 returns trigger as $$
 begin
   new.actualizado_at = now();
@@ -94,7 +98,7 @@ $$ language plpgsql;
 
 create trigger trg_clientes_actualizado_at
   before update on clientes
-  for each row execute function set_updated_at();
+  for each row execute function set_actualizado_at();
 
 -- ───────────────────────── clientes_telefonos ─────────────────────────
 -- Uno o más teléfonos por cliente, ya normalizados a 549 + área + número
@@ -147,7 +151,7 @@ create index prestamos_cliente_idx on prestamos(cliente_id);
 
 create trigger trg_prestamos_actualizado_at
   before update on prestamos
-  for each row execute function set_updated_at();
+  for each row execute function set_actualizado_at();
 
 -- ───────────────────────── cuotas ─────────────────────────
 -- El Excel de cartera no trae el plan cuota por cuota, solo totales (pagas,
@@ -200,7 +204,7 @@ create unique index plantillas_user_nombre_idx on plantillas(user_id, nombre);
 
 create trigger trg_plantillas_actualizado_at
   before update on plantillas
-  for each row execute function set_updated_at();
+  for each row execute function set_actualizado_at();
 
 -- ───────────────────────── conversaciones ─────────────────────────
 create table conversaciones (
@@ -301,4 +305,4 @@ create table wa_sesion (
 
 create trigger trg_wa_sesion_actualizado_at
   before update on wa_sesion
-  for each row execute function set_updated_at();
+  for each row execute function set_actualizado_at();
