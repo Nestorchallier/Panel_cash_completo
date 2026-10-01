@@ -181,6 +181,11 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
   const { descargarAdjuntos = true, tiposAdjuntoADescargar = ['imagen', 'pdf', 'audio'], aplicarAutomatizacion = true, silencioso = false, nombreGrupo = null, resolverNombreGrupo = true } = opciones;
   const direccion = msg.key.fromMe ? 'saliente' : 'entrante';
   const jid = msg.key.remoteJid;
+  // Los "Estados" (historias) de WhatsApp llegan con remoteJid
+  // status@broadcast — no son una conversación 1 a 1 ni de grupo, así que
+  // se descartan derecho, sin intentar sacarles teléfono ni loguear nada
+  // (si no, generan un warning por cada vista de estado de cada contacto).
+  if (jid === 'status@broadcast') return;
   const esGrupo = !!jid && jid.endsWith('@g.us');
 
   let telefono = null;
