@@ -250,6 +250,15 @@ async function crmCrearConversacion(telefonoCrudo) {
   return nueva;
 }
 
+// Eventos de regla de un cliente, para intercalarlos con los mensajes del
+// chat (los avisos "Regla automática: ..." del render 5.1).
+async function crmListEventosConversacion(clienteId) {
+  const { data, error } = await window.sb
+    .from('eventos').select('*').eq('cliente_id', clienteId).eq('tipo', 'regla').order('creado_at', { ascending: true });
+  if (error) { console.error('crmListEventosConversacion', error); return []; }
+  return data || [];
+}
+
 // Ficha lateral del chat (5.1) y ficha completa de Clientes (5.3): cliente +
 // su préstamo activo con el plan de cuotas + historial de préstamos previos.
 async function crmGetFichaCliente(clienteId) {
@@ -402,6 +411,7 @@ if (typeof window !== 'undefined') {
     crmListConversaciones, crmListMensajes, crmMarcarConversacionLeida, crmListResumenChats, crmListResumenPrestamos,
     crmEnviarMensaje, crmCrearConversacion,
     crmGetFichaCliente, crmActualizarCliente, crmAgregarNotaCliente, crmListTelefonosCliente,
+    crmListEventosConversacion,
     crmGetWaSesion, crmPedirComandoWa, crmActualizarLimitesWa,
     crmListReglas, crmGuardarRegla, crmEliminarRegla, crmReordenarReglas,
     crmSuscribirConversaciones, crmSuscribirMensajes,

@@ -15,11 +15,13 @@
     --text:#e7edf7; --muted:#8996ab; --accent:#3fd0c9; --accent-2:#5b8def;
     --warn:#f0b866; --danger:#e8677c; --ok:#63d29a; --radius:10px;
     --shadow:0 8px 24px rgba(0,0,0,.35);
+    --bubble-in:#151d2e; --bubble-out:#0b3b2e; --bubble-out-border:#1a5c45;
   }
   :root[data-theme="light"]{
     --bg:#f4f6f8; --panel:#ffffff; --panel-2:#eef1f4; --line:#dbe1e7;
     --text:#1a2330; --muted:#5b6b7c; --accent:#0e9c87; --accent-2:#3b6fd1;
     --warn:#c9822a; --danger:#d14f4f; --ok:#1fa855;
+    --bubble-in:#ffffff; --bubble-out:#dcf8c6; --bubble-out-border:#c3eeab;
   }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}
@@ -29,57 +31,73 @@
     display:flex; flex-direction:column; height:100vh; overflow:hidden;
   }
   header{
-    padding:12px 20px; display:flex; align-items:center; justify-content:space-between;
+    padding:12px 20px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
     border-bottom:1px solid var(--line); background:linear-gradient(180deg, rgba(255,255,255,.02), transparent);
     flex-shrink:0;
   }
+  .header-title{display:flex;flex-direction:column;}
   header h1{font-size:16px;margin:0;}
-  .wa-estado{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);}
-  .wa-estado .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);}
+  .header-sub{font-size:11.5px;color:var(--muted);margin-top:1px;}
+  .header-tools{display:flex;align-items:center;gap:10px;}
+  .wa-search{display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;width:260px;}
+  .wa-search input{background:none;border:none;outline:none;color:var(--text);font-size:13px;width:100%;}
+  .btn-pill{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 14px;font-size:12.5px;cursor:pointer;white-space:nowrap;}
+  .btn-pill:hover{border-color:var(--accent-2);}
+  .btn-primary{background:var(--accent);border:none;color:#04121a;font-weight:700;}
+  .wa-estado{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);}
+  .wa-estado .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);}
   .wa-estado.conectado .dot{background:var(--ok);}
   .wa-estado.conectando .dot{background:var(--warn);}
 
   .wa-crm{flex:1;display:flex;min-height:0;}
   .wa-chats{width:320px;flex-shrink:0;border-right:1px solid var(--line);display:flex;flex-direction:column;background:var(--panel);}
-  .wa-chats-head{padding:12px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px;}
-  .wa-search{display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;}
-  .wa-search input{background:none;border:none;outline:none;color:var(--text);font-size:13px;width:100%;}
+  .wa-chats-head{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px;}
   .wa-tabs{display:flex;gap:6px;}
-  .wa-tabs button{flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:5px 0;font-size:12px;cursor:pointer;}
+  .wa-tabs button{flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:6px 0;font-size:11.5px;cursor:pointer;}
   .wa-tabs button.active{background:var(--accent-2);color:#04121a;border-color:var(--accent-2);font-weight:600;}
+  select.etapa-filtro{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:6px 8px;font-size:12px;}
   #chatList{flex:1;overflow-y:auto;}
-  .chat-item{padding:12px;border-bottom:1px solid var(--line);display:flex;gap:10px;cursor:pointer;align-items:flex-start;}
+  .chat-item{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;gap:10px;cursor:pointer;align-items:flex-start;}
   .chat-item:hover{background:var(--panel-2);}
   .chat-item.active{background:var(--panel-2);border-left:3px solid var(--accent-2);}
-  .chat-avatar{width:38px;height:38px;border-radius:50%;background:var(--accent-2);color:#04121a;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;}
+  .chat-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#fff;flex-shrink:0;}
   .chat-info{flex:1;min-width:0;}
   .chat-info .row1{display:flex;justify-content:space-between;gap:6px;}
   .chat-info .nombre{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .chat-info .hora{font-size:11px;color:var(--muted);flex-shrink:0;}
+  .chat-info .hora{font-size:10.5px;color:var(--muted);flex-shrink:0;}
   .chat-info .preview{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
-  .chat-badges{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;}
+  .chat-badges{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;align-items:center;}
   .badge{font-size:10px;padding:2px 6px;border-radius:5px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);}
-  .badge.no-leidos{background:var(--ok);color:#04121a;border:none;font-weight:700;}
+  .badge.no-leidos{background:var(--ok);color:#04121a;border:none;font-weight:700;border-radius:10px;}
+  .atraso-pill{font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;white-space:nowrap;}
+  .atraso-pill.ok{background:rgba(31,168,85,.14);color:var(--ok);border:1px solid rgba(31,168,85,.35);}
+  .atraso-pill.leve{background:rgba(240,184,102,.16);color:var(--warn);border:1px solid rgba(240,184,102,.4);}
+  .atraso-pill.alto{background:rgba(232,103,124,.16);color:var(--danger);border:1px solid rgba(232,103,124,.4);}
 
   .wa-conv{flex:1;display:flex;flex-direction:column;min-width:0;}
-  .conv-head{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
+  .conv-head{padding:10px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .conv-head-id{display:flex;align-items:center;gap:10px;min-width:0;}
   .conv-head .nombre{font-weight:600;font-size:14px;}
-  .conv-head .sub{font-size:12px;color:var(--muted);}
-  #convMessages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;background:
+  .conv-head .sub{font-size:11.5px;color:var(--muted);}
+  #convMessages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:6px;background:
     radial-gradient(1200px 600px at 90% -10%, rgba(63,208,201,.05), transparent 60%), var(--bg);}
   .bubble{max-width:62%;padding:8px 12px;border-radius:10px;font-size:13px;line-height:1.4;position:relative;}
-  .bubble.entrante{align-self:flex-start;background:var(--panel-2);border:1px solid var(--line);}
-  .bubble.saliente{align-self:flex-end;background:rgba(63,208,201,.18);border:1px solid rgba(63,208,201,.4);}
+  .bubble.entrante{align-self:flex-start;background:var(--bubble-in);border:1px solid var(--line);}
+  .bubble.saliente{align-self:flex-end;background:var(--bubble-out);border:1px solid var(--bubble-out-border);}
   .bubble .meta{font-size:10px;color:var(--muted);margin-top:4px;text-align:right;}
   .bubble .autor{font-size:11px;color:var(--accent-2);font-weight:600;margin-bottom:2px;}
   .bubble img{max-width:220px;border-radius:6px;display:block;}
-  .wa-compose{border-top:1px solid var(--line);padding:10px 14px;display:flex;flex-direction:column;gap:6px;position:relative;}
+  .regla-aviso{align-self:center;font-size:10.5px;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:20px;padding:4px 12px;margin:4px 0;max-width:80%;text-align:center;}
+  .wa-compose{border-top:1px solid var(--line);padding:8px 14px 10px;display:flex;flex-direction:column;gap:6px;position:relative;}
+  .plantilla-chips{display:flex;gap:6px;flex-wrap:wrap;}
+  .plantilla-chips button{background:var(--panel-2);border:1px solid var(--line);color:var(--accent-2);border-radius:20px;padding:4px 10px;font-size:11px;cursor:pointer;}
+  .plantilla-chips button:hover{border-color:var(--accent-2);}
   #plantillasPopup{position:absolute;bottom:100%;left:14px;right:14px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);max-height:200px;overflow-y:auto;display:none;}
   #plantillasPopup div{padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--line);}
   #plantillasPopup div:hover{background:var(--panel);}
   .compose-row{display:flex;gap:8px;align-items:flex-end;}
   .compose-row textarea{flex:1;resize:none;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 12px;font-size:13px;font-family:inherit;max-height:100px;}
-  .compose-row button{background:var(--accent);border:none;color:#04121a;font-weight:700;border-radius:8px;width:38px;height:38px;cursor:pointer;flex-shrink:0;}
+  .compose-row button{background:var(--accent);border:none;color:#04121a;font-weight:700;border-radius:50%;width:38px;height:38px;cursor:pointer;flex-shrink:0;}
 
   .wa-ficha{width:280px;flex-shrink:0;border-left:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:16px;display:none;flex-direction:column;gap:14px;}
   .wa-ficha.open{display:flex;}
@@ -87,12 +105,16 @@
   .ficha-row{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;margin-top:4px;}
   .ficha-card{background:var(--panel-2);border:1px solid var(--line);border-radius:var(--radius);padding:12px;}
   .ficha-card .label{font-size:11px;color:var(--muted);}
-  .ficha-card .valor{font-size:16px;font-weight:700;margin-top:2px;}
+  .ficha-card .valor{font-size:18px;font-weight:800;margin-top:2px;}
   .ficha-card .valor.danger{color:var(--danger);}
+  .progreso-bar{height:5px;border-radius:4px;background:var(--line);margin-top:8px;overflow:hidden;}
+  .progreso-bar .fill{height:100%;background:var(--accent);}
+  .progreso-txt{font-size:10.5px;color:var(--muted);margin-top:4px;}
   select, input[type=date]{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:6px 8px;font-size:12px;width:100%;}
   .ficha-acciones{display:flex;flex-direction:column;gap:6px;}
   .ficha-acciones button{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:8px;font-size:12px;cursor:pointer;text-align:left;}
   .ficha-acciones button:hover{border-color:var(--accent-2);}
+  .ficha-acciones button.primary{background:var(--accent);color:#04121a;font-weight:700;border:none;text-align:center;}
 
   .empty-state{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;flex-direction:column;gap:8px;}
   ::-webkit-scrollbar{width:8px;height:8px;}
@@ -102,22 +124,27 @@
 <body>
 
 <header>
-  <h1>💬 WhatsApp CRM</h1>
-  <div class="wa-estado" id="waEstado"><span class="dot"></span><span id="waEstadoTexto">Sin conectar</span></div>
+  <div class="header-title">
+    <h1>💬 WhatsApp CRM</h1>
+    <div class="header-sub" id="headerSub">Cargando...</div>
+  </div>
+  <div class="header-tools">
+    <div class="wa-search">
+      <span>🔍</span>
+      <input type="text" id="buscarChat" placeholder="Buscar nombre, DNI o teléfono...">
+    </div>
+    <button class="btn-pill btn-primary" id="btnNuevoChat">+ Nuevo chat</button>
+    <div class="wa-estado" id="waEstado"><span class="dot"></span><span id="waEstadoTexto">Sin conectar</span></div>
+  </div>
 </header>
 
 <div class="wa-crm">
   <aside class="wa-chats">
     <div class="wa-chats-head">
-      <div class="wa-search">
-        <span>🔍</span>
-        <input type="text" id="buscarChat" placeholder="Buscar nombre, DNI o teléfono...">
-      </div>
       <div class="wa-tabs">
         <button class="active" data-filtro="todos">Todos</button>
         <button data-filtro="sinleer">Sin leer</button>
       </div>
-      <button class="ficha-acciones" id="btnNuevoChat" style="text-align:center;">+ Nuevo chat</button>
     </div>
     <div id="chatList"></div>
   </aside>
@@ -136,9 +163,11 @@
 let conversaciones = [];
 let conversacionActual = null;
 let mensajesActuales = [];
+let eventosActuales = [];
 let fichaActual = null;
 let etapasCache = [];
 let plantillasCache = {};
+let resumenPrestamosCache = {};
 let filtroActivo = 'todos';
 let canalMensajes = null;
 let nombreUsuarioCache = '';
@@ -147,6 +176,19 @@ function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&'
 function iniciales(nombre){
   const partes = String(nombre||'?').trim().split(/\s+/);
   return ((partes[0]||'')[0] + (partes[1]||'')[0]).toUpperCase() || '?';
+}
+const AVATAR_PALETTE = ['#3b6fd1','#0e9c87','#c9822a','#d14f4f','#1fa855','#8b5cf6','#ec4899','#8996ab'];
+function colorParaNombre(nombre){
+  let hash = 0;
+  const s = String(nombre||'');
+  for(let i=0;i<s.length;i++) hash = (hash*31 + s.charCodeAt(i)) % AVATAR_PALETTE.length;
+  return AVATAR_PALETTE[Math.abs(hash)];
+}
+function atrasoPillInfo(diasAtraso){
+  const d = diasAtraso || 0;
+  if(d <= 0) return { cls:'ok', label:'Al día' };
+  if(d <= 7) return { cls:'leve', label:`Atraso ${d}d` };
+  return { cls:'alto', label:`Atraso ${d}d` };
 }
 function horaCorta(iso){
   if(!iso) return '';
@@ -170,6 +212,13 @@ function pasaFiltro(c){
   return nombre.includes(q) || dni.includes(q) || (c.telefono||'').includes(q);
 }
 
+function actualizarHeaderSub(){
+  const sinLeer = conversaciones.filter(c => c.no_leidos > 0).length;
+  const sinAsignar = conversaciones.filter(c => !c.cliente_id).length;
+  document.getElementById('headerSub').textContent =
+    `${conversaciones.length} chats · ${sinLeer} sin leer · ${sinAsignar} sin vincular`;
+}
+
 function renderChatList(){
   const cont = document.getElementById('chatList');
   const lista = conversaciones.filter(pasaFiltro);
@@ -179,13 +228,16 @@ function renderChatList(){
   }
   cont.innerHTML = lista.map(c=>{
     const nombre = nombreConversacion(c);
+    const prestamo = c.cliente_id ? resumenPrestamosCache[c.cliente_id] : null;
+    const atraso = prestamo ? atrasoPillInfo(prestamo.dias_atraso) : null;
     return `<div class="chat-item ${conversacionActual && conversacionActual.id===c.id?'active':''}" data-id="${c.id}">
-      <div class="chat-avatar">${iniciales(nombre)}</div>
+      <div class="chat-avatar" style="background:${colorParaNombre(nombre)}">${iniciales(nombre)}</div>
       <div class="chat-info">
         <div class="row1"><span class="nombre">${escapeHtml(nombre)}</span><span class="hora">${horaCorta(c.ultimo_at)}</span></div>
         <div class="preview">${escapeHtml(c.ultimo_texto || 'Sin mensajes todavía')}</div>
         <div class="chat-badges">
           ${c.no_leidos ? `<span class="badge no-leidos">${c.no_leidos}</span>` : ''}
+          ${atraso ? `<span class="atraso-pill ${atraso.cls}">${atraso.label}</span>` : ''}
           ${(c.clientes && c.clientes.etiquetas || []).map(e=>`<span class="badge">${escapeHtml(e)}</span>`).join('')}
         </div>
       </div>
@@ -198,6 +250,8 @@ function renderChatList(){
 
 async function cargarConversaciones(){
   conversaciones = await crmListConversaciones();
+  resumenPrestamosCache = await crmListResumenPrestamos();
+  actualizarHeaderSub();
   renderChatList();
 }
 
@@ -208,10 +262,12 @@ async function abrirConversacion(id){
   document.getElementById('convEmpty').style.display = 'none';
 
   mensajesActuales = await crmListMensajes(id);
+  eventosActuales = conversacionActual.cliente_id ? await crmListEventosConversacion(conversacionActual.cliente_id) : [];
   await renderConversacion();
   await crmMarcarConversacionLeida(id);
   conversacionActual.no_leidos = 0;
   renderChatList();
+  actualizarHeaderSub();
 
   if(conversacionActual.cliente_id){
     fichaActual = await crmGetFichaCliente(conversacionActual.cliente_id);
@@ -248,20 +304,32 @@ function burbujaAdjunto(m, urlsAdjuntos){
   return '';
 }
 
+function textoEventoRegla(ev){
+  const d = ev.detalle || {};
+  let txt = `⚙️ Regla automática: "${d.regla || ''}"`;
+  if(d.fecha_detectada) txt += ` · fecha detectada ${d.fecha_detectada}`;
+  return txt;
+}
+
 async function renderConversacion(){
   const wrap = document.getElementById('wacConv');
   const nombre = nombreConversacion(conversacionActual);
+  const dni = conversacionActual.clientes && conversacionActual.clientes.dni;
   wrap.innerHTML = `
     <div class="conv-head">
-      <div>
-        <div class="nombre">${escapeHtml(nombre)}</div>
-        <div class="sub">${escapeHtml(window.formatearTelefonoAR ? window.formatearTelefonoAR(conversacionActual.telefono) : conversacionActual.telefono)}</div>
+      <div class="conv-head-id">
+        <div class="chat-avatar" style="background:${colorParaNombre(nombre)}">${iniciales(nombre)}</div>
+        <div>
+          <div class="nombre">${escapeHtml(nombre)}</div>
+          <div class="sub">${escapeHtml(window.formatearTelefonoAR ? window.formatearTelefonoAR(conversacionActual.telefono) : conversacionActual.telefono)}${dni ? ' · DNI ' + escapeHtml(dni) : ''}</div>
+        </div>
       </div>
-      <button id="btnToggleFicha" class="ficha-acciones" style="width:auto;padding:6px 10px;">Ficha →</button>
+      <button id="btnToggleFicha" class="btn-pill" style="width:auto;">Ficha →</button>
     </div>
     <div id="convMessages"></div>
     <div class="wa-compose">
       <div id="plantillasPopup"></div>
+      <div class="plantilla-chips" id="plantillaChips"></div>
       <div class="compose-row">
         <textarea id="composeTexto" rows="1" placeholder="Escribí un mensaje... (usá / para plantillas)"></textarea>
         <button id="btnEnviar">➤</button>
@@ -269,15 +337,28 @@ async function renderConversacion(){
     </div>`;
 
   const urlsAdjuntos = await resolverUrlsAdjuntos(mensajesActuales);
+  // Mezcla mensajes + eventos de regla en una sola línea de tiempo, para
+  // que el aviso "Regla automática: ..." aparezca pegado al mensaje que lo
+  // disparó, igual que en el render del plan.
+  const items = [
+    ...mensajesActuales.map(m => ({ tipo: 'mensaje', fecha: m.creado_at, data: m })),
+    ...eventosActuales.map(ev => ({ tipo: 'regla', fecha: ev.creado_at, data: ev })),
+  ].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
   const msgs = document.getElementById('convMessages');
-  msgs.innerHTML = mensajesActuales.map(m=>`
-    <div class="bubble ${m.direccion}">
-      ${m.direccion==='saliente' ? `<div class="autor">Vos</div>` : ''}
+  msgs.innerHTML = items.map(it=>{
+    if(it.tipo === 'regla') return `<div class="regla-aviso">${escapeHtml(textoEventoRegla(it.data))}</div>`;
+    const m = it.data;
+    return `<div class="bubble ${m.direccion}">
+      ${m.direccion==='saliente' ? `<div class="autor">${escapeHtml(nombreUsuarioCache || 'Vos')}</div>` : ''}
       ${m.texto ? escapeHtml(m.texto) : ''}
       ${burbujaAdjunto(m, urlsAdjuntos)}
       <div class="meta">${new Date(m.creado_at).toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})} ${m.direccion==='saliente' ? (m.estado==='leido'?'✓✓':m.estado==='entregado'?'✓✓':m.estado==='enviado'?'✓':'⏳') : ''}</div>
-    </div>`).join('') || `<div class="empty-state">Todavía no hay mensajes en este chat.</div>`;
+    </div>`;
+  }).join('') || `<div class="empty-state">Todavía no hay mensajes en este chat.</div>`;
   msgs.scrollTop = msgs.scrollHeight;
+
+  renderPlantillaChips();
 
   document.getElementById('btnToggleFicha').addEventListener('click', ()=>{
     document.getElementById('fichaLateral').classList.toggle('open');
@@ -293,6 +374,37 @@ async function renderConversacion(){
   document.getElementById('btnEnviar').addEventListener('click', enviarMensajeActual);
 }
 
+function textoPlantillaConDatos(nombrePlantilla){
+  let texto = plantillasCache[nombrePlantilla] || '';
+  if(fichaActual){
+    const c = fichaActual.cliente;
+    const p = fichaActual.prestamoActivo;
+    texto = texto.replace(/{cliente}/g, c.nombre||'')
+      .replace(/{monto}/g, p ? String(p.saldo_total_punitorios || p.saldo_total || '') : '')
+      .replace(/{fecha}/g, c.promesa_fecha || '')
+      .replace(/{ejecutivo}/g, nombreUsuarioCache || '');
+  }
+  return texto;
+}
+
+function renderPlantillaChips(){
+  const cont = document.getElementById('plantillaChips');
+  const nombres = Object.keys(plantillasCache).slice(0, 5);
+  cont.innerHTML = nombres.map(n => `<button data-n="${escapeHtml(n)}">/${escapeHtml(n)}</button>`).join('')
+    + `<button data-nota="1">📝 Nota interna</button>`;
+  cont.querySelectorAll('button[data-n]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ document.getElementById('composeTexto').value = textoPlantillaConDatos(btn.dataset.n); });
+  });
+  const btnNota = cont.querySelector('[data-nota]');
+  if(btnNota) btnNota.addEventListener('click', async ()=>{
+    if(!fichaActual){ alert('Este chat no está vinculado a un cliente todavía.'); return; }
+    const texto = prompt('Nota interna (no la ve el cliente):');
+    if(!texto) return;
+    await crmAgregarNotaCliente(fichaActual.cliente.id, texto);
+    alert('Nota guardada en la ficha del cliente.');
+  });
+}
+
 function mostrarPopupPlantillas(filtro){
   const popup = document.getElementById('plantillasPopup');
   const nombres = Object.keys(plantillasCache).filter(n => n.toLowerCase().includes(filtro.toLowerCase()));
@@ -301,16 +413,7 @@ function mostrarPopupPlantillas(filtro){
   popup.style.display = 'block';
   popup.querySelectorAll('div').forEach(el=>{
     el.addEventListener('click', ()=>{
-      let texto = plantillasCache[el.dataset.n] || '';
-      if(fichaActual){
-        const c = fichaActual.cliente;
-        const p = fichaActual.prestamoActivo;
-        texto = texto.replace(/{cliente}/g, c.nombre||'')
-          .replace(/{monto}/g, p ? String(p.saldo_total_punitorios || p.saldo_total || '') : '')
-          .replace(/{fecha}/g, c.promesa_fecha || '')
-          .replace(/{ejecutivo}/g, nombreUsuarioCache || '');
-      }
-      document.getElementById('composeTexto').value = texto;
+      document.getElementById('composeTexto').value = textoPlantillaConDatos(el.dataset.n);
       ocultarPopupPlantillas();
     });
   });
@@ -338,13 +441,17 @@ function renderFicha(){
     el.innerHTML = `<div class="empty-state" style="height:200px;">Este chat todavía no está vinculado a ningún cliente de tu cartera.</div>`;
     return;
   }
-  const { cliente, prestamoActivo } = fichaActual;
+  const { cliente, prestamoActivo, prestamos } = fichaActual;
   const saldoVencido = prestamoActivo ? (prestamoActivo.importe_atraso || 0) : 0;
   const saldoTotal = prestamoActivo ? (prestamoActivo.saldo_total_punitorios || prestamoActivo.saldo_total || 0) : 0;
+  const cancelados = (prestamos || []).filter(p => p.estado === 'cancelado').length;
+  let progresoPct = 0;
+  if(prestamoActivo && prestamoActivo.cant_cuotas) progresoPct = Math.round(((prestamoActivo.cuotas_pagas||0) / prestamoActivo.cant_cuotas) * 100);
   el.innerHTML = `
     <div>
       <div class="ficha-nombre">${escapeHtml(cliente.nombre)}</div>
       <div class="ficha-row"><span>DNI</span><span>${escapeHtml(cliente.dni||'—')}</span></div>
+      <div class="ficha-row"><span>Créditos históricos</span><span>${(prestamos||[]).length} (${cancelados} cancelados)</span></div>
       <div class="ficha-row"><span>Localidad</span><span>${escapeHtml(cliente.localidad||'—')}</span></div>
     </div>
     ${prestamoActivo ? `
@@ -353,10 +460,13 @@ function renderFicha(){
       <div class="valor danger">$${Number(saldoVencido).toLocaleString('es-AR')}</div>
     </div>
     <div class="ficha-card">
-      <div class="label">Saldo total</div>
+      <div class="label">Préstamo activo · Nº ${escapeHtml(prestamoActivo.nro||'')}</div>
       <div class="valor">$${Number(saldoTotal).toLocaleString('es-AR')}</div>
       <div class="ficha-row"><span>Días de atraso</span><span>${prestamoActivo.dias_atraso||0}</span></div>
       <div class="ficha-row"><span>Próx. vencimiento</span><span>${prestamoActivo.proximo_vencimiento||'—'}</span></div>
+      ${prestamoActivo.cant_cuotas ? `
+      <div class="progreso-bar"><div class="fill" style="width:${progresoPct}%;"></div></div>
+      <div class="progreso-txt">${prestamoActivo.cuotas_pagas||0}/${prestamoActivo.cant_cuotas} cuotas pagadas (${progresoPct}%)</div>` : ''}
     </div>` : ''}
     <div>
       <div class="label" style="font-size:11px;color:var(--muted);margin-bottom:4px;">Etapa en el Kanban</div>
@@ -367,7 +477,7 @@ function renderFicha(){
       <input type="date" id="fichaPromesa" value="${cliente.promesa_fecha||''}">
     </div>
     <div class="ficha-acciones">
-      <button id="fichaGuardar">💾 Guardar cambios</button>
+      <button class="primary" id="fichaGuardar">💾 Guardar cambios</button>
       <button onclick="window.top.postMessage({type:'cm-ir-a-clientes', id:'${cliente.id}'}, '*')">👤 Ver ficha completa</button>
     </div>`;
   document.getElementById('fichaGuardar').addEventListener('click', async ()=>{
