@@ -8,6 +8,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase/config.js"></script>
 <script src="supabase/kv.js"></script>
+<script src="js/telefonos.js"></script>
+<script src="supabase/crm.js"></script>
+<script src="js/importer-cartera.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="google-config.js?v=2"></script>
 <script src="google-sync.js?v=2"></script>
@@ -398,6 +401,7 @@
     <button class="btn-danger-ghost" id="btnClear">Vaciar cartera</button>
     <button class="btn-ghost" id="btnImport">Importar vencimientos</button>
     <button class="btn-primary" id="btnImportPagos">Importar pagos</button>
+    <button class="btn-primary" id="btnImportCartera" title="Sube los dos Excel del CRM (Préstamos + Hoja de Ruta): arma la ficha completa de cada cliente">📥 Importar cartera</button>
     <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
     <input type="file" id="fileInputPagos" accept=".xlsx,.xls,.csv">
   </div>
@@ -564,6 +568,31 @@
   </div>
 </div>
 
+<!-- Modal: importar cartera completa (los 2 Excel del CRM actual) -->
+<div class="modal-overlay" id="importCarteraModal">
+  <div class="modal import-modal">
+    <h2>Importar cartera desde el CRM</h2>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+      Subí el Excel de <b>Préstamos</b> (obligatorio, trae el universo completo de préstamos vigentes) y, si lo tenés,
+      el de <b>Hoja de Ruta</b> (opcional, trae días/importe de atraso más al día). Se cruzan por DNI y por número de
+      préstamo: un cliente que ya existe en tu cartera se actualiza, no se duplica, y sus columnas/notas del Kanban no se tocan.
+    </div>
+    <div class="field">
+      <label>Excel de Préstamos</label>
+      <input type="file" id="fileCarteraPrestamos" accept=".xlsx,.xls">
+    </div>
+    <div class="field">
+      <label>Excel de Hoja de Ruta (opcional)</label>
+      <input type="file" id="fileCarteraHojaRuta" accept=".xlsx,.xls">
+    </div>
+    <div id="importCarteraStatus" style="font-size:13px;color:var(--muted);margin-top:10px;min-height:18px;"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btnCancelImportCartera">Cancelar</button>
+      <button class="btn-primary" id="btnConfirmImportCartera">Importar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: registrar pago manual (drag a Cerrado) -->
 <div class="modal-overlay" id="cobradoModal">
   <div class="modal">
@@ -610,8 +639,6 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const STORAGE_KEY = 'cm_kanban_clientes_v1';
-const STAGES_KEY = 'cm_kanban_stages_v1';
 // "A contactar" y "Cerrado (Cobrado)" están marcadas como protected: se usan por id
 // en la sincronización con Sueldo & Cobros, Envío de Mensajes, WhatsApp y recordatorios.
 // Se pueden renombrar pero no eliminar. El resto de las columnas son 100% configurables.
@@ -625,7 +652,7 @@ const DEFAULT_STAGES = [
 function loadStages(){
   return JSON.parse(JSON.stringify(DEFAULT_STAGES));
 }
-function saveStages(){ kvSet(STAGES_KEY, STAGES).catch(e => console.error('No se pudo guardar STAGES', e)); }
+function saveStages(){ crmSaveEtapas(STAGES).catch(e => console.error('No se pudo guardar STAGES', e)); }
 let STAGES = loadStages();
 
 let state = load();
@@ -702,7 +729,7 @@ function load(){
   return {clients:[]};
 }
 function save(){
-  kvSet(STORAGE_KEY, state).catch(e => console.error('No se pudo guardar el Kanban', e));
+  crmSaveClientes(state.clients).catch(e => console.error('No se pudo guardar el Kanban', e));
 }
 function uid(){ return 'c_'+Date.now()+'_'+Math.random().toString(36).slice(2,8); }
 // El id de cada cliente arranca con su timestamp de creación (c_<fecha>_...),
@@ -1150,7 +1177,6 @@ document.getElementById('btnConfirmImport').addEventListener('click', ()=>{
 });
 
 // --- Plantillas de WhatsApp (compartidas con "Envío de Mensajes") ---
-const MENSAJES_TEMPLATES_KEY = 'misPlantillas';
 const FALLBACK_TEMPLATES = {
   'Vencimiento': 'Hola, Buen dia {cliente}\nSoy {ejecutivo} de Cash Market.\n\nTe informamos que tu fecha de vencimiento es {fecha}, por un monto de ${monto}\n\nQuedo atento para coordinar el pago en efectivo Por favor, o por transferencia\n\nGracias!',
   'Cuota Vencida': '⚠️ TU CUOTA ESTA VENCIDA\n\nBuenos dias, soy {ejecutivo} de cobranzas. tu cuota esta vencida y todavia no tenemos una confirmacion del pago de tu cuota.\n\nIMPORTE ATRASADO : ${monto}.-\n\nRECORDA QUE TENES RECARGO MORATORIO DIARIO.',
@@ -1164,11 +1190,9 @@ const STAGE_TEMPLATE_MAP = {
   refinanciado: 'Refinanciación',
   cerrado: 'Refinanciación',
 };
-const EJECUTIVO_KEY = 'wa_ejecutivo_v1';
-
 async function loadMensajesTemplates(){
   try{
-    const parsed = await kvGet(MENSAJES_TEMPLATES_KEY);
+    const parsed = await crmListPlantillas();
     if(parsed && Object.keys(parsed).length) return parsed;
   }catch(e){}
   return FALLBACK_TEMPLATES;
@@ -1209,7 +1233,7 @@ async function openWaModal(clientId){
   const c = state.clients.find(x=>x.id===clientId);
   const suggested = STAGE_TEMPLATE_MAP[c.stage];
   waSelectedTemplate = (suggested && waTemplates[suggested]) ? suggested : Object.keys(waTemplates)[0];
-  document.getElementById('waEjecutivo').value = (await kvGet(EJECUTIVO_KEY)) || '';
+  document.getElementById('waEjecutivo').value = (await crmGetNombreUsuario()) || '';
   document.getElementById('waFecha').value = new Date().toISOString().slice(0,10);
   renderWaTabs();
   renderWaPreview();
@@ -1237,7 +1261,7 @@ function renderWaPreview(){
   document.getElementById('waPreview').textContent = fillTemplate(waTemplates[waSelectedTemplate] || '', c, ejecutivo, fecha);
 }
 document.getElementById('waEjecutivo').addEventListener('input', ()=>{
-  kvSet(EJECUTIVO_KEY, document.getElementById('waEjecutivo').value).catch(e => console.error(e));
+  crmSetNombreUsuario(document.getElementById('waEjecutivo').value).catch(e => console.error(e));
   renderWaPreview();
 });
 document.getElementById('waFecha').addEventListener('input', renderWaPreview);
@@ -1338,6 +1362,38 @@ async function confirmCobrado(){
 }
 document.getElementById('btnConfirmCobrado').addEventListener('click', confirmCobrado);
 document.getElementById('cobradoMonto').addEventListener('keydown', e=>{ if(e.key==='Enter') confirmCobrado(); });
+
+// --- Importar cartera completa (Préstamos + Hoja de Ruta) ---
+const importCarteraModal = document.getElementById('importCarteraModal');
+document.getElementById('btnImportCartera').addEventListener('click', ()=>{
+  document.getElementById('fileCarteraPrestamos').value = '';
+  document.getElementById('fileCarteraHojaRuta').value = '';
+  document.getElementById('importCarteraStatus').textContent = '';
+  importCarteraModal.classList.add('open');
+});
+document.getElementById('btnCancelImportCartera').addEventListener('click', ()=>{
+  importCarteraModal.classList.remove('open');
+});
+document.getElementById('btnConfirmImportCartera').addEventListener('click', async ()=>{
+  const fPrestamos = document.getElementById('fileCarteraPrestamos').files[0];
+  const fHojaRuta = document.getElementById('fileCarteraHojaRuta').files[0];
+  const statusEl = document.getElementById('importCarteraStatus');
+  if(!fPrestamos){ statusEl.textContent = 'Subí al menos el Excel de Préstamos.'; return; }
+  const btn = document.getElementById('btnConfirmImportCartera');
+  btn.disabled = true;
+  try{
+    const resumen = await importarCarteraDualExcel(fPrestamos, fHojaRuta, (msg)=>{ statusEl.textContent = msg; });
+    await hydrateFromSupabase();
+    statusEl.textContent = `Listo: ${resumen.clientesNuevos} clientes nuevos, ${resumen.clientesActualizados} actualizados, ${resumen.prestamosImportados} préstamos.`;
+    toast(`Cartera importada: ${resumen.clientesNuevos} nuevos, ${resumen.clientesActualizados} actualizados`);
+    setTimeout(()=> importCarteraModal.classList.remove('open'), 1800);
+  }catch(e){
+    console.error(e);
+    statusEl.textContent = 'Error al importar: ' + (e.message || e);
+  }finally{
+    btn.disabled = false;
+  }
+});
 
 // --- Importar pagos (match automático por DNI/Nombre) ---
 const importPagosModal = document.getElementById('importPagosModal');
@@ -1458,7 +1514,7 @@ document.getElementById('btnConfirmImportPagos').addEventListener('click', async
 });
 
 // Cerrar modales con click fuera
-[document.getElementById('clientModal'), importModal, document.getElementById('waModal'), importPagosModal, document.getElementById('cobradoModal'), document.getElementById('confirmModal'), document.getElementById('recordatoriosModal'), document.getElementById('configModal'), document.getElementById('stagesModal'), document.getElementById('dayDetailModal')].forEach(m=>{
+[document.getElementById('clientModal'), importModal, document.getElementById('waModal'), importPagosModal, importCarteraModal, document.getElementById('cobradoModal'), document.getElementById('confirmModal'), document.getElementById('recordatoriosModal'), document.getElementById('configModal'), document.getElementById('stagesModal'), document.getElementById('dayDetailModal')].forEach(m=>{
   m.addEventListener('click', e=>{ if(e.target===m) m.classList.remove('open'); });
 });
 
@@ -2048,23 +2104,27 @@ renderStats();
 // Este archivo corre embebido en un iframe dentro de index.html, que ya
 // exige login antes de mostrarlo. Si alguien lo abre directo por URL sin
 // sesión, lo mandamos al panel principal a loguearse.
-sb.auth.getSession().then(({ data: { session } }) => {
-  if (session) window._markAppReady();
-  else location.href = 'index.html';
+sb.auth.getSession().then(async ({ data: { session } }) => {
+  if (!session) { location.href = 'index.html'; return; }
+  // Por si este iframe carga antes que el panel principal haya terminado de
+  // crear las columnas/reglas default del cobrador (primer login): es
+  // idempotente, así que no pasa nada si index.html ya lo hizo.
+  await crmBootstrap();
+  window._markAppReady();
 });
 sb.auth.onAuthStateChange((_event, session) => {
   if (!session) location.href = 'index.html';
 });
 
 async function hydrateFromSupabase() {
-  const [savedStages, savedConfig, savedState] = await Promise.all([
-    kvGet(STAGES_KEY),
+  const [savedStages, savedConfig, clients] = await Promise.all([
+    crmListEtapas(),
     kvGet(CONFIG_KEY),
-    kvGet(STORAGE_KEY),
+    crmListClientes(),
   ]);
   if (Array.isArray(savedStages) && savedStages.length) STAGES = savedStages;
   if (savedConfig) config = normalizeConfig(savedConfig);
-  if (savedState && Array.isArray(savedState.clients)) state = savedState;
+  state = { clients };
 
   renderFiltersBar();
   renderBoard();

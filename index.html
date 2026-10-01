@@ -13,6 +13,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase/config.js"></script>
   <script src="supabase/kv.js"></script>
+  <script src="js/telefonos.js"></script>
+  <script src="supabase/crm.js"></script>
   <style>
     :root {
       --bg: #080B0F;
@@ -3272,27 +3274,37 @@
 
     // Aplica los pagos importados en "Importar cobros" a la cartera del Kanban:
     // busca cada cliente por nombre y, si coincide, lo pasa a "Cerrado (Cobrado)"
-    // guardando el monto pagado. Devuelve {synced, matched}.
+    // guardando el monto pagado. También deja cada fila importada como un
+    // registro en la tabla pagos (quedó con cliente_id si matcheó, o solo con
+    // el nombre si no, para matchear a mano después). Devuelve {synced, matched}.
     async function sincronizarKanbanConCobros(rows) {
-      const KANBAN_STORAGE_KEY = 'cm_kanban_clientes_v1';
       try {
-        const kanbanState = await kvGet(KANBAN_STORAGE_KEY);
-        if (!kanbanState || !Array.isArray(kanbanState.clients)) return { synced: false, matched: 0 };
+        const clientesKanban = await crmListClientes();
         let matched = 0;
+        const pagosNuevos = [];
         rows.forEach(r => {
           const nameNorm = String(r.name || '').trim().toLowerCase();
           if (!nameNorm) return;
-          const client = kanbanState.clients.find(c => String(c.nombre || '').trim().toLowerCase() === nameNorm);
+          const client = clientesKanban.find(c => String(c.nombre || '').trim().toLowerCase() === nameNorm);
           if (client) {
             if (client.stage !== 'cerrado') matched++;
             client.stage = 'cerrado';
             client.stageChangedAt = Date.now();
             client.montoPagado = r.monto;
           }
+          pagosNuevos.push({
+            cliente_id: client ? client.id : null,
+            nombre: r.name,
+            monto: r.monto || 0,
+            fecha: new Date().toISOString().slice(0, 10),
+            estado: r.estado || 'Cobrado',
+            origen: 'excel',
+          });
         });
-        await kvSet(KANBAN_STORAGE_KEY, kanbanState);
+        await crmSaveClientes(clientesKanban);
+        await Promise.all(pagosNuevos.map(p => crmAddPago(p)));
         return { synced: true, matched };
-      } catch (e) { return { synced: false, matched: 0 }; }
+      } catch (e) { console.error('sincronizarKanbanConCobros', e); return { synced: false, matched: 0 }; }
     }
 
     /* ================= INIT ================= */
@@ -3316,7 +3328,7 @@
         // Plantillas y clientes se cargan de forma async más abajo (ver INIT),
         // una vez confirmada la sesión de Supabase.
         function guardarPlantillas() {
-            kvSet("misPlantillas", plantillasBase).catch(e => console.error('No se pudo guardar misPlantillas', e));
+            crmSavePlantillas(plantillasBase).catch(e => console.error('No se pudo guardar las plantillas', e));
         }
         function guardarClientes() {
             kvSet("misClientes", clientes).catch(e => console.error('No se pudo guardar misClientes', e));
@@ -3488,11 +3500,10 @@
         // Trae los clientes que en el Kanban de Cartera están en la etapa "A contactar"
         // y los agrega a la lista de envío (mismo criterio de duplicados por teléfono).
         async function cargarDesdeKanban() {
-            const KANBAN_STORAGE_KEY = 'cm_kanban_clientes_v1';
-            let kanbanState;
+            let clientesKanban;
             try {
-                kanbanState = await kvGet(KANBAN_STORAGE_KEY);
-                if (!kanbanState) {
+                clientesKanban = await crmListClientes();
+                if (!clientesKanban || !clientesKanban.length) {
                     alert('No se encontraron clientes del Kanban. Abrí la pestaña "Kanban de Cartera" al menos una vez y cargá tu cartera ahí primero.');
                     return;
                 }
@@ -3500,7 +3511,7 @@
                 alert('No se pudo leer la cartera del Kanban.');
                 return;
             }
-            const aContactar = (kanbanState.clients || []).filter(c => c.stage === 'a_contactar');
+            const aContactar = clientesKanban.filter(c => c.stage === 'a_contactar');
             if (!aContactar.length) {
                 alert('No hay clientes en la etapa "A contactar" dentro del Kanban de Cartera.');
                 return;
@@ -3655,8 +3666,14 @@
 
         /* ================= INIT ================= */
         window.appReady.then(async () => {
-            const savedPlantillas = await kvGet("misPlantillas");
-            if (savedPlantillas) plantillasBase = savedPlantillas;
+            const savedPlantillas = await crmListPlantillas();
+            if (savedPlantillas && Object.keys(savedPlantillas).length) {
+                plantillasBase = savedPlantillas;
+            } else {
+                // Primer uso: no hay plantillas en la tabla todavía, se dejan
+                // las de por defecto ya cargadas arriba y se guardan como filas reales.
+                guardarPlantillas();
+            }
 
             const savedClientes = await kvGet("misClientes");
             if (Array.isArray(savedClientes)) clientes = savedClientes;
@@ -3886,7 +3903,12 @@
       function showApp() {
         authGate.style.display = 'none';
         appShell.style.display = '';
-        window._markAppReady();
+        // Primera vez que entra este cobrador: crea su fila en usuarios, sus
+        // columnas default del Kanban y sus reglas de clasificación si
+        // todavía no existen (no-op si ya estaban). Se dispara antes de
+        // marcar la app como lista para que el resto de las cargas (que
+        // esperan window.appReady) ya encuentren los datos iniciales.
+        crmBootstrap().finally(() => window._markAppReady());
       }
       function showGate() {
         appShell.style.display = 'none';
