@@ -275,7 +275,11 @@ async function abrirConversacion(id){
   conversacionActual = conversaciones.find(c=>c.id===id);
   if(!conversacionActual) return;
   renderChatList();
-  document.getElementById('convEmpty').style.display = 'none';
+  // (el placeholder "Elegí un chat..." vive adentro de #wacConv y
+  // renderConversacionShell() reemplaza todo ese contenido un par de
+  // líneas más abajo, así que desaparece solo — no hace falta ocultarlo a
+  // mano, y de hecho intentarlo rompía: en el segundo chat que abrías ese
+  // elemento ya no existía más porque el primero ya lo había reemplazado.)
 
   // Se pinta el esqueleto de la conversación (header + "cargando...") al
   // toque, sin esperar ningún pedido a Supabase — así el clic se siente
