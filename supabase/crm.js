@@ -303,6 +303,23 @@ function crmSuscribirMensajes(conversacionId, onChange) {
     .subscribe();
 }
 
+// Resumen liviano de préstamo activo por cliente, para la tarjeta del
+// Kanban (sección 5.2: "DNI · Nº de préstamo" y el pill de días de atraso).
+// Igual que en crmGetFichaCliente, si hay más de un préstamo "activo" se
+// prioriza el que tiene saldo_total cargado.
+async function crmListResumenPrestamos() {
+  const uid = await _uid();
+  const { data, error } = await window.sb
+    .from('prestamos').select('cliente_id, nro, dias_atraso, saldo_total').eq('user_id', uid).eq('estado', 'activo');
+  if (error) { console.error('crmListResumenPrestamos', error); return {}; }
+  const out = {};
+  (data || []).forEach(p => {
+    const actual = out[p.cliente_id];
+    if (!actual || (actual.saldo_total === null && p.saldo_total !== null)) out[p.cliente_id] = p;
+  });
+  return out;
+}
+
 // Resumen liviano de chats por cliente, para la insignia de WhatsApp en
 // las tarjetas del Kanban (sección 5.2: "último mensaje, un globo verde
 // con los no leídos"). {cliente_id: {ultimoTexto, noLeidos, ultimoAt}}
@@ -382,7 +399,7 @@ if (typeof window !== 'undefined') {
     crmListPlantillas, crmSavePlantillas,
     crmListPagos, crmAddPago,
     crmGetNombreUsuario, crmSetNombreUsuario,
-    crmListConversaciones, crmListMensajes, crmMarcarConversacionLeida, crmListResumenChats,
+    crmListConversaciones, crmListMensajes, crmMarcarConversacionLeida, crmListResumenChats, crmListResumenPrestamos,
     crmEnviarMensaje, crmCrearConversacion,
     crmGetFichaCliente, crmActualizarCliente, crmAgregarNotaCliente, crmListTelefonosCliente,
     crmGetWaSesion, crmPedirComandoWa, crmActualizarLimitesWa,
