@@ -111,9 +111,14 @@ async function cargarLista(){
   // crmListClientes ya trae stage como la CLAVE/id de etapa (no el row id);
   // para la lista alcanza con eso, pero necesitamos también saldo vencido y
   // días de atraso, que viven en prestamos — se traen aparte, en lote.
-  const { data: prestamos } = await window.sb.from('prestamos').select('cliente_id, importe_atraso, dias_atraso, estado').eq('estado', 'activo');
+  const { data: prestamos } = await window.sb.from('prestamos').select('cliente_id, importe_atraso, dias_atraso, estado, saldo_total').eq('estado', 'activo');
+  // Si un cliente tiene más de un préstamo "activo" (p. ej. uno cargado solo
+  // desde la Hoja de Ruta, sin saldo), se prioriza el que sí tiene saldo real.
   const prestamoPorCliente = {};
-  (prestamos || []).forEach(p => { if(!prestamoPorCliente[p.cliente_id]) prestamoPorCliente[p.cliente_id] = p; });
+  (prestamos || []).forEach(p => {
+    const actual = prestamoPorCliente[p.cliente_id];
+    if (!actual || (actual.saldo_total === null && p.saldo_total !== null)) prestamoPorCliente[p.cliente_id] = p;
+  });
   clientesCache = clientes.map(c => ({ ...c, _prestamo: prestamoPorCliente[c.id] || null }));
   renderLista();
 }

@@ -255,11 +255,18 @@ async function crmCrearConversacion(telefonoCrudo) {
 async function crmGetFichaCliente(clienteId) {
   const [{ data: cliente }, { data: prestamos }, { data: eventos }] = await Promise.all([
     window.sb.from('clientes').select('*, etapas(id, clave, nombre, color)').eq('id', clienteId).maybeSingle(),
-    window.sb.from('prestamos').select('*').eq('cliente_id', clienteId).order('fecha_alta', { ascending: false }),
+    window.sb.from('prestamos').select('*').eq('cliente_id', clienteId).order('fecha_alta', { ascending: false, nullsFirst: false }),
     window.sb.from('eventos').select('*').eq('cliente_id', clienteId).order('creado_at', { ascending: false }).limit(50),
   ]);
   if (!cliente) return null;
-  const activo = (prestamos || []).find(p => p.estado === 'activo') || (prestamos || [])[0] || null;
+  // Entre los préstamos "activos", puede haber alguno cargado solo desde la
+  // Hoja de Ruta (sin fecha de alta ni saldo, porque esa planilla no trae
+  // esos datos) — se prioriza el que sí tiene saldo real cargado, para no
+  // mostrar la ficha con $0 en todo cuando en realidad hay otro préstamo
+  // con el saldo completo.
+  const activos = (prestamos || []).filter(p => p.estado === 'activo');
+  const conSaldo = activos.filter(p => p.saldo_total !== null).sort((a, b) => (b.saldo_total || 0) - (a.saldo_total || 0));
+  const activo = conSaldo[0] || activos[0] || (prestamos || [])[0] || null;
   let cuotas = [];
   if (activo) {
     const { data } = await window.sb.from('cuotas').select('*').eq('prestamo_id', activo.id).order('numero', { ascending: true });
