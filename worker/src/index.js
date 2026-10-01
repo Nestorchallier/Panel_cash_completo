@@ -17,6 +17,22 @@ const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 process.on('uncaughtException', (err) => logger.error({ err }, 'uncaughtException (el worker sigue corriendo)'));
 process.on('unhandledRejection', (err) => logger.error({ err }, 'unhandledRejection (el worker sigue corriendo)'));
 
+// libsignal (dependencia de Baileys, el protocolo de cifrado de WhatsApp)
+// avisa con console.error "a mano" —no se puede configurar por opciones—
+// cuando le llega un mensaje cifrado con una sesión que ya no tiene (pasa
+// seguido después de reescanear el QR varias veces, o con Estados de
+// contactos): son líneas inofensivas, el mensaje se descarta solo y la
+// sesión se resincroniza con el próximo mensaje de esa conversación. Se
+// filtran acá esas dos líneas puntuales para no inundar la consola;
+// cualquier otro console.error (nuestro o de otra librería) sigue
+// mostrándose igual.
+const consoleErrorOriginal = console.error.bind(console);
+console.error = (...args) => {
+  const primero = typeof args[0] === 'string' ? args[0] : '';
+  if (primero.startsWith('Failed to decrypt message with any known session') || primero.startsWith('Session error:')) return;
+  consoleErrorOriginal(...args);
+};
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const WORKER_USER_ID = process.env.WORKER_USER_ID;

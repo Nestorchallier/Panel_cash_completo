@@ -305,11 +305,26 @@ async function sincronizarHistorial(sock, supabase, userId, config, { chats, mes
   logger.info({ guardados }, 'Historial de WhatsApp importado.');
 }
 
+// Logger "hijo" que le pasamos a Baileys: baja a debug (no se ve, salvo
+// con LOG_LEVEL=debug) el "failed to decrypt message" que tira cuando le
+// llega un mensaje cifrado con una sesión vieja (típico tras reescanear
+// el QR varias veces, o con Estados de contactos) — es esperable y se
+// autocorrige con el próximo mensaje de esa conversación. El resto de
+// logger.error (nuestros, y cualquier otro error real de Baileys) no se
+// toca.
+const loggerBaileys = logger.child({});
+const errorBaileysOriginal = loggerBaileys.error.bind(loggerBaileys);
+loggerBaileys.error = (...args) => {
+  const ultimo = args[args.length - 1];
+  if (ultimo === 'failed to decrypt message') { loggerBaileys.debug(...args); return; }
+  errorBaileysOriginal(...args);
+};
+
 async function iniciarWhatsApp({ supabase, userId, config, onReady }) {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const sock = makeWASocket({
     auth: state,
-    logger,
+    logger: loggerBaileys,
     printQRInTerminal: false,
     browser: ['Cash Market CRM', 'Chrome', '1.0'],
     syncFullHistory: true, // trae todos los chats/mensajes previos, no solo los recientes
