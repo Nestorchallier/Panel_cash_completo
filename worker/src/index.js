@@ -10,6 +10,13 @@ const AUTH_DIR = path.join(__dirname, '..', 'auth');
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
+// Esto tiene que quedar corriendo 24/7 — un error suelto que no se
+// previó no puede tirar abajo todo el proceso (como pasó con el bug de
+// wa.js que cortaba la reconexión justo después de escanear el QR). Se
+// loguea y sigue, en vez de que Node mate el proceso entero.
+process.on('uncaughtException', (err) => logger.error({ err }, 'uncaughtException (el worker sigue corriendo)'));
+process.on('unhandledRejection', (err) => logger.error({ err }, 'unhandledRejection (el worker sigue corriendo)'));
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const WORKER_USER_ID = process.env.WORKER_USER_ID;

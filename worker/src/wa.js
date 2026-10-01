@@ -196,7 +196,11 @@ async function iniciarWhatsApp({ supabase, userId, config, onReady }) {
     }
 
     if (connection === 'close') {
-      await supabase.from('wa_sesion').upsert({ user_id: userId, estado: 'desconectado' }).catch(() => {});
+      try {
+        await supabase.from('wa_sesion').upsert({ user_id: userId, estado: 'desconectado' });
+      } catch (e) {
+        logger.error({ err: e }, 'No se pudo marcar la sesión como desconectada');
+      }
       const statusCode = (lastDisconnect?.error instanceof Boom) ? lastDisconnect.error.output.statusCode : null;
       const deslogueado = statusCode === DisconnectReason.loggedOut;
       logger.warn({ statusCode, deslogueado }, 'Conexión cerrada.');
