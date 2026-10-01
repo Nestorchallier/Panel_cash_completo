@@ -66,17 +66,40 @@ function textoDeMensaje(msg) {
 // jid es la clave real (sirve tanto para 1 a 1 como para grupos, que no
 // tienen teléfono). telefono va null para grupos. nombreGrupo solo se usa
 // la primera vez que se crea la conversación de un grupo.
+async function buscarClientePorTelefono(supabase, userId, telefono) {
+  if (!telefono) return null;
+  const { data: tel } = await supabase
+    .from('clientes_telefonos').select('cliente_id, clientes!inner(user_id)').eq('telefono', telefono).maybeSingle();
+  return (tel && tel.clientes && tel.clientes.user_id === userId) ? tel.cliente_id : null;
+}
+
 async function obtenerOCrearConversacion(supabase, userId, telefono, jid, nombreGrupo) {
   const { data: existente } = await supabase
     .from('conversaciones').select('*').eq('user_id', userId).eq('jid', jid).maybeSingle();
-  if (existente) return existente;
-
-  let clienteId = null;
-  if (telefono) {
-    const { data: tel } = await supabase
-      .from('clientes_telefonos').select('cliente_id, clientes!inner(user_id)').eq('telefono', telefono).maybeSingle();
-    clienteId = (tel && tel.clientes && tel.clientes.user_id === userId) ? tel.cliente_id : null;
+  if (existente) {
+    // Esta conversación puede haber quedado sin cliente vinculado por el
+    // bug de los jid @lid de hoy (el teléfono no se podía resolver
+    // todavía cuando se creó). Si ahora sí hay teléfono y matchea con
+    // algún cliente, se re-vincula sola en vez de quedar huérfana para
+    // siempre — así las reglas automáticas (section 6) vuelven a andar
+    // para esos chats sin tener que tocar nada a mano.
+    if (!existente.cliente_id && telefono) {
+      const clienteId = await buscarClientePorTelefono(supabase, userId, telefono);
+      if (clienteId) {
+        const { data: actualizada } = await supabase.from('conversaciones')
+          .update({ cliente_id: clienteId, telefono }).eq('id', existente.id).select('*').single();
+        if (actualizada) return actualizada;
+      } else if (!existente.telefono) {
+        // Tampoco tenía teléfono guardado (se creó cuando @lid no se
+        // resolvía) — al menos lo completa para la próxima.
+        await supabase.from('conversaciones').update({ telefono }).eq('id', existente.id);
+        existente.telefono = telefono;
+      }
+    }
+    return existente;
   }
+
+  const clienteId = await buscarClientePorTelefono(supabase, userId, telefono);
 
   const { data: nueva, error } = await supabase
     .from('conversaciones')

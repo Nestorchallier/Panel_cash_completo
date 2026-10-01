@@ -333,18 +333,27 @@ async function abrirConversacion(id){
 // con getPublicUrl. Se resuelven antes de pintar la conversación.
 async function resolverUrlsAdjuntos(mensajes){
   const urls = {};
-  await Promise.all(mensajes.filter(m => m.tipo === 'imagen' && m.media_path).map(async m=>{
+  await Promise.all(mensajes.filter(m => m.media_path).map(async m=>{
     const { data } = await window.sb.storage.from('comprobantes').createSignedUrl(m.media_path, 3600);
     if(data) urls[m.id] = data.signedUrl;
   }));
   return urls;
 }
 function burbujaAdjunto(m, urlsAdjuntos){
+  const url = urlsAdjuntos[m.id];
   if(m.tipo === 'imagen' && m.media_path){
-    const url = urlsAdjuntos[m.id];
     return url ? `<img src="${url}" alt="imagen">` : `<div>📷 Imagen</div>`;
   }
-  if(m.media_path) return `<div>📎 ${m.tipo === 'pdf' ? 'PDF' : 'Adjunto'} recibido</div>`;
+  if(m.tipo === 'audio' && m.media_path){
+    return url ? `<audio controls src="${url}" style="max-width:220px;height:34px;"></audio>` : `<div>🎙️ Audio</div>`;
+  }
+  if(m.tipo === 'pdf' && m.media_path){
+    return url ? `<a href="${url}" target="_blank" rel="noopener" style="color:var(--accent-2);">📄 Ver PDF</a>` : `<div>📄 PDF</div>`;
+  }
+  if(m.media_path) return `<div>📎 Adjunto recibido</div>`;
+  if(m.tipo === 'audio') return `<div style="color:var(--muted);font-style:italic;">🎙️ Audio (del historial, no se descargó)</div>`;
+  if(m.tipo === 'imagen') return `<div style="color:var(--muted);font-style:italic;">📷 Imagen (del historial, no se descargó)</div>`;
+  if(m.tipo === 'pdf') return `<div style="color:var(--muted);font-style:italic;">📄 PDF (del historial, no se descargó)</div>`;
   return '';
 }
 
