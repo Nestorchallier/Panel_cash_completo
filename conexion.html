@@ -10,7 +10,8 @@
 <script src="js/telefonos.js"></script>
 <script src="supabase/crm.js"></script>
 <script src="worker/src/reglas.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"
+  onerror="var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js';document.head.appendChild(s);"></script>
 <style>
   :root{
     --bg:#0a0e14; --panel:#111826; --panel-2:#151d2e; --line:#212c40;
@@ -198,15 +199,25 @@ function renderQr(){
   }
   el.innerHTML = `<h3>Vincular un número nuevo</h3><div id="qrBox"></div>
     <div class="qr-steps">En el celular de la empresa:<br>1. Abrí WhatsApp<br>2. Menú → Dispositivos vinculados<br>3. Vincular un dispositivo<br>4. Escaneá este código</div>`;
-  const canvas = document.createElement('canvas');
-  document.getElementById('qrBox').appendChild(canvas);
-  QRCode.toCanvas(canvas, sesion.qr, { width: 220, margin: 1 }, (err) => { if (err) console.error('No se pudo dibujar el QR', err); });
+  try {
+    if (typeof QRCode === 'undefined') throw new Error('La librería para dibujar el QR no cargó (¿bloqueada por la red?).');
+    const canvas = document.createElement('canvas');
+    document.getElementById('qrBox').appendChild(canvas);
+    QRCode.toCanvas(canvas, sesion.qr, { width: 220, margin: 1 }, (err) => {
+      if (err) {
+        console.error('No se pudo dibujar el QR', err);
+        document.getElementById('qrBox').innerHTML = '<div style="color:#d14f4f;font-size:12px;padding:10px;">No se pudo dibujar el QR. Mirá la consola (F12) para el detalle.</div>';
+      }
+    });
+  } catch (e) {
+    console.error('renderQr', e);
+    document.getElementById('qrBox').innerHTML = `<div style="color:#d14f4f;font-size:12px;padding:10px;">${escapeHtml(e.message)}<br>Probá recargar la página (Ctrl+Shift+R). Si sigue sin aparecer, avisale a quien armó el panel.</div>`;
+  }
 }
 
 async function cargarEstado(){
   sesion = await crmGetWaSesion();
   renderEstado();
-  renderQr();
   if(sesion){
     document.getElementById('limDiario').value = sesion.limite_diario || 250;
     document.getElementById('limIntMin').value = sesion.intervalo_min || 25;
@@ -214,6 +225,7 @@ async function cargarEstado(){
     document.getElementById('limHorarioDesde').value = (sesion.horario_desde || '09:00').slice(0,5);
     document.getElementById('limHorarioHasta').value = (sesion.horario_hasta || '20:00').slice(0,5);
   }
+  try { renderQr(); } catch (e) { console.error('No se pudo mostrar el QR', e); }
 }
 
 document.getElementById('btnGuardarLimites').addEventListener('click', async ()=>{
@@ -352,10 +364,10 @@ sb.auth.onAuthStateChange((_event, session) => { if (!session) location.href = '
 window.appReady.then(async ()=>{
   const saved = await kvGet(THEME_KEY);
   if (saved) applyTheme(saved);
-  etapasCache = await crmListEtapas();
-  await cargarEstado();
-  await cargarReglas();
-  setInterval(cargarEstado, 15000);
+  try { etapasCache = await crmListEtapas(); } catch (e) { console.error('etapas', e); }
+  try { await cargarEstado(); } catch (e) { console.error('cargarEstado', e); }
+  try { await cargarReglas(); } catch (e) { console.error('cargarReglas', e); }
+  setInterval(() => cargarEstado().catch(e => console.error('cargarEstado (interval)', e)), 15000);
 });
 </script>
 </body>
