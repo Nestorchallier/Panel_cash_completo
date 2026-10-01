@@ -88,6 +88,8 @@
   .bubble .autor{font-size:11px;color:var(--accent-2);font-weight:600;margin-bottom:2px;}
   .bubble img{max-width:220px;border-radius:6px;display:block;}
   .regla-aviso{align-self:center;font-size:10.5px;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:20px;padding:4px 12px;margin:4px 0;max-width:80%;text-align:center;}
+  .dia-divisor{align-self:center;margin:10px 0 4px;}
+  .dia-divisor span{font-size:10.5px;color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:20px;padding:4px 14px;}
   .wa-compose{border-top:1px solid var(--line);padding:8px 14px 10px;display:flex;flex-direction:column;gap:6px;position:relative;}
   .plantilla-chips{display:flex;gap:6px;flex-wrap:wrap;}
   .plantilla-chips button{background:var(--panel-2);border:1px solid var(--line);color:var(--accent-2);border-radius:20px;padding:4px 10px;font-size:11px;cursor:pointer;}
@@ -141,9 +143,11 @@
 <div class="wa-crm">
   <aside class="wa-chats">
     <div class="wa-chats-head">
+      <select class="etapa-filtro" id="filtroEtapa"><option value="">Etapa: Todas</option></select>
       <div class="wa-tabs">
         <button class="active" data-filtro="todos">Todos</button>
         <button data-filtro="sinleer">Sin leer</button>
+        <button data-filtro="sinvincular">Sin vincular</button>
       </div>
     </div>
     <div id="chatList"></div>
@@ -206,6 +210,12 @@ function nombreConversacion(c){
 
 function pasaFiltro(c){
   if(filtroActivo === 'sinleer' && !(c.no_leidos > 0)) return false;
+  if(filtroActivo === 'sinvincular' && c.cliente_id) return false;
+  const etapaSel = document.getElementById('filtroEtapa').value;
+  if(etapaSel){
+    const etapaId = c.clientes ? c.clientes.etapa_id : null;
+    if(etapaId !== etapaSel) return false;
+  }
   const q = document.getElementById('buscarChat').value.trim().toLowerCase();
   if(!q) return true;
   const nombre = nombreConversacion(c).toLowerCase();
@@ -424,14 +434,25 @@ async function renderMensajes(){
 
   const msgs = document.getElementById('convMessages');
   if (!msgs) return; // el chat se cerró/cambió mientras se resolvían las URLs
+
+  let diaAnterior = null;
+  const hoy = new Date().toDateString();
+  const ayer = new Date(Date.now() - 86400000).toDateString();
   msgs.innerHTML = items.map(it=>{
-    if(it.tipo === 'regla') return `<div class="regla-aviso">${escapeHtml(textoEventoRegla(it.data))}</div>`;
+    const dia = new Date(it.fecha).toDateString();
+    let divisor = '';
+    if(dia !== diaAnterior){
+      diaAnterior = dia;
+      const etiqueta = dia === hoy ? 'Hoy' : dia === ayer ? 'Ayer' : new Date(it.fecha).toLocaleDateString('es-AR', {day:'2-digit', month:'long', year:'numeric'});
+      divisor = `<div class="dia-divisor"><span>${escapeHtml(etiqueta)}</span></div>`;
+    }
+    if(it.tipo === 'regla') return divisor + `<div class="regla-aviso">${escapeHtml(textoEventoRegla(it.data))}</div>`;
     const m = it.data;
-    return `<div class="bubble ${m.direccion}">
+    return divisor + `<div class="bubble ${m.direccion}">
       ${m.direccion==='saliente' ? `<div class="autor">${escapeHtml(nombreUsuarioCache || 'Vos')}</div>` : ''}
       ${m.texto ? escapeHtml(m.texto) : ''}
       ${burbujaAdjunto(m, urlsAdjuntos)}
-      <div class="meta">${new Date(m.creado_at).toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})} ${m.direccion==='saliente' ? (m.estado==='leido'?'✓✓':m.estado==='entregado'?'✓✓':m.estado==='enviado'?'✓':'⏳') : ''}</div>
+      <div class="meta">${new Date(m.creado_at).toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit'})} ${m.direccion==='saliente' ? (m.estado==='leido'?'✓✓':m.estado==='entregado'?'✓✓':m.estado==='enviado'?'✓':'⏳') : ''}</div>
     </div>`;
   }).join('') || `<div class="empty-state">Todavía no hay mensajes en este chat.</div>`;
   msgs.scrollTop = msgs.scrollHeight;
@@ -518,6 +539,7 @@ function renderFicha(){
     <div>
       <div class="ficha-nombre">${escapeHtml(cliente.nombre)}</div>
       <div class="ficha-row"><span>DNI</span><span>${escapeHtml(cliente.dni||'—')}</span></div>
+      <div class="ficha-row"><span>Categoría</span><span>${escapeHtml(cliente.categoria||'—')}</span></div>
       <div class="ficha-row"><span>Créditos históricos</span><span>${(prestamos||[]).length} (${cancelados} cancelados)</span></div>
       <div class="ficha-row"><span>Localidad</span><span>${escapeHtml(cliente.localidad||'—')}</span></div>
     </div>
@@ -529,6 +551,7 @@ function renderFicha(){
     <div class="ficha-card">
       <div class="label">Préstamo activo · Nº ${escapeHtml(prestamoActivo.nro||'')}</div>
       <div class="valor">$${Number(saldoTotal).toLocaleString('es-AR')}</div>
+      <div class="ficha-row"><span>Monto otorgado</span><span>$${Number(prestamoActivo.monto||0).toLocaleString('es-AR')}</span></div>
       <div class="ficha-row"><span>Días de atraso</span><span>${prestamoActivo.dias_atraso||0}</span></div>
       <div class="ficha-row"><span>Próx. vencimiento</span><span>${prestamoActivo.proximo_vencimiento||'—'}</span></div>
       ${prestamoActivo.cant_cuotas ? `
@@ -537,7 +560,7 @@ function renderFicha(){
     </div>` : ''}
     <div>
       <div class="label" style="font-size:11px;color:var(--muted);margin-bottom:4px;">Etapa en el Kanban</div>
-      <select id="fichaEtapa">${etapasCache.map(e=>`<option value="${e.id}" ${cliente.etapa_id===e.id?'selected':''}>${escapeHtml(e.name)}</option>`).join('')}</select>
+      <select id="fichaEtapa">${etapasCache.map(e=>`<option value="${e._rowId}" ${cliente.etapa_id===e._rowId?'selected':''}>${escapeHtml(e.name)}</option>`).join('')}</select>
     </div>
     <div>
       <div class="label" style="font-size:11px;color:var(--muted);margin-bottom:4px;">Promesa de pago</div>
@@ -545,6 +568,8 @@ function renderFicha(){
     </div>
     <div class="ficha-acciones">
       <button class="primary" id="fichaGuardar">💾 Guardar cambios</button>
+      <button id="fichaConfirmarPago">✓ Confirmar pago</button>
+      <button id="fichaRefinanciar">🔁 Refinanciar</button>
       <button onclick="window.top.postMessage({type:'cm-ir-a-clientes', id:'${cliente.id}'}, '*')">👤 Ver ficha completa</button>
     </div>`;
   document.getElementById('fichaGuardar').addEventListener('click', async ()=>{
@@ -553,6 +578,21 @@ function renderFicha(){
     await crmActualizarCliente(cliente.id, { etapa_id: etapaId, promesa_fecha: promesa });
     cliente.etapa_id = etapaId; cliente.promesa_fecha = promesa;
     alert('Guardado.');
+  });
+  document.getElementById('fichaConfirmarPago').addEventListener('click', async ()=>{
+    const etapaCerrado = etapasCache.find(e => e.id === 'cerrado');
+    if(!etapaCerrado){ alert('No se encontró la etapa "Cerrado (Cobrado)" en tu Kanban.'); return; }
+    const monto = prompt('¿Qué monto pagó?', saldoVencido || '');
+    if(monto === null) return;
+    await crmActualizarCliente(cliente.id, { etapa_id: etapaCerrado._rowId });
+    await crmAddPago({ cliente_id: cliente.id, nombre: cliente.nombre, monto: parseFloat(monto)||0, fecha: new Date().toISOString().slice(0,10), estado: 'Cobrado', origen: 'whatsapp' });
+    alert('Pago confirmado, cliente movido a Cerrado (Cobrado).');
+  });
+  document.getElementById('fichaRefinanciar').addEventListener('click', async ()=>{
+    const etapaRef = etapasCache.find(e => e.id === 'refinanciado');
+    if(!etapaRef){ alert('No se encontró la etapa "Refinanciado" en tu Kanban.'); return; }
+    await crmActualizarCliente(cliente.id, { etapa_id: etapaRef._rowId });
+    alert('Cliente movido a Refinanciado.');
   });
 }
 
@@ -565,6 +605,7 @@ document.querySelectorAll('.wa-tabs button').forEach(btn=>{
   });
 });
 document.getElementById('buscarChat').addEventListener('input', renderChatList);
+document.getElementById('filtroEtapa').addEventListener('change', renderChatList);
 document.getElementById('btnNuevoChat').addEventListener('click', async ()=>{
   const tel = prompt('Número de WhatsApp (con código de área, ej: 11 4532-7781):');
   if(!tel) return;
@@ -628,6 +669,8 @@ window.appReady.then(async ()=>{
 
   const { data: { session } } = await window.sb.auth.getSession();
   etapasCache = await crmListEtapas();
+  const selEtapa = document.getElementById('filtroEtapa');
+  etapasCache.forEach(e => { selEtapa.innerHTML += `<option value="${e._rowId}">${escapeHtml(e.name)}</option>`; });
   plantillasCache = await crmListPlantillas();
   nombreUsuarioCache = await crmGetNombreUsuario();
   await cargarConversaciones();
