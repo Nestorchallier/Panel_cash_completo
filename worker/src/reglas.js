@@ -101,4 +101,14 @@ function clasificarMensaje(reglas, contexto) {
   return null;
 }
 
-module.exports = { clasificarMensaje, detectarFecha, normalizar };
+// Dual CommonJS (worker) / navegador (pantalla de Conexión, "Probar reglas"
+// de la sección 5.4): mismo archivo, un solo lugar donde corregir esta
+// lógica si cambia.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { clasificarMensaje, detectarFecha, normalizar };
+}
+if (typeof window !== 'undefined') {
+  window.clasificarMensaje = clasificarMensaje;
+  window.detectarFecha = detectarFecha;
+  window.normalizar = normalizar;
+}

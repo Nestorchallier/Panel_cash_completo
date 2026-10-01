@@ -2010,6 +2010,7 @@
       <button class="sidebar-item" data-view="view-mensajes"><span class="si-icon">📨</span><span class="si-label">Envío de Mensajes</span></button>
       <button class="sidebar-item" data-view="view-refi"><span class="si-icon">🔍</span><span class="si-label">Buscador de Refinanciaciones</span></button>
       <button class="sidebar-item" data-view="view-calc"><span class="si-icon">🧮</span><span class="si-label">Calculadora de Próximo Crédito</span></button>
+      <button class="sidebar-item" data-view="view-conexion"><span class="si-icon">⚙️</span><span class="si-label">Conexión WhatsApp</span></button>
     </nav>
     <div class="sidebar-backup">
       <button class="sidebar-backup-btn" id="btnToggleTheme">🌙 Modo oscuro</button>
@@ -2352,6 +2353,12 @@
   <div id="view-clientes" class="app-view">
     <div class="view-iframe-wrap">
       <iframe id="iframeClientes" title="Clientes"></iframe>
+    </div>
+  </div>
+
+  <div id="view-conexion" class="app-view">
+    <div class="view-iframe-wrap">
+      <iframe id="iframeConexion" title="Conexión WhatsApp"></iframe>
     </div>
   </div>
 
@@ -3709,12 +3716,13 @@
       const iframeKanban = document.getElementById('iframeKanban');
       const iframeWhatsapp = document.getElementById('iframeWhatsapp');
       const iframeClientes = document.getElementById('iframeClientes');
-      let refiLoaded = false, calcLoaded = false, kanbanLoaded = false, whatsappLoaded = false, clientesLoaded = false;
+      const iframeConexion = document.getElementById('iframeConexion');
+      let refiLoaded = false, calcLoaded = false, kanbanLoaded = false, whatsappLoaded = false, clientesLoaded = false, conexionLoaded = false;
       // Se suma como query param a cada iframe para que el navegador siempre
       // pida la version nueva del archivo despues de un deploy, en vez de
       // servir una copia vieja cacheada. Subir este numero en cada cambio a
       // kanban_clientes.html / refi_buscador.html / calculadora_proximo_credito.html / whatsapp_crm.html.
-      const ASSET_VERSION = 12;
+      const ASSET_VERSION = 13;
 
       function cargarIframeSiHaceFalta(view) {
         if (view === 'view-refi' && !refiLoaded) {
@@ -3742,6 +3750,11 @@
           iframeClientes.src = 'clientes.html?v=' + ASSET_VERSION;
           clientesLoaded = true;
           iframeClientes.addEventListener('load', () => notifyThemeToIframes(currentTheme), { once: true });
+        }
+        if (view === 'view-conexion' && !conexionLoaded) {
+          iframeConexion.src = 'conexion.html?v=' + ASSET_VERSION;
+          conexionLoaded = true;
+          iframeConexion.addEventListener('load', () => notifyThemeToIframes(currentTheme), { once: true });
         }
       }
 
@@ -3834,7 +3847,7 @@
     // ============ MODO CLARO / OSCURO ============
     const THEME_KEY = 'cm_theme_v1';
     function notifyThemeToIframes(theme){
-      ['iframeKanban', 'iframeRefi', 'iframeCalc', 'iframeWhatsapp', 'iframeClientes'].forEach(id => {
+      ['iframeKanban', 'iframeRefi', 'iframeCalc', 'iframeWhatsapp', 'iframeClientes', 'iframeConexion'].forEach(id => {
         const el = document.getElementById(id);
         if (el && el.contentWindow) {
           try { el.contentWindow.postMessage({ type: 'cm-theme', theme }, '*'); } catch (e) { }

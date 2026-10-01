@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conexión WhatsApp — Cash Market</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase/config.js"></script>
+<script src="supabase/kv.js"></script>
+<script src="js/telefonos.js"></script>
+<script src="supabase/crm.js"></script>
+<script src="worker/src/reglas.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#111826; --panel-2:#151d2e; --line:#212c40;
+    --text:#e7edf7; --muted:#8996ab; --accent:#3fd0c9; --accent-2:#5b8def;
+    --warn:#f0b866; --danger:#e8677c; --ok:#63d29a; --radius:10px;
+    --shadow:0 8px 24px rgba(0,0,0,.35);
+  }
+  :root[data-theme="light"]{
+    --bg:#f4f6f8; --panel:#ffffff; --panel-2:#eef1f4; --line:#dbe1e7;
+    --text:#1a2330; --muted:#5b6b7c; --accent:#0e9c87; --accent-2:#3b6fd1;
+    --warn:#c9822a; --danger:#d14f4f; --ok:#1fa855;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;min-height:100vh;}
+  header{padding:16px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);}
+  header h1{font-size:17px;margin:0;}
+  main{padding:20px 24px;display:grid;grid-template-columns:320px 1fr;gap:20px;align-items:start;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px;}
+  .card h3{margin:0 0 12px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;}
+  .datos-row{display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px dashed var(--line);}
+  .datos-row:last-child{border-bottom:none;}
+  .datos-row .k{color:var(--muted);}
+  .estado-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border-radius:20px;background:var(--panel-2);border:1px solid var(--line);margin-bottom:10px;}
+  .estado-pill .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);}
+  .estado-pill.conectado .dot{background:var(--ok);}
+  .estado-pill.conectando .dot{background:var(--warn);}
+  .btn{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:8px 14px;font-size:12px;cursor:pointer;}
+  .btn:hover{border-color:var(--accent-2);}
+  .btn-danger{color:var(--danger);}
+  .btn-primary{background:var(--accent);border:none;color:#04121a;font-weight:700;}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  #qrBox{display:flex;justify-content:center;padding:16px;background:#fff;border-radius:8px;}
+  #qrBox canvas{display:block;}
+  .qr-steps{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.6;}
+
+  table{width:100%;border-collapse:collapse;}
+  th{text-align:left;font-size:11px;color:var(--muted);text-transform:uppercase;padding:8px;border-bottom:1px solid var(--line);}
+  td{padding:8px;border-bottom:1px solid var(--line);font-size:12.5px;vertical-align:top;}
+  .badge{font-size:10px;padding:2px 7px;border-radius:5px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);}
+  .toggle{width:34px;height:18px;border-radius:10px;background:var(--line);position:relative;cursor:pointer;display:inline-block;flex-shrink:0;}
+  .toggle.on{background:var(--accent);}
+  .toggle::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s;}
+  .toggle.on::after{left:18px;}
+  .icon-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 4px;}
+  .icon-btn:hover{color:var(--text);}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .field{margin-bottom:10px;}
+  .field label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;}
+  .field input, .field select, .field textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:7px 9px;font-size:12.5px;}
+  .field textarea{resize:vertical;}
+  .check-row{display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:8px;}
+
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;z-index:50;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;width:420px;max-height:85vh;overflow-y:auto;}
+  .modal h2{margin:0 0 14px;font-size:15px;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
+
+  #probadorResultado{margin-top:10px;font-size:12.5px;padding:10px;background:var(--panel-2);border-radius:7px;border:1px solid var(--line);min-height:20px;}
+  .empty-state{color:var(--muted);font-size:12.5px;padding:16px;text-align:center;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚙️ Conexión WhatsApp</h1>
+  <button class="btn" id="btnRefrescar">↻ Refrescar</button>
+</header>
+
+<main>
+  <div>
+    <div class="card" id="cardEstado"></div>
+    <div class="card" id="cardQr"></div>
+    <div class="card">
+      <h3>Límites anti-bloqueo</h3>
+      <div class="field"><label>Máx. mensajes por día</label><input type="number" id="limDiario"></div>
+      <div class="grid2">
+        <div class="field"><label>Intervalo mínimo (seg)</label><input type="number" id="limIntMin"></div>
+        <div class="field"><label>Intervalo máximo (seg)</label><input type="number" id="limIntMax"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Horario desde</label><input type="time" id="limHorarioDesde"></div>
+        <div class="field"><label>Horario hasta</label><input type="time" id="limHorarioHasta"></div>
+      </div>
+      <button class="btn btn-primary" id="btnGuardarLimites" style="width:100%;">Guardar límites</button>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 style="margin:0;">Reglas de clasificación automática</h3>
+        <button class="btn btn-primary" id="btnNuevaRegla">+ Nueva regla</button>
+      </div>
+      <table>
+        <thead><tr><th>#</th><th>Regla</th><th>Se activa con</th><th>Acción</th><th>Activa</th><th></th></tr></thead>
+        <tbody id="tablaReglas"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>Probar reglas</h3>
+      <textarea id="probadorTexto" rows="2" placeholder="Escribí un mensaje de ejemplo..." style="width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:8px;"></textarea>
+      <div class="btn-row"><button class="btn btn-primary" id="btnProbar">Probar</button></div>
+      <div id="probadorResultado"></div>
+    </div>
+  </div>
+</main>
+
+<!-- Modal: crear/editar regla -->
+<div class="modal-overlay" id="reglaModal">
+  <div class="modal">
+    <h2 id="reglaModalTitulo">Nueva regla</h2>
+    <div class="field"><label>Nombre</label><input type="text" id="rNombre"></div>
+    <div class="field"><label>Palabras clave (separadas por coma, vacío = cualquier mensaje)</label><textarea id="rPalabras" rows="2"></textarea></div>
+    <div class="field"><label>Solo si trae adjunto</label>
+      <select id="rTipoAdjunto"><option value="">No filtra por adjunto</option><option value="imagen_o_pdf">Imagen o PDF</option></select>
+    </div>
+    <div class="field"><label>Mover tarjeta a la etapa</label>
+      <select id="rMueveA"><option value="">No mueve</option></select>
+    </div>
+    <div class="field"><label>Etiqueta a agregar (opcional)</label><input type="text" id="rEtiqueta"></div>
+    <div class="check-row"><input type="checkbox" id="rDetectaFecha"><label for="rDetectaFecha">Detectar fecha de promesa en el texto</label></div>
+    <div class="check-row"><input type="checkbox" id="rCreaRecordatorio"><label for="rCreaRecordatorio">Crear recordatorio en el Calendario</label></div>
+    <div class="check-row"><input type="checkbox" id="rAvisaAdmin"><label for="rAvisaAdmin">Avisar al administrador</label></div>
+    <div class="check-row"><input type="checkbox" id="rActiva" checked><label for="rActiva">Regla activa</label></div>
+    <div class="modal-actions">
+      <button class="btn" id="btnCancelarRegla">Cancelar</button>
+      <button class="btn btn-primary" id="btnGuardarRegla">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let sesion = null;
+let reglasCache = [];
+let etapasCache = [];
+let editandoReglaId = null;
+
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function renderEstado(){
+  const el = document.getElementById('cardEstado');
+  const e = (sesion && sesion.estado) || 'desconectado';
+  el.innerHTML = `
+    <h3>Número conectado</h3>
+    <div class="estado-pill ${e}"><span class="dot"></span>${e === 'conectado' ? 'Conectado' : e === 'conectando' ? 'Conectando...' : 'Sin conectar'}</div>
+    ${sesion && sesion.numero ? `
+    <div class="datos-row"><span class="k">Número</span><span>+${escapeHtml(sesion.numero)}</span></div>
+    <div class="datos-row"><span class="k">Nombre en WhatsApp</span><span>${escapeHtml(sesion.nombre_whatsapp||'—')}</span></div>
+    <div class="datos-row"><span class="k">Conectado desde</span><span>${sesion.conectado_desde ? new Date(sesion.conectado_desde).toLocaleString('es-AR') : '—'}</span></div>` : ''}
+    <div class="datos-row"><span class="k">Último latido</span><span>${sesion && sesion.ultimo_latido ? haceCuanto(sesion.ultimo_latido) : 'El worker nunca se conectó'}</span></div>
+    <div class="datos-row"><span class="k">Enviados hoy</span><span>${sesion ? (sesion.enviados_hoy||0) + ' / ' + (sesion.limite_diario||250) : '—'}</span></div>
+    <div class="btn-row">
+      <button class="btn" id="btnReiniciar">Reiniciar sesión</button>
+      <button class="btn btn-danger" id="btnDesvincular">Desvincular</button>
+    </div>`;
+  document.getElementById('btnReiniciar').addEventListener('click', async ()=>{
+    if(!confirm('¿Reiniciar la conexión? El worker corta y vuelve a conectar solo.')) return;
+    await crmPedirComandoWa('reiniciar');
+    alert('Pedido enviado. Puede tardar unos segundos en reflejarse (el worker lo revisa en su próximo latido).');
+  });
+  document.getElementById('btnDesvincular').addEventListener('click', async ()=>{
+    if(!confirm('¿Desvincular este WhatsApp? Vas a tener que escanear el QR de nuevo para volver a conectarlo.')) return;
+    await crmPedirComandoWa('desvincular');
+    alert('Pedido enviado. El worker se desconecta y necesita que lo reinicies para mostrar un QR nuevo.');
+  });
+}
+
+function haceCuanto(iso){
+  const seg = Math.round((Date.now() - new Date(iso).getTime())/1000);
+  if(seg < 60) return `hace ${seg} seg`;
+  if(seg < 3600) return `hace ${Math.round(seg/60)} min`;
+  return `hace ${Math.round(seg/3600)} h`;
+}
+
+function renderQr(){
+  const el = document.getElementById('cardQr');
+  const tieneQr = sesion && sesion.estado !== 'conectado' && sesion.qr;
+  if(!tieneQr){
+    el.innerHTML = `<h3>Vincular un número nuevo</h3><div class="empty-state">${sesion && sesion.estado === 'conectado' ? 'Ya hay un número conectado. Desvinculalo para mostrar un QR nuevo.' : 'Esperando que el worker genere un QR... arrancalo con <code>npm start</code> en la carpeta worker/.'}</div>`;
+    return;
+  }
+  el.innerHTML = `<h3>Vincular un número nuevo</h3><div id="qrBox"></div>
+    <div class="qr-steps">En el celular de la empresa:<br>1. Abrí WhatsApp<br>2. Menú → Dispositivos vinculados<br>3. Vincular un dispositivo<br>4. Escaneá este código</div>`;
+  const canvas = document.createElement('canvas');
+  document.getElementById('qrBox').appendChild(canvas);
+  QRCode.toCanvas(canvas, sesion.qr, { width: 220, margin: 1 }, (err) => { if (err) console.error('No se pudo dibujar el QR', err); });
+}
+
+async function cargarEstado(){
+  sesion = await crmGetWaSesion();
+  renderEstado();
+  renderQr();
+  if(sesion){
+    document.getElementById('limDiario').value = sesion.limite_diario || 250;
+    document.getElementById('limIntMin').value = sesion.intervalo_min || 25;
+    document.getElementById('limIntMax').value = sesion.intervalo_max || 60;
+    document.getElementById('limHorarioDesde').value = (sesion.horario_desde || '09:00').slice(0,5);
+    document.getElementById('limHorarioHasta').value = (sesion.horario_hasta || '20:00').slice(0,5);
+  }
+}
+
+document.getElementById('btnGuardarLimites').addEventListener('click', async ()=>{
+  await crmActualizarLimitesWa({
+    limite_diario: parseInt(document.getElementById('limDiario').value, 10) || 250,
+    intervalo_min: parseInt(document.getElementById('limIntMin').value, 10) || 25,
+    intervalo_max: parseInt(document.getElementById('limIntMax').value, 10) || 60,
+    horario_desde: document.getElementById('limHorarioDesde').value || '09:00',
+    horario_hasta: document.getElementById('limHorarioHasta').value || '20:00',
+  });
+  alert('Límites guardados.');
+});
+
+/* ===== Reglas ===== */
+function resumenCondicion(r){
+  const partes = [];
+  if(r.tipo_adjunto) partes.push('trae imagen/PDF');
+  if(r.palabras && r.palabras.length) partes.push('"' + r.palabras.slice(0,3).join('", "') + (r.palabras.length>3?'"...':'"'));
+  return partes.length ? partes.join(' + ') : 'cualquier mensaje';
+}
+function resumenAccion(r){
+  const a = r.accion || {};
+  const partes = [];
+  if(a.mueve_a) partes.push('Mover a ' + nombreEtapaClave(a.mueve_a));
+  if(a.etiqueta) partes.push('Etiqueta "' + a.etiqueta + '"');
+  if(a.avisa_admin) partes.push('Avisa admin');
+  if(a.detecta_fecha) partes.push('Detecta fecha');
+  if(a.crea_recordatorio) partes.push('+ recordatorio');
+  return partes.join(' · ') || '—';
+}
+function nombreEtapaClave(clave){
+  const e = etapasCache.find(x => x.id === clave);
+  return e ? e.name : clave;
+}
+
+function renderReglas(){
+  const tbody = document.getElementById('tablaReglas');
+  if(!reglasCache.length){ tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Sin reglas todavía.</td></tr>`; return; }
+  tbody.innerHTML = reglasCache.map((r,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><b>${escapeHtml(r.nombre)}</b></td>
+      <td>${escapeHtml(resumenCondicion(r))}</td>
+      <td>${escapeHtml(resumenAccion(r))}</td>
+      <td><span class="toggle ${r.activa?'on':''}" data-id="${r.id}"></span></td>
+      <td><button class="icon-btn" data-editar="${r.id}">✎</button> <button class="icon-btn" data-borrar="${r.id}">🗑️</button></td>
+    </tr>`).join('');
+  tbody.querySelectorAll('.toggle').forEach(t => t.addEventListener('click', async ()=>{
+    const r = reglasCache.find(x=>x.id===t.dataset.id);
+    r.activa = !r.activa;
+    await crmGuardarRegla(r);
+    renderReglas();
+  }));
+  tbody.querySelectorAll('[data-editar]').forEach(b => b.addEventListener('click', ()=> abrirModalRegla(b.dataset.editar)));
+  tbody.querySelectorAll('[data-borrar]').forEach(b => b.addEventListener('click', async ()=>{
+    if(!confirm('¿Eliminar esta regla?')) return;
+    await crmEliminarRegla(b.dataset.borrar);
+    await cargarReglas();
+  }));
+}
+
+async function cargarReglas(){
+  reglasCache = await crmListReglas();
+  renderReglas();
+}
+
+function llenarSelectEtapas(){
+  const sel = document.getElementById('rMueveA');
+  sel.innerHTML = '<option value="">No mueve</option>' + etapasCache.map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
+}
+
+function abrirModalRegla(id){
+  editandoReglaId = id || null;
+  const r = id ? reglasCache.find(x=>x.id===id) : null;
+  document.getElementById('reglaModalTitulo').textContent = r ? 'Editar regla' : 'Nueva regla';
+  document.getElementById('rNombre').value = r ? r.nombre : '';
+  document.getElementById('rPalabras').value = r ? (r.palabras||[]).join(', ') : '';
+  document.getElementById('rTipoAdjunto').value = r ? (r.tipo_adjunto||'') : '';
+  llenarSelectEtapas();
+  document.getElementById('rMueveA').value = r && r.accion ? (r.accion.mueve_a||'') : '';
+  document.getElementById('rEtiqueta').value = r && r.accion ? (r.accion.etiqueta||'') : '';
+  document.getElementById('rDetectaFecha').checked = !!(r && r.accion && r.accion.detecta_fecha);
+  document.getElementById('rCreaRecordatorio').checked = !!(r && r.accion && r.accion.crea_recordatorio);
+  document.getElementById('rAvisaAdmin').checked = !!(r && r.accion && r.accion.avisa_admin);
+  document.getElementById('rActiva').checked = r ? r.activa : true;
+  document.getElementById('reglaModal').classList.add('open');
+}
+document.getElementById('btnNuevaRegla').addEventListener('click', ()=> abrirModalRegla(null));
+document.getElementById('btnCancelarRegla').addEventListener('click', ()=> document.getElementById('reglaModal').classList.remove('open'));
+document.getElementById('btnGuardarRegla').addEventListener('click', async ()=>{
+  const nombre = document.getElementById('rNombre').value.trim();
+  if(!nombre){ alert('Ponele un nombre a la regla.'); return; }
+  const palabras = document.getElementById('rPalabras').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const accion = {};
+  if(document.getElementById('rMueveA').value) accion.mueve_a = document.getElementById('rMueveA').value;
+  if(document.getElementById('rEtiqueta').value.trim()) accion.etiqueta = document.getElementById('rEtiqueta').value.trim();
+  if(document.getElementById('rDetectaFecha').checked) accion.detecta_fecha = true;
+  if(document.getElementById('rCreaRecordatorio').checked) accion.crea_recordatorio = true;
+  if(document.getElementById('rAvisaAdmin').checked) accion.avisa_admin = true;
+
+  const regla = {
+    nombre, palabras,
+    tipo_adjunto: document.getElementById('rTipoAdjunto').value || null,
+    accion, activa: document.getElementById('rActiva').checked,
+    prioridad: editandoReglaId ? (reglasCache.find(r=>r.id===editandoReglaId)||{}).prioridad : (reglasCache.length + 1),
+  };
+  if(editandoReglaId) regla.id = editandoReglaId;
+  await crmGuardarRegla(regla);
+  document.getElementById('reglaModal').classList.remove('open');
+  await cargarReglas();
+});
+
+document.getElementById('btnProbar').addEventListener('click', ()=>{
+  const texto = document.getElementById('probadorTexto').value;
+  const resultado = window.clasificarMensaje(reglasCache, { texto, tieneAdjunto: false, tipoAdjunto: null, etapaActualClave: 'a_contactar' });
+  const el = document.getElementById('probadorResultado');
+  if(!resultado){ el.textContent = 'Ninguna regla coincide con este mensaje.'; return; }
+  el.innerHTML = `Resultado: <b>${escapeHtml(resultado.regla.nombre)}</b>${resultado.fechaDetectada ? ' · fecha detectada: <b>' + resultado.fechaDetectada + '</b>' : ''} · coincidió con: ${escapeHtml((resultado.regla.palabras||[]).filter(p => window.normalizar(texto).includes(window.normalizar(p))).join(', ') || '(sin palabras clave)')}`;
+});
+
+document.getElementById('btnRefrescar').addEventListener('click', cargarEstado);
+
+/* ===== Tema ===== */
+const THEME_KEY = 'cm_theme_v1';
+function applyTheme(theme){ document.documentElement.setAttribute('data-theme', theme==='light'?'light':'dark'); }
+window.addEventListener('message', e=>{ if(e.data && e.data.type==='cm-theme') applyTheme(e.data.theme); });
+
+/* ===== Auth + carga inicial ===== */
+sb.auth.getSession().then(async ({ data: { session } }) => {
+  if (!session) { location.href = 'index.html'; return; }
+  await crmBootstrap();
+  window._markAppReady();
+});
+sb.auth.onAuthStateChange((_event, session) => { if (!session) location.href = 'index.html'; });
+
+window.appReady.then(async ()=>{
+  const saved = await kvGet(THEME_KEY);
+  if (saved) applyTheme(saved);
+  etapasCache = await crmListEtapas();
+  await cargarEstado();
+  await cargarReglas();
+  setInterval(cargarEstado, 15000);
+});
+</script>
+</body>
+</html>

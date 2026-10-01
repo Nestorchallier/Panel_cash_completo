@@ -310,6 +310,49 @@ async function crmListResumenChats() {
   return out;
 }
 
+// ───────────────────────── wa_sesion / reglas (Conexión WhatsApp, 5.4) ─────────────────────────
+
+async function crmGetWaSesion() {
+  const uid = await _uid();
+  const { data, error } = await window.sb.from('wa_sesion').select('*').eq('user_id', uid).maybeSingle();
+  if (error) { console.error('crmGetWaSesion', error); return null; }
+  return data;
+}
+
+async function crmPedirComandoWa(comando) {
+  const uid = await _uid();
+  const { error } = await window.sb.from('wa_sesion').upsert({ user_id: uid, comando });
+  if (error) { console.error('crmPedirComandoWa', error); throw error; }
+}
+
+async function crmActualizarLimitesWa(cambios) {
+  const uid = await _uid();
+  const { error } = await window.sb.from('wa_sesion').upsert({ user_id: uid, ...cambios });
+  if (error) { console.error('crmActualizarLimitesWa', error); throw error; }
+}
+
+async function crmListReglas() {
+  const uid = await _uid();
+  const { data, error } = await window.sb.from('reglas').select('*').eq('user_id', uid).order('prioridad', { ascending: true });
+  if (error) { console.error('crmListReglas', error); return []; }
+  return data || [];
+}
+
+async function crmGuardarRegla(regla) {
+  const uid = await _uid();
+  const fila = { ...regla, user_id: uid };
+  const { error } = await window.sb.from('reglas').upsert(fila);
+  if (error) { console.error('crmGuardarRegla', error); throw error; }
+}
+
+async function crmEliminarRegla(id) {
+  await window.sb.from('reglas').delete().eq('id', id);
+}
+
+async function crmReordenarReglas(idsEnOrden) {
+  await Promise.all(idsEnOrden.map((id, i) => window.sb.from('reglas').update({ prioridad: i + 1 }).eq('id', id)));
+}
+
 // ───────────────────────── usuarios ─────────────────────────
 
 async function crmGetNombreUsuario() {
@@ -335,6 +378,8 @@ if (typeof window !== 'undefined') {
     crmListConversaciones, crmListMensajes, crmMarcarConversacionLeida, crmListResumenChats,
     crmEnviarMensaje, crmCrearConversacion,
     crmGetFichaCliente, crmActualizarCliente, crmAgregarNotaCliente, crmListTelefonosCliente,
+    crmGetWaSesion, crmPedirComandoWa, crmActualizarLimitesWa,
+    crmListReglas, crmGuardarRegla, crmEliminarRegla, crmReordenarReglas,
     crmSuscribirConversaciones, crmSuscribirMensajes,
   });
 }
