@@ -79,21 +79,33 @@ function clasificarMensaje(reglas, contexto) {
   for (const regla of reglas) {
     if (!regla.activa) continue;
 
-    if (regla.tipo_adjunto === 'imagen_o_pdf' && !contexto.tieneAdjunto) continue;
-    if (regla.tipo_adjunto && regla.tipo_adjunto !== 'imagen_o_pdf' && regla.tipo_adjunto !== contexto.tipoAdjunto) continue;
-
     const accion = regla.accion || {};
+    const palabras = regla.palabras || [];
+    const matchPalabra = palabras.some(p => texto.includes(normalizar(p)));
+    const matchAdjunto = !!regla.tipo_adjunto && !!contexto.tieneAdjunto
+      && (regla.tipo_adjunto === 'imagen_o_pdf' || regla.tipo_adjunto === contexto.tipoAdjunto);
+
+    // Regla con adjunto Y palabras clave (ej. "Comprobante": "imagen o PDF
+    // recibido, transferí, comprobante, ya pagué" — sección 6 del plan):
+    // alcanza con cualquiera de las dos. Antes se exigían las dos juntas, y
+    // la foto del comprobante sola (sin texto, lo más común) no entraba y
+    // terminaba cayendo en "Respondió".
+    if (regla.tipo_adjunto && palabras.length) {
+      if (!matchAdjunto && !matchPalabra) continue;
+      const fechaDetectada = accion.detecta_fecha ? detectarFecha(contexto.texto, new Date()) : null;
+      return { regla, fechaDetectada };
+    }
+    // Solo adjunto: tiene que venir el adjunto.
+    if (regla.tipo_adjunto && !matchAdjunto) continue;
 
     // Regla catch-all ("Respondió"): sin palabras clave, solo aplica si el
     // chat está en la etapa de la que se supone que tiene que salir.
-    if ((!regla.palabras || regla.palabras.length === 0) && !regla.tipo_adjunto) {
+    if (palabras.length === 0 && !regla.tipo_adjunto) {
       if (accion.mueve_de && accion.mueve_de !== contexto.etapaActualClave) continue;
       return { regla, fechaDetectada: null };
     }
 
-    const matchPalabra = (regla.palabras || []).some(p => texto.includes(normalizar(p)));
     if (!matchPalabra && !regla.tipo_adjunto) continue;
-    if (regla.tipo_adjunto && (regla.palabras || []).length && !matchPalabra) continue;
 
     const fechaDetectada = accion.detecta_fecha ? detectarFecha(contexto.texto, new Date()) : null;
     return { regla, fechaDetectada };

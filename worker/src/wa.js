@@ -144,7 +144,7 @@ async function aplicarReglas(supabase, userId, conversacion, mensajeTexto, tipo)
 
   const { data: cliente } = await supabase.from('clientes').select('*').eq('id', conversacion.cliente_id).single();
   const { data: etapaActual } = cliente?.etapa_id
-    ? await supabase.from('etapas').select('clave').eq('id', cliente.etapa_id).maybeSingle()
+    ? await supabase.from('etapas').select('clave, orden').eq('id', cliente.etapa_id).maybeSingle()
     : { data: null };
 
   const { data: reglas } = await supabase
@@ -162,10 +162,16 @@ async function aplicarReglas(supabase, userId, conversacion, mensajeTexto, tipo)
   const accion = regla.accion || {};
   const cambios = {};
 
-  if (accion.mueve_a) {
+  // Reglas de convivencia con el trabajo manual (sección 6 del plan): las
+  // reglas solo AVANZAN tarjetas según el orden de las columnas, nunca las
+  // devuelven hacia atrás, y nada saca a un cliente de "Cerrado (Cobrado)"
+  // ni de "Refinanciado" (ahí solo se agregan etiquetas).
+  const etapaBloqueada = etapaActual && ['cerrado', 'refinanciado'].includes(etapaActual.clave);
+  if (accion.mueve_a && !etapaBloqueada) {
     const { data: etapaDestino } = await supabase
-      .from('etapas').select('id').eq('user_id', userId).eq('clave', accion.mueve_a).maybeSingle();
-    if (etapaDestino) cambios.etapa_id = etapaDestino.id;
+      .from('etapas').select('id, orden').eq('user_id', userId).eq('clave', accion.mueve_a).maybeSingle();
+    const avanza = !etapaActual || etapaActual.orden == null || etapaDestino?.orden == null || etapaDestino.orden > etapaActual.orden;
+    if (etapaDestino && avanza) cambios.etapa_id = etapaDestino.id;
   }
   if (fechaDetectada) cambios.promesa_fecha = fechaDetectada;
   if (accion.etiqueta) cambios.etiquetas = Array.from(new Set([...(cliente.etiquetas || []), accion.etiqueta]));
