@@ -2003,11 +2003,12 @@
     </div>
     <nav class="sidebar-menu" id="sidebarMenu">
       <button class="sidebar-item active" data-view="view-comisiones"><span class="si-icon">📊</span><span class="si-label">Sueldo & Cobros</span></button>
-      <button class="sidebar-item" data-view="view-mensajes"><span class="si-icon">💬</span><span class="si-label">Envío de Mensajes</span></button>
-      <button class="sidebar-item" data-view="view-refi"><span class="si-icon">🔍</span><span class="si-label">Buscador de Refinanciaciones</span></button>
-      <button class="sidebar-item" data-view="view-calc"><span class="si-icon">🧮</span><span class="si-label">Calculadora de Próximo Crédito</span></button>
+      <button class="sidebar-item" data-view="view-whatsapp"><span class="si-icon">💬</span><span class="si-label">WhatsApp CRM</span></button>
       <button class="sidebar-item" data-view="view-kanban" data-mode="kanban"><span class="si-icon">🗂️</span><span class="si-label">Kanban de Cartera</span></button>
       <button class="sidebar-item" data-view="view-calendario" data-target="view-kanban" data-mode="calendar"><span class="si-icon">📅</span><span class="si-label">Calendario</span></button>
+      <button class="sidebar-item" data-view="view-mensajes"><span class="si-icon">📨</span><span class="si-label">Envío de Mensajes</span></button>
+      <button class="sidebar-item" data-view="view-refi"><span class="si-icon">🔍</span><span class="si-label">Buscador de Refinanciaciones</span></button>
+      <button class="sidebar-item" data-view="view-calc"><span class="si-icon">🧮</span><span class="si-label">Calculadora de Próximo Crédito</span></button>
     </nav>
     <div class="sidebar-backup">
       <button class="sidebar-backup-btn" id="btnToggleTheme">🌙 Modo oscuro</button>
@@ -2338,6 +2339,12 @@
   <div id="view-kanban" class="app-view">
     <div class="view-iframe-wrap">
       <iframe id="iframeKanban" title="Kanban de Cartera"></iframe>
+    </div>
+  </div>
+
+  <div id="view-whatsapp" class="app-view">
+    <div class="view-iframe-wrap">
+      <iframe id="iframeWhatsapp" title="WhatsApp CRM"></iframe>
     </div>
   </div>
 
@@ -3693,12 +3700,13 @@
       const iframeRefi = document.getElementById('iframeRefi');
       const iframeCalc = document.getElementById('iframeCalc');
       const iframeKanban = document.getElementById('iframeKanban');
-      let refiLoaded = false, calcLoaded = false, kanbanLoaded = false;
+      const iframeWhatsapp = document.getElementById('iframeWhatsapp');
+      let refiLoaded = false, calcLoaded = false, kanbanLoaded = false, whatsappLoaded = false;
       // Se suma como query param a cada iframe para que el navegador siempre
       // pida la version nueva del archivo despues de un deploy, en vez de
       // servir una copia vieja cacheada. Subir este numero en cada cambio a
-      // kanban_clientes.html / refi_buscador.html / calculadora_proximo_credito.html.
-      const ASSET_VERSION = 10;
+      // kanban_clientes.html / refi_buscador.html / calculadora_proximo_credito.html / whatsapp_crm.html.
+      const ASSET_VERSION = 11;
 
       function cargarIframeSiHaceFalta(view) {
         if (view === 'view-refi' && !refiLoaded) {
@@ -3716,6 +3724,11 @@
         if (view === 'view-kanban' && !kanbanLoaded) {
           iframeKanban.src = 'kanban_clientes.html?v=' + ASSET_VERSION;
           kanbanLoaded = true;
+        }
+        if (view === 'view-whatsapp' && !whatsappLoaded) {
+          iframeWhatsapp.src = 'whatsapp_crm.html?v=' + ASSET_VERSION;
+          whatsappLoaded = true;
+          iframeWhatsapp.addEventListener('load', () => notifyThemeToIframes(currentTheme), { once: true });
         }
       }
 
@@ -3779,7 +3792,7 @@
     // ============ MODO CLARO / OSCURO ============
     const THEME_KEY = 'cm_theme_v1';
     function notifyThemeToIframes(theme){
-      ['iframeKanban', 'iframeRefi', 'iframeCalc'].forEach(id => {
+      ['iframeKanban', 'iframeRefi', 'iframeCalc', 'iframeWhatsapp'].forEach(id => {
         const el = document.getElementById(id);
         if (el && el.contentWindow) {
           try { el.contentWindow.postMessage({ type: 'cm-theme', theme }, '*'); } catch (e) { }

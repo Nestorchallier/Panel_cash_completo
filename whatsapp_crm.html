@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatsApp CRM — Cash Market</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase/config.js"></script>
+<script src="supabase/kv.js"></script>
+<script src="js/telefonos.js"></script>
+<script src="supabase/crm.js"></script>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#111826; --panel-2:#151d2e; --line:#212c40;
+    --text:#e7edf7; --muted:#8996ab; --accent:#3fd0c9; --accent-2:#5b8def;
+    --warn:#f0b866; --danger:#e8677c; --ok:#63d29a; --radius:10px;
+    --shadow:0 8px 24px rgba(0,0,0,.35);
+  }
+  :root[data-theme="light"]{
+    --bg:#f4f6f8; --panel:#ffffff; --panel-2:#eef1f4; --line:#dbe1e7;
+    --text:#1a2330; --muted:#5b6b7c; --accent:#0e9c87; --accent-2:#3b6fd1;
+    --warn:#c9822a; --danger:#d14f4f; --ok:#1fa855;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    display:flex; flex-direction:column; height:100vh; overflow:hidden;
+  }
+  header{
+    padding:12px 20px; display:flex; align-items:center; justify-content:space-between;
+    border-bottom:1px solid var(--line); background:linear-gradient(180deg, rgba(255,255,255,.02), transparent);
+    flex-shrink:0;
+  }
+  header h1{font-size:16px;margin:0;}
+  .wa-estado{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);}
+  .wa-estado .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);}
+  .wa-estado.conectado .dot{background:var(--ok);}
+  .wa-estado.conectando .dot{background:var(--warn);}
+
+  .wa-crm{flex:1;display:flex;min-height:0;}
+  .wa-chats{width:320px;flex-shrink:0;border-right:1px solid var(--line);display:flex;flex-direction:column;background:var(--panel);}
+  .wa-chats-head{padding:12px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px;}
+  .wa-search{display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;}
+  .wa-search input{background:none;border:none;outline:none;color:var(--text);font-size:13px;width:100%;}
+  .wa-tabs{display:flex;gap:6px;}
+  .wa-tabs button{flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:5px 0;font-size:12px;cursor:pointer;}
+  .wa-tabs button.active{background:var(--accent-2);color:#04121a;border-color:var(--accent-2);font-weight:600;}
+  #chatList{flex:1;overflow-y:auto;}
+  .chat-item{padding:12px;border-bottom:1px solid var(--line);display:flex;gap:10px;cursor:pointer;align-items:flex-start;}
+  .chat-item:hover{background:var(--panel-2);}
+  .chat-item.active{background:var(--panel-2);border-left:3px solid var(--accent-2);}
+  .chat-avatar{width:38px;height:38px;border-radius:50%;background:var(--accent-2);color:#04121a;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;}
+  .chat-info{flex:1;min-width:0;}
+  .chat-info .row1{display:flex;justify-content:space-between;gap:6px;}
+  .chat-info .nombre{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .chat-info .hora{font-size:11px;color:var(--muted);flex-shrink:0;}
+  .chat-info .preview{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+  .chat-badges{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;}
+  .badge{font-size:10px;padding:2px 6px;border-radius:5px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);}
+  .badge.no-leidos{background:var(--ok);color:#04121a;border:none;font-weight:700;}
+
+  .wa-conv{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .conv-head{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
+  .conv-head .nombre{font-weight:600;font-size:14px;}
+  .conv-head .sub{font-size:12px;color:var(--muted);}
+  #convMessages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;background:
+    radial-gradient(1200px 600px at 90% -10%, rgba(63,208,201,.05), transparent 60%), var(--bg);}
+  .bubble{max-width:62%;padding:8px 12px;border-radius:10px;font-size:13px;line-height:1.4;position:relative;}
+  .bubble.entrante{align-self:flex-start;background:var(--panel-2);border:1px solid var(--line);}
+  .bubble.saliente{align-self:flex-end;background:rgba(63,208,201,.18);border:1px solid rgba(63,208,201,.4);}
+  .bubble .meta{font-size:10px;color:var(--muted);margin-top:4px;text-align:right;}
+  .bubble .autor{font-size:11px;color:var(--accent-2);font-weight:600;margin-bottom:2px;}
+  .bubble img{max-width:220px;border-radius:6px;display:block;}
+  .wa-compose{border-top:1px solid var(--line);padding:10px 14px;display:flex;flex-direction:column;gap:6px;position:relative;}
+  #plantillasPopup{position:absolute;bottom:100%;left:14px;right:14px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);max-height:200px;overflow-y:auto;display:none;}
+  #plantillasPopup div{padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--line);}
+  #plantillasPopup div:hover{background:var(--panel);}
+  .compose-row{display:flex;gap:8px;align-items:flex-end;}
+  .compose-row textarea{flex:1;resize:none;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 12px;font-size:13px;font-family:inherit;max-height:100px;}
+  .compose-row button{background:var(--accent);border:none;color:#04121a;font-weight:700;border-radius:8px;width:38px;height:38px;cursor:pointer;flex-shrink:0;}
+
+  .wa-ficha{width:280px;flex-shrink:0;border-left:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:16px;display:none;flex-direction:column;gap:14px;}
+  .wa-ficha.open{display:flex;}
+  .ficha-nombre{font-weight:700;font-size:15px;}
+  .ficha-row{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;margin-top:4px;}
+  .ficha-card{background:var(--panel-2);border:1px solid var(--line);border-radius:var(--radius);padding:12px;}
+  .ficha-card .label{font-size:11px;color:var(--muted);}
+  .ficha-card .valor{font-size:16px;font-weight:700;margin-top:2px;}
+  .ficha-card .valor.danger{color:var(--danger);}
+  select, input[type=date]{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:6px 8px;font-size:12px;width:100%;}
+  .ficha-acciones{display:flex;flex-direction:column;gap:6px;}
+  .ficha-acciones button{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:8px;font-size:12px;cursor:pointer;text-align:left;}
+  .ficha-acciones button:hover{border-color:var(--accent-2);}
+
+  .empty-state{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;flex-direction:column;gap:8px;}
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>💬 WhatsApp CRM</h1>
+  <div class="wa-estado" id="waEstado"><span class="dot"></span><span id="waEstadoTexto">Sin conectar</span></div>
+</header>
+
+<div class="wa-crm">
+  <aside class="wa-chats">
+    <div class="wa-chats-head">
+      <div class="wa-search">
+        <span>🔍</span>
+        <input type="text" id="buscarChat" placeholder="Buscar nombre, DNI o teléfono...">
+      </div>
+      <div class="wa-tabs">
+        <button class="active" data-filtro="todos">Todos</button>
+        <button data-filtro="sinleer">Sin leer</button>
+      </div>
+      <button class="ficha-acciones" id="btnNuevoChat" style="text-align:center;">+ Nuevo chat</button>
+    </div>
+    <div id="chatList"></div>
+  </aside>
+
+  <main class="wa-conv" id="wacConv">
+    <div class="empty-state" id="convEmpty">
+      <div style="font-size:32px;">💬</div>
+      <div>Elegí un chat de la izquierda para ver la conversación</div>
+    </div>
+  </main>
+
+  <aside class="wa-ficha" id="fichaLateral"></aside>
+</div>
+
+<script>
+let conversaciones = [];
+let conversacionActual = null;
+let mensajesActuales = [];
+let fichaActual = null;
+let etapasCache = [];
+let plantillasCache = {};
+let filtroActivo = 'todos';
+let canalMensajes = null;
+let nombreUsuarioCache = '';
+
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function iniciales(nombre){
+  const partes = String(nombre||'?').trim().split(/\s+/);
+  return ((partes[0]||'')[0] + (partes[1]||'')[0]).toUpperCase() || '?';
+}
+function horaCorta(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  const hoy = new Date();
+  if(d.toDateString() === hoy.toDateString()) return d.toTimeString().slice(0,5);
+  return d.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit'});
+}
+
+function nombreConversacion(c){
+  if(c.clientes && c.clientes.nombre) return c.clientes.nombre;
+  return (window.formatearTelefonoAR && window.formatearTelefonoAR(c.telefono)) || c.telefono;
+}
+
+function pasaFiltro(c){
+  if(filtroActivo === 'sinleer' && !(c.no_leidos > 0)) return false;
+  const q = document.getElementById('buscarChat').value.trim().toLowerCase();
+  if(!q) return true;
+  const nombre = nombreConversacion(c).toLowerCase();
+  const dni = (c.clientes && c.clientes.dni || '').toLowerCase();
+  return nombre.includes(q) || dni.includes(q) || (c.telefono||'').includes(q);
+}
+
+function renderChatList(){
+  const cont = document.getElementById('chatList');
+  const lista = conversaciones.filter(pasaFiltro);
+  if(!lista.length){
+    cont.innerHTML = `<div class="empty-state" style="height:160px;">Sin chats${filtroActivo==='sinleer'?' sin leer':''}.</div>`;
+    return;
+  }
+  cont.innerHTML = lista.map(c=>{
+    const nombre = nombreConversacion(c);
+    return `<div class="chat-item ${conversacionActual && conversacionActual.id===c.id?'active':''}" data-id="${c.id}">
+      <div class="chat-avatar">${iniciales(nombre)}</div>
+      <div class="chat-info">
+        <div class="row1"><span class="nombre">${escapeHtml(nombre)}</span><span class="hora">${horaCorta(c.ultimo_at)}</span></div>
+        <div class="preview">${escapeHtml(c.ultimo_texto || 'Sin mensajes todavía')}</div>
+        <div class="chat-badges">
+          ${c.no_leidos ? `<span class="badge no-leidos">${c.no_leidos}</span>` : ''}
+          ${(c.clientes && c.clientes.etiquetas || []).map(e=>`<span class="badge">${escapeHtml(e)}</span>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  cont.querySelectorAll('.chat-item').forEach(el=>{
+    el.addEventListener('click', ()=> abrirConversacion(el.dataset.id));
+  });
+}
+
+async function cargarConversaciones(){
+  conversaciones = await crmListConversaciones();
+  renderChatList();
+}
+
+async function abrirConversacion(id){
+  conversacionActual = conversaciones.find(c=>c.id===id);
+  if(!conversacionActual) return;
+  renderChatList();
+  document.getElementById('convEmpty').style.display = 'none';
+
+  mensajesActuales = await crmListMensajes(id);
+  await renderConversacion();
+  await crmMarcarConversacionLeida(id);
+  conversacionActual.no_leidos = 0;
+  renderChatList();
+
+  if(conversacionActual.cliente_id){
+    fichaActual = await crmGetFichaCliente(conversacionActual.cliente_id);
+  } else {
+    fichaActual = null;
+  }
+  renderFicha();
+  document.getElementById('fichaLateral').classList.add('open');
+
+  if(canalMensajes) window.sb.removeChannel(canalMensajes);
+  canalMensajes = crmSuscribirMensajes(id, async ()=>{
+    mensajesActuales = await crmListMensajes(id);
+    await renderConversacion();
+  });
+}
+
+// El bucket de comprobantes es privado (puede traer datos personales), así
+// que las imágenes se muestran con una URL firmada de corta duración, no
+// con getPublicUrl. Se resuelven antes de pintar la conversación.
+async function resolverUrlsAdjuntos(mensajes){
+  const urls = {};
+  await Promise.all(mensajes.filter(m => m.tipo === 'imagen' && m.media_path).map(async m=>{
+    const { data } = await window.sb.storage.from('comprobantes').createSignedUrl(m.media_path, 3600);
+    if(data) urls[m.id] = data.signedUrl;
+  }));
+  return urls;
+}
+function burbujaAdjunto(m, urlsAdjuntos){
+  if(m.tipo === 'imagen' && m.media_path){
+    const url = urlsAdjuntos[m.id];
+    return url ? `<img src="${url}" alt="imagen">` : `<div>📷 Imagen</div>`;
+  }
+  if(m.media_path) return `<div>📎 ${m.tipo === 'pdf' ? 'PDF' : 'Adjunto'} recibido</div>`;
+  return '';
+}
+
+async function renderConversacion(){
+  const wrap = document.getElementById('wacConv');
+  const nombre = nombreConversacion(conversacionActual);
+  wrap.innerHTML = `
+    <div class="conv-head">
+      <div>
+        <div class="nombre">${escapeHtml(nombre)}</div>
+        <div class="sub">${escapeHtml(window.formatearTelefonoAR ? window.formatearTelefonoAR(conversacionActual.telefono) : conversacionActual.telefono)}</div>
+      </div>
+      <button id="btnToggleFicha" class="ficha-acciones" style="width:auto;padding:6px 10px;">Ficha →</button>
+    </div>
+    <div id="convMessages"></div>
+    <div class="wa-compose">
+      <div id="plantillasPopup"></div>
+      <div class="compose-row">
+        <textarea id="composeTexto" rows="1" placeholder="Escribí un mensaje... (usá / para plantillas)"></textarea>
+        <button id="btnEnviar">➤</button>
+      </div>
+    </div>`;
+
+  const urlsAdjuntos = await resolverUrlsAdjuntos(mensajesActuales);
+  const msgs = document.getElementById('convMessages');
+  msgs.innerHTML = mensajesActuales.map(m=>`
+    <div class="bubble ${m.direccion}">
+      ${m.direccion==='saliente' ? `<div class="autor">Vos</div>` : ''}
+      ${m.texto ? escapeHtml(m.texto) : ''}
+      ${burbujaAdjunto(m, urlsAdjuntos)}
+      <div class="meta">${new Date(m.creado_at).toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})} ${m.direccion==='saliente' ? (m.estado==='leido'?'✓✓':m.estado==='entregado'?'✓✓':m.estado==='enviado'?'✓':'⏳') : ''}</div>
+    </div>`).join('') || `<div class="empty-state">Todavía no hay mensajes en este chat.</div>`;
+  msgs.scrollTop = msgs.scrollHeight;
+
+  document.getElementById('btnToggleFicha').addEventListener('click', ()=>{
+    document.getElementById('fichaLateral').classList.toggle('open');
+  });
+  const textarea = document.getElementById('composeTexto');
+  textarea.addEventListener('input', ()=>{
+    if(textarea.value.startsWith('/')) mostrarPopupPlantillas(textarea.value.slice(1));
+    else ocultarPopupPlantillas();
+  });
+  textarea.addEventListener('keydown', e=>{
+    if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); enviarMensajeActual(); }
+  });
+  document.getElementById('btnEnviar').addEventListener('click', enviarMensajeActual);
+}
+
+function mostrarPopupPlantillas(filtro){
+  const popup = document.getElementById('plantillasPopup');
+  const nombres = Object.keys(plantillasCache).filter(n => n.toLowerCase().includes(filtro.toLowerCase()));
+  if(!nombres.length){ popup.style.display = 'none'; return; }
+  popup.innerHTML = nombres.map(n=>`<div data-n="${escapeHtml(n)}"><b>/${escapeHtml(n)}</b></div>`).join('');
+  popup.style.display = 'block';
+  popup.querySelectorAll('div').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      let texto = plantillasCache[el.dataset.n] || '';
+      if(fichaActual){
+        const c = fichaActual.cliente;
+        const p = fichaActual.prestamoActivo;
+        texto = texto.replace(/{cliente}/g, c.nombre||'')
+          .replace(/{monto}/g, p ? String(p.saldo_total_punitorios || p.saldo_total || '') : '')
+          .replace(/{fecha}/g, c.promesa_fecha || '')
+          .replace(/{ejecutivo}/g, nombreUsuarioCache || '');
+      }
+      document.getElementById('composeTexto').value = texto;
+      ocultarPopupPlantillas();
+    });
+  });
+}
+function ocultarPopupPlantillas(){ document.getElementById('plantillasPopup').style.display = 'none'; }
+
+async function enviarMensajeActual(){
+  const textarea = document.getElementById('composeTexto');
+  const texto = textarea.value.trim();
+  if(!texto || !conversacionActual) return;
+  textarea.value = '';
+  mensajesActuales.push({ id:'tmp_'+Date.now(), direccion:'saliente', tipo:'texto', texto, estado:'pendiente', creado_at:new Date().toISOString() });
+  renderConversacion();
+  try{
+    await crmEnviarMensaje(conversacionActual.id, texto);
+    await cargarConversaciones();
+  }catch(e){
+    alert('No se pudo dejar el mensaje en la cola de envío.');
+  }
+}
+
+function renderFicha(){
+  const el = document.getElementById('fichaLateral');
+  if(!fichaActual){
+    el.innerHTML = `<div class="empty-state" style="height:200px;">Este chat todavía no está vinculado a ningún cliente de tu cartera.</div>`;
+    return;
+  }
+  const { cliente, prestamoActivo } = fichaActual;
+  const saldoVencido = prestamoActivo ? (prestamoActivo.importe_atraso || 0) : 0;
+  const saldoTotal = prestamoActivo ? (prestamoActivo.saldo_total_punitorios || prestamoActivo.saldo_total || 0) : 0;
+  el.innerHTML = `
+    <div>
+      <div class="ficha-nombre">${escapeHtml(cliente.nombre)}</div>
+      <div class="ficha-row"><span>DNI</span><span>${escapeHtml(cliente.dni||'—')}</span></div>
+      <div class="ficha-row"><span>Localidad</span><span>${escapeHtml(cliente.localidad||'—')}</span></div>
+    </div>
+    ${prestamoActivo ? `
+    <div class="ficha-card">
+      <div class="label">Saldo vencido</div>
+      <div class="valor danger">$${Number(saldoVencido).toLocaleString('es-AR')}</div>
+    </div>
+    <div class="ficha-card">
+      <div class="label">Saldo total</div>
+      <div class="valor">$${Number(saldoTotal).toLocaleString('es-AR')}</div>
+      <div class="ficha-row"><span>Días de atraso</span><span>${prestamoActivo.dias_atraso||0}</span></div>
+      <div class="ficha-row"><span>Próx. vencimiento</span><span>${prestamoActivo.proximo_vencimiento||'—'}</span></div>
+    </div>` : ''}
+    <div>
+      <div class="label" style="font-size:11px;color:var(--muted);margin-bottom:4px;">Etapa en el Kanban</div>
+      <select id="fichaEtapa">${etapasCache.map(e=>`<option value="${e.id}" ${cliente.etapa_id===e.id?'selected':''}>${escapeHtml(e.name)}</option>`).join('')}</select>
+    </div>
+    <div>
+      <div class="label" style="font-size:11px;color:var(--muted);margin-bottom:4px;">Promesa de pago</div>
+      <input type="date" id="fichaPromesa" value="${cliente.promesa_fecha||''}">
+    </div>
+    <div class="ficha-acciones">
+      <button id="fichaGuardar">💾 Guardar cambios</button>
+      <button onclick="window.top.postMessage({type:'cm-ir-a-clientes', id:'${cliente.id}'}, '*')">👤 Ver ficha completa</button>
+    </div>`;
+  document.getElementById('fichaGuardar').addEventListener('click', async ()=>{
+    const etapaId = document.getElementById('fichaEtapa').value;
+    const promesa = document.getElementById('fichaPromesa').value || null;
+    await crmActualizarCliente(cliente.id, { etapa_id: etapaId, promesa_fecha: promesa });
+    cliente.etapa_id = etapaId; cliente.promesa_fecha = promesa;
+    alert('Guardado.');
+  });
+}
+
+document.querySelectorAll('.wa-tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.wa-tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    filtroActivo = btn.dataset.filtro;
+    renderChatList();
+  });
+});
+document.getElementById('buscarChat').addEventListener('input', renderChatList);
+document.getElementById('btnNuevoChat').addEventListener('click', async ()=>{
+  const tel = prompt('Número de WhatsApp (con código de área, ej: 11 4532-7781):');
+  if(!tel) return;
+  try{
+    const conv = await crmCrearConversacion(tel);
+    await cargarConversaciones();
+    abrirConversacion(conv.id);
+  }catch(e){
+    alert('Teléfono inválido.');
+  }
+});
+
+/* ===== Tema (igual que el resto del panel) ===== */
+const THEME_KEY = 'cm_theme_v1';
+function applyTheme(theme){ document.documentElement.setAttribute('data-theme', theme==='light'?'light':'dark'); }
+window.addEventListener('message', e=>{ if(e.data && e.data.type==='cm-theme') applyTheme(e.data.theme); });
+
+/* ===== Estado de conexión de WhatsApp (wa_sesion) ===== */
+async function actualizarEstadoWa(){
+  const { data: { session } } = await window.sb.auth.getSession();
+  if(!session) return;
+  const { data } = await window.sb.from('wa_sesion').select('estado').eq('user_id', session.user.id).maybeSingle();
+  const estado = (data && data.estado) || 'desconectado';
+  const pill = document.getElementById('waEstado');
+  pill.className = 'wa-estado ' + estado;
+  document.getElementById('waEstadoTexto').textContent =
+    estado === 'conectado' ? 'WhatsApp conectado' : estado === 'conectando' ? 'Esperando QR...' : 'Sin conectar';
+}
+
+/* ===== Auth + carga inicial ===== */
+sb.auth.getSession().then(async ({ data: { session } }) => {
+  if (!session) { location.href = 'index.html'; return; }
+  await crmBootstrap();
+  window._markAppReady();
+});
+sb.auth.onAuthStateChange((_event, session) => { if (!session) location.href = 'index.html'; });
+
+window.appReady.then(async ()=>{
+  const saved = await kvGet(THEME_KEY);
+  if (saved) applyTheme(saved);
+
+  const { data: { session } } = await window.sb.auth.getSession();
+  etapasCache = await crmListEtapas();
+  plantillasCache = await crmListPlantillas();
+  nombreUsuarioCache = await crmGetNombreUsuario();
+  await cargarConversaciones();
+  await actualizarEstadoWa();
+
+  crmSuscribirConversaciones(session.user.id, cargarConversaciones);
+  setInterval(actualizarEstadoWa, 15000);
+});
+</script>
+</body>
+</html>

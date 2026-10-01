@@ -197,6 +197,99 @@ async function crmAddPago(pago) {
   if (error) console.error('crmAddPago', error);
 }
 
+// ───────────────────────── conversaciones / mensajes (Bandeja WhatsApp) ─────────────────────────
+
+async function crmListConversaciones() {
+  const uid = await _uid();
+  const { data, error } = await window.sb
+    .from('conversaciones')
+    .select('*, clientes(id, nombre, dni, etapa_id, promesa_fecha, etiquetas)')
+    .eq('user_id', uid)
+    .order('ultimo_at', { ascending: false, nullsFirst: false });
+  if (error) { console.error('crmListConversaciones', error); return []; }
+  return data || [];
+}
+
+async function crmListMensajes(conversacionId) {
+  const { data, error } = await window.sb
+    .from('mensajes').select('*').eq('conversacion_id', conversacionId).order('creado_at', { ascending: true });
+  if (error) { console.error('crmListMensajes', error); return []; }
+  return data || [];
+}
+
+async function crmMarcarConversacionLeida(conversacionId) {
+  await window.sb.from('conversaciones').update({ no_leidos: 0 }).eq('id', conversacionId);
+}
+
+// Deja el mensaje en 'pendiente': lo manda de verdad el worker (cola.js),
+// respetando los límites anti-bloqueo. Acá solo se deja la fila lista y se
+// refleja el "último mensaje" en la lista de chats al toque.
+async function crmEnviarMensaje(conversacionId, texto) {
+  const uid = await _uid();
+  const { error } = await window.sb.from('mensajes').insert({
+    conversacion_id: conversacionId, direccion: 'saliente', tipo: 'texto', texto, estado: 'pendiente', enviado_por: uid,
+  });
+  if (error) { console.error('crmEnviarMensaje', error); throw error; }
+  await window.sb.from('conversaciones').update({ ultimo_texto: texto, ultimo_at: new Date().toISOString() }).eq('id', conversacionId);
+}
+
+// Para "+ Nuevo chat": arranca una conversación a mano con un teléfono que
+// todavía no escribió. Si el teléfono matchea un cliente existente, queda vinculada.
+async function crmCrearConversacion(telefonoCrudo) {
+  const uid = await _uid();
+  const tel = (window.normalizarTelefonoAR && window.normalizarTelefonoAR(telefonoCrudo)) || null;
+  if (!tel) throw new Error('Teléfono inválido');
+  const { data: existente } = await window.sb.from('conversaciones').select('*').eq('user_id', uid).eq('telefono', tel).maybeSingle();
+  if (existente) return existente;
+
+  const { data: telCliente } = await window.sb.from('clientes_telefonos').select('cliente_id').eq('telefono', tel).maybeSingle();
+  const { data: nueva, error } = await window.sb.from('conversaciones').insert({
+    user_id: uid, jid: tel + '@s.whatsapp.net', telefono: tel, cliente_id: telCliente ? telCliente.cliente_id : null,
+  }).select('*').single();
+  if (error) throw error;
+  return nueva;
+}
+
+// Ficha lateral del chat (5.1) y ficha completa de Clientes (5.3): cliente +
+// su préstamo activo con el plan de cuotas + historial de préstamos previos.
+async function crmGetFichaCliente(clienteId) {
+  const [{ data: cliente }, { data: prestamos }, { data: eventos }] = await Promise.all([
+    window.sb.from('clientes').select('*, etapas(id, clave, nombre, color)').eq('id', clienteId).maybeSingle(),
+    window.sb.from('prestamos').select('*').eq('cliente_id', clienteId).order('fecha_alta', { ascending: false }),
+    window.sb.from('eventos').select('*').eq('cliente_id', clienteId).order('creado_at', { ascending: false }).limit(50),
+  ]);
+  if (!cliente) return null;
+  const activo = (prestamos || []).find(p => p.estado === 'activo') || (prestamos || [])[0] || null;
+  let cuotas = [];
+  if (activo) {
+    const { data } = await window.sb.from('cuotas').select('*').eq('prestamo_id', activo.id).order('numero', { ascending: true });
+    cuotas = data || [];
+  }
+  return { cliente, prestamos: prestamos || [], prestamoActivo: activo, cuotas, eventos: eventos || [] };
+}
+
+async function crmActualizarCliente(clienteId, cambios) {
+  const { error } = await window.sb.from('clientes').update(cambios).eq('id', clienteId);
+  if (error) { console.error('crmActualizarCliente', error); throw error; }
+}
+
+async function crmAgregarNotaCliente(clienteId, texto) {
+  const uid = await _uid();
+  await window.sb.from('eventos').insert({ user_id: uid, cliente_id: clienteId, tipo: 'nota', detalle: { texto } });
+}
+
+// Canales de Realtime: avisan cambios en vivo sin tener que hacer polling.
+function crmSuscribirConversaciones(userId, onChange) {
+  return window.sb.channel('conversaciones-' + userId)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'conversaciones', filter: `user_id=eq.${userId}` }, onChange)
+    .subscribe();
+}
+function crmSuscribirMensajes(conversacionId, onChange) {
+  return window.sb.channel('mensajes-' + conversacionId)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes', filter: `conversacion_id=eq.${conversacionId}` }, onChange)
+    .subscribe();
+}
+
 // ───────────────────────── usuarios ─────────────────────────
 
 async function crmGetNombreUsuario() {
@@ -219,5 +312,9 @@ if (typeof window !== 'undefined') {
     crmListPlantillas, crmSavePlantillas,
     crmListPagos, crmAddPago,
     crmGetNombreUsuario, crmSetNombreUsuario,
+    crmListConversaciones, crmListMensajes, crmMarcarConversacionLeida,
+    crmEnviarMensaje, crmCrearConversacion,
+    crmGetFichaCliente, crmActualizarCliente, crmAgregarNotaCliente,
+    crmSuscribirConversaciones, crmSuscribirMensajes,
   });
 }
