@@ -538,7 +538,10 @@ function actualizarContadores(){
 function renderChatList(){
   actualizarContadores();
   const cont = document.getElementById('chatList');
+  // Los fijados van arriba de todo (en el orden en que se fijaron), como en WhatsApp.
   const lista = conversaciones.filter(pasaFiltro);
+  const posFijado = id => { const i = chatsFijados.indexOf(id); return i < 0 ? Infinity : i; };
+  lista.sort((a, b) => posFijado(a.id) - posFijado(b.id));
   if(!lista.length){
     cont.innerHTML = `<div class="empty-state" style="height:160px;">Sin chats${filtroActivo==='sinleer'?' sin leer':filtroActivo==='sinvincular'?' sin vincular':''}.</div>`;
     return;
@@ -548,7 +551,7 @@ function renderChatList(){
     return `<div class="chat-item ${conversacionActual && conversacionActual.id===c.id?'active':''}" data-id="${escapeHtml(c.id)}">
       <div class="avatar" style="background:${colorParaNombre(nombre)}">${escapeHtml(iniciales(nombre))}</div>
       <div class="chat-info">
-        <div class="row1"><span class="nombre">${escapeHtml(nombre)}</span><span class="hora">${horaCorta(c.ultimo_at)}</span></div>
+        <div class="row1"><span class="nombre">${escapeHtml(nombre)}</span><span class="hora">${chatsFijados.includes(c.id) ? '📌 ' : ''}${horaCorta(c.ultimo_at)}</span></div>
         <div class="row2">
           <span class="preview">${escapeHtml(c.ultimo_texto || 'Sin mensajes todavía')}</span>
           ${c.no_leidos ? `<span class="no-leidos">${c.no_leidos}</span>` : ''}
@@ -563,6 +566,41 @@ function renderChatList(){
 document.getElementById('chatList').addEventListener('click', e=>{
   const item = e.target.closest('.chat-item');
   if(item) abrirConversacion(item.dataset.id);
+});
+
+// Esc cierra el chat abierto, como en WhatsApp Web (si hay un cuadro o
+// menú abierto, el Esc es para ese cuadro).
+document.addEventListener('keydown', e=>{
+  if(e.key !== 'Escape' || !conversacionActual) return;
+  if(document.querySelector('.modal-fondo')) return;
+  const abierto = id => { const p = document.getElementById(id); return p && p.style.display === 'block'; };
+  if(abierto('plantillasPopup') || abierto('emojiPopup')){ ['plantillasPopup','emojiPopup'].forEach(id => { const p = document.getElementById(id); if(p) p.style.display = 'none'; }); return; }
+  conversacionActual = null;
+  document.getElementById('wacConv').innerHTML = `<div class="empty-state" id="convEmpty"><div style="font-size:34px;">💬</div><div>Elegí un chat de la izquierda para ver la conversación</div></div>`;
+  const ficha = document.getElementById('fichaLateral');
+  if(ficha) ficha.innerHTML = '';
+  renderChatList();
+});
+
+// ── Chats fijados (📌): se guardan en la base para verlos igual en cualquier PC ──
+var chatsFijados = [];
+appReady.then(async ()=>{
+  try{ const v = await kvGet('chats_fijados'); if(Array.isArray(v)){ chatsFijados = v; renderChatList(); } }catch(e){ console.warn('chats_fijados', e); }
+});
+function alternarFijado(id){
+  const ya = chatsFijados.includes(id);
+  chatsFijados = ya ? chatsFijados.filter(x => x !== id) : [...chatsFijados, id];
+  kvSet('chats_fijados', chatsFijados).catch(e => console.error('chats_fijados', e));
+  renderChatList();
+  if(conversacionActual && conversacionActual.id === id){ const b = document.getElementById('btnFijar'); if(b) b.textContent = ya ? '📌 Fijar' : '📌 Desfijar'; }
+  toast(ya ? 'Chat desfijado' : '📌 Chat fijado arriba de todo');
+}
+// Clic derecho sobre un chat de la lista = fijar / desfijar.
+document.getElementById('chatList').addEventListener('contextmenu', e=>{
+  const item = e.target.closest('.chat-item');
+  if(!item) return;
+  e.preventDefault();
+  alternarFijado(item.dataset.id);
 });
 
 // Cobradores distintos de los clientes con chat, para el filtro "Cobrador".
@@ -852,7 +890,9 @@ function renderConversacionShell(){
       </div>
       <div class="conv-head-tools">
         ${sinAgendar ? `<button class="btn btn-verde" id="btnAgendarHead" title="Crear el cliente o vincular este chat a uno existente">👤 Agendar</button>`
-          : (nombreUsuarioCache ? `<span class="btn pill-usuario" title="Estás atendiendo como ${escapeHtml(nombreUsuarioCache)}">👤 ${escapeHtml(nombreUsuarioCache)}</span>` : '')}
+          : !c.es_grupo ? `<button class="btn" id="btnAgendarHead" title="Cambiar el nombre o DNI, o vincular este chat a otro cliente">✏️ Editar contacto</button>` : ''}
+        ${sinAgendar ? '' : (nombreUsuarioCache ? `<span class="btn pill-usuario" title="Estás atendiendo como ${escapeHtml(nombreUsuarioCache)}">👤 ${escapeHtml(nombreUsuarioCache)}</span>` : '')}
+        <button class="btn" id="btnFijar" title="Fijar este chat arriba de todo (también: clic derecho en la lista)">📌 ${chatsFijados.includes(c.id) ? 'Desfijar' : 'Fijar'}</button>
         <button id="btnToggleFicha" class="btn btn-cuadrado" title="Mostrar / ocultar la ficha">···</button>
       </div>
     </div>
@@ -873,6 +913,7 @@ function renderConversacionShell(){
 
   const btnAg = document.getElementById('btnAgendarHead');
   if(btnAg) btnAg.addEventListener('click', abrirModalAgendar);
+  document.getElementById('btnFijar').addEventListener('click', ()=> alternarFijado(c.id));
   document.getElementById('btnToggleFicha').addEventListener('click', ()=>{
     document.getElementById('fichaLateral').classList.toggle('open');
   });
@@ -962,7 +1003,10 @@ async function renderMensajes(forzarAbajo){
       return;
     }
     const m = it.data;
-    const autor = m.direccion === 'saliente' ? `<div class="autor">${escapeHtml(nombreUsuarioCache || 'Vos')}</div>` : '';
+    const autor = m.direccion === 'saliente' ? `<div class="autor">${escapeHtml(nombreUsuarioCache || 'Vos')}</div>`
+      : (m.autor ? `<div class="autor" style="color:${colorParaNombre(m.autor)}">${escapeHtml(m.autor)}</div>` : '');
+    // Mensajes viejos de grupos guardados vacíos (reacciones, avisos): no se muestran.
+    if(m.tipo === 'otro' && !m.texto && !m.media_path) return;
     piezas.push({ key: 'm' + m.id, html: `<div class="bubble ${m.direccion === 'saliente' ? 'saliente' : 'entrante'}">${autor}${burbujaAdjunto(m)}${m.texto ? `<div class="txt">${formatoWA(m.texto)}</div>` : ''}<div class="meta"><span>${horaMensaje(m.creado_at)}</span>${tildeHtml(m)}</div></div>` });
   });
 
@@ -1109,21 +1153,25 @@ function abrirModal(html, ancho){
 // guardar, se recarga la lista y se reabre el chat ya con su ficha.
 function abrirModalAgendar(){
   const conv = conversacionActual;
-  if(!conv || conv.cliente_id || conv.es_grupo) return;
+  if(!conv || conv.es_grupo) return;
+  // Chat ya agendado: el mismo cuadro sirve para corregir nombre / DNI o
+  // pasarlo a otro cliente.
+  const editar = !!conv.cliente_id;
+  const cli = conv.clientes || {};
   const tel = conv.telefono ? telefonoLindo(conv.telefono) : 'Número todavía no disponible';
   // El nombre con el que se agendó en WhatsApp (si lo mandó) sirve de punto
   // de partida para el nombre del cliente.
   const nombreWa = conv.nombre && !/^[+\d\s()-]+$/.test(conv.nombre) ? String(conv.nombre).replace(/^~\s*/, '') : '';
   const m = abrirModal(`
-    <div class="modal-head"><div><h2>👤 Agendar contacto</h2><div class="sub">📱 ${escapeHtml(tel)}</div></div><button class="modal-x" data-cerrar>✕</button></div>
+    <div class="modal-head"><div><h2>${editar ? '✏️ Editar contacto' : '👤 Agendar contacto'}</h2><div class="sub">📱 ${escapeHtml(tel)}</div></div><button class="modal-x" data-cerrar>✕</button></div>
     <div class="modal-body">
-      <div class="seg"><button class="active" data-tab="nuevo">Crear cliente nuevo</button><button data-tab="existente">Vincular a cliente existente</button></div>
+      <div class="seg"><button class="active" data-tab="nuevo">${editar ? 'Cambiar nombre y DNI' : 'Crear cliente nuevo'}</button><button data-tab="existente">${editar ? 'Vincular a otro cliente' : 'Vincular a cliente existente'}</button></div>
       <div data-panel="nuevo">
         <label class="m-label" for="agNombre">Nombre y apellido *</label>
-        <input class="m-input" id="agNombre" placeholder="Ej: María González" value="${escapeHtml(nombreWa)}">
+        <input class="m-input" id="agNombre" placeholder="Ej: María González" value="${escapeHtml(editar ? (cli.nombre || '') : nombreWa)}">
         <label class="m-label" for="agDni">DNI (opcional)</label>
-        <input class="m-input" id="agDni" inputmode="numeric" placeholder="Ej: 32145678">
-        <div class="m-ayuda">Se crea en la etapa “A contactar” del Kanban${conv.telefono ? ' con este número como teléfono' : ''}.</div>
+        <input class="m-input" id="agDni" inputmode="numeric" placeholder="Ej: 32145678" value="${escapeHtml(editar ? (cli.dni || '') : '')}">
+        <div class="m-ayuda" ${editar ? 'style="display:none"' : ''}>Se crea en la etapa “A contactar” del Kanban${conv.telefono ? ' con este número como teléfono' : ''}.</div>
       </div>
       <div data-panel="existente" style="display:none;">
         <label class="m-label" for="agBuscar">Buscar por nombre o DNI</label>
@@ -1132,14 +1180,14 @@ function abrirModalAgendar(){
         <div class="m-ayuda" id="agEstado"></div>
       </div>
     </div>
-    <div class="modal-pie"><span class="error" id="agError"></span><button class="btn" data-cerrar>Cancelar</button><button class="btn btn-verde" id="agGuardar">Crear y agendar</button></div>`, 460);
+    <div class="modal-pie"><span class="error" id="agError"></span><button class="btn" data-cerrar>Cancelar</button><button class="btn btn-verde" id="agGuardar">${editar ? 'Guardar cambios' : 'Crear y agendar'}</button></div>`, 460);
   const el = m.el;
   let pestana = 'nuevo';
   let elegido = null;
   const btnGuardar = el.querySelector('#agGuardar');
   const error = el.querySelector('#agError');
   const actualizarBoton = () => {
-    btnGuardar.textContent = pestana === 'nuevo' ? 'Crear y agendar' : 'Vincular';
+    btnGuardar.textContent = pestana === 'nuevo' ? (editar ? 'Guardar cambios' : 'Crear y agendar') : 'Vincular';
     btnGuardar.disabled = pestana === 'existente' && !elegido;
   };
   el.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', ()=>{
@@ -1201,9 +1249,12 @@ function abrirModalAgendar(){
     }
     btnGuardar.disabled = true; btnGuardar.textContent = 'Guardando...';
     try{
-      await crmAgendarConversacion(opciones);
+      if(editar && pestana === 'nuevo'){
+        const { error: eUpd } = await window.sb.from('clientes').update({ nombre: nombreFinal, dni: opciones.nuevo.dni || null }).eq('id', conv.cliente_id);
+        if(eUpd) throw eUpd;
+      } else await crmAgendarConversacion(opciones);
       m.cerrar();
-      toast(`✅ Contacto agendado como ${nombreFinal}`);
+      toast(editar ? `✅ Contacto actualizado: ${nombreFinal}` : `✅ Contacto agendado como ${nombreFinal}`);
       await cargarConversaciones();
       cargarResumenPrestamos();
       abrirConversacion(conv.id);

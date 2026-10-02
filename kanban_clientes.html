@@ -2248,7 +2248,9 @@ document.getElementById('btnAddStage').addEventListener('click', ()=>{
   const input = document.getElementById('newStageName');
   const name = input.value.trim();
   if(!name){ input.focus(); toast('Ponele un nombre a la columna'); return; }
-  const id = 'st_' + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+  // uuid propio: la base exige id, y así los clientes que se muevan a la
+  // columna nueva quedan apuntando a la misma fila.
+  const id = crypto.randomUUID();
   const color = CF_PALETTE[STAGES.length % CF_PALETTE.length].text;
   STAGES.push({id, name, color});
   saveStages();

@@ -29,7 +29,8 @@ function ultimoDiaHabilDelMes(base) {
 // (ahora, momento del mensaje) como referencia. Ver tabla de ejemplos de la
 // sección 6 del plan — esto cubre los mismos casos.
 function detectarFecha(textoOriginal, ahora = new Date()) {
-  const texto = normalizar(textoOriginal);
+  // "el día 10" / "el dia 10/5" -> "el 10" / "el 10/5"
+  const texto = normalizar(textoOriginal).replace(/\bel\s+dia\s+(?=\d)/g, 'el ');
   const hoy = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), ahora.getUTCDate()));
 
   if (/\bhoy\b/.test(texto)) return toISO(hoy);
@@ -72,6 +73,13 @@ function detectarFecha(textoOriginal, ahora = new Date()) {
   return null; // sin fecha clara: la promesa queda sin fecha, el cobrador la completa
 }
 
+// Texto (ya normalizado) que anuncia un pago que todavía no se hizo.
+function hablaEnFuturo(texto) {
+  // "ya pagué", "te transferí", "ahí pagué": pasado, sí es comprobante.
+  if (/\b(ya|ahi|recien|hoy) (te )?(pague|transferi|deposite|abone|pase)\b|\b(transferi|deposite|abone)\b/.test(texto)) return false;
+  return /\b(voy a|vamos a|va a|iba a|pienso|quiero|puedo|podria|cuando|apenas|si puedo|ni bien|despues|te aviso|el dia|manana|pasado|la semana|el (lunes|martes|miercoles|jueves|viernes|sabado|domingo)|no pude|no puedo|todavia no|aun no)\b|transferire|pagare|depositare|abonare|transfiera|pagaria/.test(texto);
+}
+
 // reglas: filas de la tabla `reglas` (ya ordenadas por prioridad asc).
 // contexto: { texto, tieneAdjunto, tipoAdjunto: 'imagen'|'pdf'|null, etapaActualClave, fecha? }
 // fecha (opcional): cuándo se mandó el mensaje. Las fechas de promesa
@@ -96,6 +104,10 @@ function clasificarMensaje(reglas, contexto) {
     // terminaba cayendo en "Respondió".
     if (regla.tipo_adjunto && palabras.length) {
       if (!matchAdjunto && !matchPalabra) continue;
+      // Sin foto/PDF y hablando en futuro ("voy a transferir el 10",
+      // "cuando transfiera te mando el comprobante") no es un comprobante:
+      // es una promesa, que la tome la regla siguiente.
+      if (!matchAdjunto && hablaEnFuturo(texto)) continue;
       const fechaDetectada = accion.detecta_fecha ? detectarFecha(contexto.texto, fechaMensaje) : null;
       return { regla, fechaDetectada };
     }

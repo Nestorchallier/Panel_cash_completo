@@ -46,7 +46,7 @@ async function crmSaveEtapas(stages) {
 
   const rows = stages.map((s, i) => {
     const esProtegida = !!s.protected;
-    const rowId = esProtegida ? (porClave.get(s.id) || s.id) : (porId.has(s.id) ? s.id : undefined);
+    const rowId = esProtegida ? (porClave.get(s.id) || s.id) : (porId.has(s.id) || /^[0-9a-f-]{36}$/i.test(s.id) ? s.id : undefined);
     const row = {
       user_id: uid,
       clave: esProtegida ? s.id : null,

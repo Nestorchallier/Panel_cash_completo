@@ -104,7 +104,9 @@
 
   /* Historial de gestión: una línea vertical une los puntos de color. */
   .card-historial{display:flex;flex-direction:column;position:sticky;top:18px;height:calc(100vh - 36px - 70px);min-height:420px;}
-  .filtro-wrap{position:relative;}
+  .filtros-cli{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px;}
+.filtros-cli select{background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit;cursor:pointer;}
+.filtro-wrap{position:relative;}
   .filtro-btn{font-size:13px;font-weight:700;color:var(--blue);background:none;border:none;padding:0;}
   .filtro-menu{position:absolute;right:0;top:22px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.12);padding:5px;z-index:10;min-width:140px;display:none;}
   .filtro-menu.abierto{display:block;}
@@ -159,6 +161,24 @@
 
 <main>
   <div id="vistaLista">
+    <div class="filtros-cli">
+      <select id="fEtapa"><option value="">Etapa: Todas</option></select>
+      <select id="fTramo"><option value="">Tramo mora: Todos</option></select>
+      <select id="fEstado">
+        <option value="">Préstamo: Todos</option>
+        <option value="activo">Con préstamo activo</option>
+        <option value="atraso">Con atraso</option>
+        <option value="cancelado">Cancelados</option>
+        <option value="sin">Sin préstamo</option>
+      </select>
+      <select id="fOrden">
+        <option value="nombre">Orden: Nombre</option>
+        <option value="dias">Orden: Más días de atraso</option>
+        <option value="saldo">Orden: Mayor saldo vencido</option>
+      </select>
+      <button id="fLimpiar" class="filtro-btn" style="display:none;">✕ Limpiar filtros</button>
+      <span class="gris-txt" id="fCuenta"></span>
+    </div>
     <div class="lista-card">
       <table>
         <thead><tr><th>Cliente</th><th>DNI</th><th>Etapa</th><th>Tramo</th><th>Saldo vencido</th><th>Días de atraso</th><th>Teléfono</th></tr></thead>
@@ -281,6 +301,21 @@ function calcularProximoCredito(cantCreditos, montoUltimo, dias){
 async function cargarLista(){
   const [clientes, etapas, resumen] = await Promise.all([crmListClientes(), crmListEtapas(), crmListResumenPrestamos()]);
   etapasCache = etapas;
+  // Opciones de los filtros (etapas del Kanban y tramos de mora).
+  const selE = document.getElementById('fEtapa'), selT = document.getElementById('fTramo');
+  const vE = selE.value, vT = selT.value;
+  selE.innerHTML = '<option value="">Etapa: Todas</option>' + etapas.map(e => `<option value="${escapeHtml(e.id)}">Etapa: ${escapeHtml(e.name)}</option>`).join('');
+  selT.innerHTML = '<option value="">Tramo mora: Todos</option>' + ((window.CMMora && CMMora.TRAMOS_MORA) || []).map(t => `<option value="${t.id}">Tramo mora: ${escapeHtml(t.nombre)}</option>`).join('');
+  selE.value = vE; selT.value = vT;
+  if(!selE.__ok){
+    selE.__ok = true;
+    ['fEtapa','fTramo','fEstado','fOrden'].forEach(id => document.getElementById(id).addEventListener('change', renderLista));
+    document.getElementById('fLimpiar').addEventListener('click', () => {
+      ['fEtapa','fTramo','fEstado'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('fOrden').value = 'nombre';
+      renderLista();
+    });
+  }
   // El resumen trae el préstamo principal de cada cliente (activo o, si ya
   // no tiene ninguno, el cancelado) con el atraso que recalcula el worker
   // todos los días desde las cuotas.
@@ -300,7 +335,20 @@ function celdaTramo(c){
 
 function renderLista(){
   const q = document.getElementById('buscarCliente').value.trim().toLowerCase();
-  const filtrados = clientesCache.filter(c => !q || c.nombre.toLowerCase().includes(q) || (c.dni||'').includes(q) || String(c._prestamo && c._prestamo.nro || '').includes(q));
+  const fE = document.getElementById('fEtapa').value, fT = document.getElementById('fTramo').value;
+  const fS = document.getElementById('fEstado').value, fO = document.getElementById('fOrden').value;
+  const cancelado = c => (c._prestamo && c._prestamo.estado === 'cancelado') || tieneEtiqueta(c.etiquetas, 'cancelado');
+  const dias = c => (c._prestamo && !cancelado(c) && Number(c._prestamo.dias_atraso)) || 0;
+  const saldo = c => (c._prestamo && !cancelado(c) && Number(c._prestamo.importe_atraso)) || 0;
+  const filtrados = clientesCache.filter(c => !q || c.nombre.toLowerCase().includes(q) || (c.dni||'').includes(q) || String(c._prestamo && c._prestamo.nro || '').includes(q))
+    .filter(c => !fE || (etapaDe(c.stage) || {}).id === fE)
+    .filter(c => !fT || (c._prestamo && !cancelado(c) && tramoInfo(c._prestamo.dias_atraso).id === fT))
+    .filter(c => !fS || (fS === 'activo' ? c._prestamo && !cancelado(c) : fS === 'atraso' ? dias(c) > 0 : fS === 'cancelado' ? cancelado(c) : !c._prestamo));
+  if(fO === 'dias') filtrados.sort((a, b) => dias(b) - dias(a));
+  else if(fO === 'saldo') filtrados.sort((a, b) => saldo(b) - saldo(a));
+  const hayFiltro = fE || fT || fS || fO !== 'nombre';
+  document.getElementById('fLimpiar').style.display = hayFiltro ? '' : 'none';
+  document.getElementById('fCuenta').textContent = (hayFiltro || q) ? `${filtrados.length} de ${clientesCache.length}` : '';
   document.getElementById('headerSub').textContent = `${clientesCache.length} clientes en tu cartera`;
   const tbody = document.getElementById('tablaClientes');
   if(!filtrados.length){

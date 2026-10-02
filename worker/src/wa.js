@@ -70,20 +70,49 @@ async function pnDeLid(sock, lid) {
   }
 }
 
+// WhatsApp envuelve muchos mensajes (temporales, "ver una vez", documento
+// con texto, editados): se saca el contenido de adentro.
+function contenido(msg) {
+  let m = msg.message || {};
+  for (let i = 0; i < 4; i++) {
+    const adentro = m.ephemeralMessage?.message || m.viewOnceMessage?.message || m.viewOnceMessageV2?.message
+      || m.viewOnceMessageV2Extension?.message || m.documentWithCaptionMessage?.message
+      || m.editedMessage?.message;
+    if (!adentro) break;
+    m = adentro;
+  }
+  return m;
+}
+
 function tipoDeMensaje(msg) {
-  if (msg.message?.imageMessage) return 'imagen';
-  if (msg.message?.documentMessage) return 'pdf';
-  if (msg.message?.audioMessage || msg.message?.pttMessage) return 'audio';
-  if (msg.message?.conversation || msg.message?.extendedTextMessage) return 'texto';
+  const m = contenido(msg);
+  if (m.imageMessage) return 'imagen';
+  if (m.documentMessage) return 'pdf';
+  if (m.audioMessage || m.pttMessage) return 'audio';
+  if (m.conversation || m.extendedTextMessage) return 'texto';
   return 'otro';
 }
 
 function textoDeMensaje(msg) {
-  return msg.message?.conversation
-    || msg.message?.extendedTextMessage?.text
-    || msg.message?.imageMessage?.caption
-    || msg.message?.documentMessage?.caption
+  const m = contenido(msg);
+  return m.conversation
+    || m.extendedTextMessage?.text
+    || m.imageMessage?.caption
+    || m.documentMessage?.caption
+    || (m.videoMessage && ('🎥 Video' + (m.videoMessage.caption ? ': ' + m.videoMessage.caption : '')))
+    || (m.stickerMessage && '🏷️ Sticker')
+    || (m.locationMessage && '📍 Ubicación')
+    || ((m.contactMessage || m.contactsArrayMessage) && '👤 Contacto')
+    || (m.pollCreationMessage && ('📊 Encuesta: ' + (m.pollCreationMessage.name || '')))
     || '';
+}
+
+// Avisos sin nada para mostrar: reacciones, claves de cifrado de grupo,
+// votos de encuestas, etc. Se descartan.
+function esMensajeVacio(msg) {
+  const m = contenido(msg);
+  if (m.reactionMessage || m.pollUpdateMessage || m.keepInChatMessage || m.pinInChatMessage) return true;
+  return tipoDeMensaje(msg) === 'otro' && !textoDeMensaje(msg);
 }
 
 // jid es la clave real (sirve tanto para 1 a 1 como para grupos, que no
@@ -401,6 +430,7 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
   // Mensajes internos de WhatsApp (borrados, ediciones, sincronización
   // entre dispositivos) — no son algo que se escribió en el chat.
   if (msg.message?.protocolMessage) return;
+  if (esMensajeVacio(msg)) return;
   const esGrupo = !!jid && jid.endsWith('@g.us');
 
   let telefono = null;
@@ -466,7 +496,7 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
   }
 
   const creadoAt = msg.messageTimestamp ? new Date(Number(msg.messageTimestamp) * 1000).toISOString() : new Date().toISOString();
-  const { error: errorInsert } = await supabase.from('mensajes').insert({
+  const fila = {
     conversacion_id: conversacion.id,
     wa_id: waId,
     direccion,
@@ -475,7 +505,18 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
     media_path: mediaPath,
     estado: estadoInicial(direccion, msg.status),
     creado_at: creadoAt,
-  });
+  };
+  // En los grupos se guarda quién escribió (nombre de perfil de WhatsApp).
+  if (esGrupo && direccion === 'entrante') {
+    const part = msg.key.participantAlt || msg.key.participantPn || msg.key.participant;
+    fila.autor = msg.pushName || nombrePorJidGlobal[msg.key.participant] || (part && !part.endsWith('@lid') ? '+' + part.split('@')[0] : null);
+  }
+  let { error: errorInsert } = await supabase.from('mensajes').insert(fila);
+  // Si todavía no se creó la columna "autor" en la base, se guarda sin ella.
+  if (errorInsert && fila.autor !== undefined && /autor/.test(errorInsert.message || '')) {
+    delete fila.autor;
+    ({ error: errorInsert } = await supabase.from('mensajes').insert(fila));
+  }
   if (errorInsert) { logger.error({ err: errorInsert }, 'No se pudo guardar el mensaje'); return; }
 
   // Solo los ENTRANTES suman no leídos. Un saliente en vivo (contesté desde

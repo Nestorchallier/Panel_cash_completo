@@ -19,3 +19,6 @@ create policy "comprobantes: leer propios"
     bucket_id = 'comprobantes'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- Nombre de quién escribió cada mensaje en los GRUPOS (para mostrarlo en la burbuja).
+alter table mensajes add column if not exists autor text;
