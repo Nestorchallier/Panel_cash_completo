@@ -89,7 +89,23 @@ function _filaAObjetoCliente(row, etapaIdPorRowId) {
     // Solo lectura en el Kanban (las ponen las reglas del worker); no se
     // manda de vuelta en crmSaveClientes, así que no se pisa.
     etiquetas: row.etiquetas || [],
+    // Del Excel de Préstamos (filtro "Cobrador" del Kanban / Bandeja).
+    cobrador: row.cobrador_nombre || '',
+    segmento: row.segmento || '',
   };
+}
+
+// "nestor.challier" / "Nestor Challier" -> "Nestor C." (como en los renders
+// del plan: avatar "NC" + "Nestor C.").
+function crmNombreCorto(nombre) {
+  const partes = String(nombre || '').trim().split(/[\s._-]+/).filter(Boolean)
+    .map(p => p[0].toUpperCase() + p.slice(1).toLowerCase());
+  if (!partes.length) return '';
+  return partes.length > 1 ? `${partes[0]} ${partes[1][0]}.` : partes[0];
+}
+function crmIniciales(nombre) {
+  const partes = String(nombre || '').trim().split(/[\s._-]+/).filter(Boolean);
+  return (((partes[0] || '?')[0] || '?') + ((partes[1] || '')[0] || '')).toUpperCase();
 }
 
 async function crmListClientes() {
@@ -103,10 +119,14 @@ async function crmListClientes() {
   return (clientes || []).map(r => _filaAObjetoCliente(r, etapaIdPorRowId));
 }
 
-// Guarda el array completo de clientes del Kanban (igual que antes hacía
-// kvSet con todo state.clients). Hace upsert de todos: con pocos cientos de
-// filas es más simple y seguro que diffear fila por fila, y evita que un
-// borrado manual en otra pestaña quede "zombie" sin sincronizar.
+// Guarda los clientes que se le pasan (upsert). OJO: ya NO borra de la base
+// los que no vengan en el array — antes lo hacía, y como el Kanban guardaba
+// TODA su copia en memoria con cada movimiento, pisaba los cambios que el
+// worker (reglas automáticas) o la Bandeja habían hecho mientras tanto
+// (ej. devolvía a "Contactado" a alguien que el worker había pasado a
+// "Verificar pago") y podía borrar clientes recién agendados. Para borrar
+// hay que llamar a crmDeleteCliente(id) explícitamente, y conviene pasar
+// solo los clientes que cambiaron.
 async function crmSaveClientes(clients) {
   const uid = await _uid();
   const { data: etapas } = await window.sb.from('etapas').select('id, clave').eq('user_id', uid);
@@ -136,14 +156,6 @@ async function crmSaveClientes(clients) {
   if (rows.length) {
     const { error } = await window.sb.from('clientes').upsert(rows);
     if (error) { console.error('crmSaveClientes', error); throw error; }
-  }
-
-  // Borra de la base los que ya no están en memoria (eliminados en el Kanban).
-  const { data: existentes } = await window.sb.from('clientes').select('id').eq('user_id', uid);
-  const idsVivos = new Set(clients.map(c => c.id));
-  const idsABorrar = (existentes || []).map(r => r.id).filter(id => !idsVivos.has(id));
-  if (idsABorrar.length) {
-    await window.sb.from('clientes').delete().in('id', idsABorrar);
   }
 
   // Sincroniza clientes_telefonos (tabla real para matchear WhatsApp) con el
@@ -206,7 +218,7 @@ async function crmListConversaciones() {
   const uid = await _uid();
   const { data, error } = await window.sb
     .from('conversaciones')
-    .select('*, clientes(id, nombre, dni, etapa_id, promesa_fecha, etiquetas)')
+    .select('*, clientes(id, nombre, dni, etapa_id, promesa_fecha, etiquetas, cobrador_nombre)')
     .eq('user_id', uid)
     .order('ultimo_at', { ascending: false, nullsFirst: false });
   if (error) { console.error('crmListConversaciones', error); return []; }
@@ -233,7 +245,9 @@ async function crmEnviarMensaje(conversacionId, texto) {
     conversacion_id: conversacionId, direccion: 'saliente', tipo: 'texto', texto, estado: 'pendiente', enviado_por: uid,
   });
   if (error) { console.error('crmEnviarMensaje', error); throw error; }
-  await window.sb.from('conversaciones').update({ ultimo_texto: texto, ultimo_at: new Date().toISOString() }).eq('id', conversacionId);
+  // "Vos: ..." en la lista de chats (como el render 5.1), y contestar deja
+  // el chat como leído.
+  await window.sb.from('conversaciones').update({ ultimo_texto: 'Vos: ' + texto, ultimo_at: new Date().toISOString(), no_leidos: 0 }).eq('id', conversacionId);
 }
 
 // Para "+ Nuevo chat": arranca una conversación a mano con un teléfono que
@@ -276,15 +290,28 @@ async function crmGetFichaCliente(clienteId) {
   // esos datos) — se prioriza el que sí tiene saldo real cargado, para no
   // mostrar la ficha con $0 en todo cuando en realidad hay otro préstamo
   // con el saldo completo.
-  const activos = (prestamos || []).filter(p => p.estado === 'activo');
-  const conSaldo = activos.filter(p => p.saldo_total !== null).sort((a, b) => (b.saldo_total || 0) - (a.saldo_total || 0));
-  const activo = conSaldo[0] || activos[0] || (prestamos || [])[0] || null;
+  const activo = _prestamoPrincipal(prestamos || []);
   let cuotas = [];
   if (activo) {
     const { data } = await window.sb.from('cuotas').select('*').eq('prestamo_id', activo.id).order('numero', { ascending: true });
     cuotas = data || [];
   }
-  return { cliente, prestamos: prestamos || [], prestamoActivo: activo, cuotas, eventos: eventos || [] };
+  // Atraso calculado al día de HOY desde las cuotas (js/mora.js), así la
+  // ficha nunca muestra números viejos aunque el worker todavía no haya
+  // corrido el recálculo diario. Si no hay plan de cuotas, mora = null y se
+  // usan los campos del préstamo tal cual vinieron del Excel.
+  const mora = (window.CMMora && cuotas.length) ? window.CMMora.calcularMora(cuotas) : null;
+  if (mora) cuotas = mora.cuotas;
+  return { cliente, prestamos: prestamos || [], prestamoActivo: activo, cuotas, mora, eventos: eventos || [] };
+}
+
+// Préstamo "principal" de un cliente: el activo con saldo real cargado
+// (puede haber alguno cargado solo desde la Hoja de Ruta, sin saldo); si no
+// hay activos, el más reciente (ej. uno ya cancelado).
+function _prestamoPrincipal(prestamos) {
+  const activos = prestamos.filter(p => p.estado === 'activo');
+  const conSaldo = activos.filter(p => p.saldo_total !== null).sort((a, b) => (b.saldo_total || 0) - (a.saldo_total || 0));
+  return conSaldo[0] || activos[0] || prestamos[0] || null;
 }
 
 async function crmActualizarCliente(clienteId, cambios) {
@@ -300,7 +327,206 @@ async function crmListTelefonosCliente(clienteId) {
 
 async function crmAgregarNotaCliente(clienteId, texto) {
   const uid = await _uid();
-  await window.sb.from('eventos').insert({ user_id: uid, cliente_id: clienteId, tipo: 'nota', detalle: { texto } });
+  const autor = crmNombreCorto(await crmGetNombreUsuario());
+  await window.sb.from('eventos').insert({ user_id: uid, cliente_id: clienteId, tipo: 'nota', detalle: { texto, autor } });
+}
+
+async function _registrarEvento(clienteId, tipo, detalle) {
+  const uid = await _uid();
+  const { error } = await window.sb.from('eventos').insert({ user_id: uid, cliente_id: clienteId, tipo, detalle: detalle || {} });
+  if (error) console.error('_registrarEvento', tipo, error);
+}
+
+// Cambio de etapa hecho a mano (Bandeja, Ficha): queda en el historial de
+// gestión. etapaRowId = id de fila de `etapas`.
+async function crmMoverEtapa(clienteId, etapaRowId) {
+  const { data: antes } = await window.sb.from('clientes').select('etapa_id, etapas(clave, nombre)').eq('id', clienteId).maybeSingle();
+  if (antes && antes.etapa_id === etapaRowId) return;
+  await crmActualizarCliente(clienteId, { etapa_id: etapaRowId });
+  const { data: destino } = await window.sb.from('etapas').select('clave, nombre').eq('id', etapaRowId).maybeSingle();
+  await _registrarEvento(clienteId, 'etapa', {
+    de: antes && antes.etapas ? antes.etapas.clave : null,
+    a: destino ? destino.clave : null,
+    a_nombre: destino ? destino.nombre : null,
+    manual: true,
+  });
+}
+
+// Promesa de pago cargada a mano: también queda en el historial.
+async function crmGuardarPromesa(clienteId, fechaISO) {
+  await crmActualizarCliente(clienteId, { promesa_fecha: fechaISO || null });
+  if (fechaISO) await _registrarEvento(clienteId, 'promesa', { fecha: fechaISO, manual: true });
+}
+
+// "✅ Confirmar pago" (Bandeja, Kanban al pasar a Cerrado, Ficha).
+//   opciones = { clienteId, monto, cancelaTotal, origen: 'whatsapp'|'kanban'|'manual' }
+// - imputa el pago a las cuotas impagas más viejas del préstamo principal
+//   (o salda todas si cancelaTotal) y recalcula el préstamo con js/mora.js;
+// - si quedó todo pago, el préstamo pasa a 'cancelado' y el cliente lleva la
+//   etiqueta "Cancelado";
+// - registra el pago en `pagos` (Sueldo & Cobros lo suma solo) y los
+//   eventos "pago" y "etapa" en el historial de gestión;
+// - mueve al cliente a "Cerrado (Cobrado)" y saca la etiqueta "Comprobante"
+//   (ya se verificó).
+// Devuelve { prestamo, mora, cancelado }.
+async function crmConfirmarPago(opciones) {
+  const { clienteId, cancelaTotal, origen } = opciones;
+  let monto = Math.max(0, Number(opciones.monto) || 0);
+  const uid = await _uid();
+  const hoy = window.CMMora ? window.CMMora.hoyISO() : new Date().toISOString().slice(0, 10);
+  const [{ data: cliente }, { data: prestamos }, { data: etapas }] = await Promise.all([
+    window.sb.from('clientes').select('id, nombre, etapa_id, etiquetas, etapas(clave)').eq('id', clienteId).maybeSingle(),
+    window.sb.from('prestamos').select('*').eq('cliente_id', clienteId),
+    window.sb.from('etapas').select('id, clave, nombre').eq('user_id', uid),
+  ]);
+  if (!cliente) throw new Error('Cliente no encontrado');
+  const prestamo = _prestamoPrincipal((prestamos || []).filter(p => p.estado === 'activo'));
+
+  let mora = null;
+  if (prestamo && window.CMMora) {
+    const { data: cuotas } = await window.sb.from('cuotas').select('*').eq('prestamo_id', prestamo.id).order('numero');
+    if (cuotas && cuotas.length) {
+      const saldo = cuotas.reduce((s, c) => s + Math.max(0, (Number(c.monto) || 0) - (Number(c.monto_pagado) || 0)), 0);
+      const aImputar = cancelaTotal ? saldo : monto;
+      if (cancelaTotal && !monto) monto = saldo;
+      const { cuotas: nuevas } = window.CMMora.aplicarPago(cuotas, aImputar, hoy, hoy);
+      mora = window.CMMora.calcularMora(nuevas, hoy);
+      await Promise.all(mora.cuotas.map(c => window.sb.from('cuotas')
+        .update({ monto_pagado: c.monto_pagado, estado: c.estado, pagado_el: c.pagado_el || null }).eq('id', c.id)));
+      await window.sb.from('prestamos').update({
+        cuotas_pagas: mora.cuotas_pagas, cuotas_vencidas: mora.cuotas_vencidas,
+        dias_atraso: mora.dias_atraso, importe_atraso: mora.importe_atraso,
+        proximo_vencimiento: mora.proximo_vencimiento, saldo_total: mora.saldo_total,
+        ultimo_pago: hoy, estado: mora.cancelado ? 'cancelado' : 'activo',
+        actualizado_at: new Date().toISOString(),
+      }).eq('id', prestamo.id);
+    }
+  }
+  const cancelado = mora ? mora.cancelado : !!cancelaTotal;
+  if (!mora && prestamo && cancelaTotal) {
+    await window.sb.from('prestamos').update({ estado: 'cancelado', importe_atraso: 0, dias_atraso: 0, ultimo_pago: hoy }).eq('id', prestamo.id);
+  }
+
+  await window.sb.from('pagos').insert({
+    user_id: uid, cliente_id: clienteId, prestamo_id: prestamo ? prestamo.id : null,
+    nombre: cliente.nombre, monto, fecha: hoy, estado: 'Cobrado', origen: origen || 'manual',
+  });
+
+  const etapaCerrado = (etapas || []).find(e => e.clave === 'cerrado');
+  let etiquetas = (cliente.etiquetas || []).filter(e => String(e).toLowerCase() !== 'comprobante');
+  if (cancelado && !etiquetas.some(e => String(e).toLowerCase() === 'cancelado')) etiquetas = [...etiquetas, 'Cancelado'];
+  const cambios = { etiquetas };
+  if (etapaCerrado) cambios.etapa_id = etapaCerrado.id;
+  await crmActualizarCliente(clienteId, cambios);
+
+  await _registrarEvento(clienteId, 'pago', {
+    monto, origen: origen || 'manual', prestamo: prestamo ? prestamo.nro : null,
+    cancelado, cuotas_pagas: mora ? mora.cuotas_pagas_decimal : null, cant_cuotas: prestamo ? prestamo.cant_cuotas : null,
+  });
+  if (etapaCerrado && cliente.etapa_id !== etapaCerrado.id) {
+    await _registrarEvento(clienteId, 'etapa', { de: cliente.etapas ? cliente.etapas.clave : null, a: 'cerrado', a_nombre: etapaCerrado.nombre, manual: true });
+  }
+  return { prestamo, mora, cancelado };
+}
+
+// Buscador para "Agendar" (vincular un chat a un cliente existente).
+async function crmBuscarClientes(texto) {
+  const uid = await _uid();
+  const q = String(texto || '').trim();
+  if (!q) return [];
+  const soloDigitos = q.replace(/\D/g, '');
+  let consulta = window.sb.from('clientes').select('id, nombre, dni, telefono_principal').eq('user_id', uid).limit(20);
+  consulta = soloDigitos.length >= 4 ? consulta.ilike('dni', `%${soloDigitos}%`) : consulta.ilike('nombre', `%${q}%`);
+  const { data, error } = await consulta.order('nombre');
+  if (error) { console.error('crmBuscarClientes', error); return []; }
+  return data || [];
+}
+
+// "👤 Agendar" un chat que no está vinculado a ningún cliente:
+//   { conversacionId, clienteId }               -> lo vincula a uno existente
+//   { conversacionId, nuevo: { nombre, dni } }  -> crea el cliente (en "A contactar")
+// Si el chat tiene teléfono, queda cargado en la ficha del cliente, así los
+// mensajes que lleguen después de ese número se vinculan solos.
+async function crmAgendarConversacion(opciones) {
+  const uid = await _uid();
+  const { data: conv } = await window.sb.from('conversaciones').select('*').eq('id', opciones.conversacionId).maybeSingle();
+  if (!conv) throw new Error('Chat no encontrado');
+  let clienteId = opciones.clienteId;
+  if (!clienteId) {
+    const nuevo = opciones.nuevo || {};
+    const nombre = String(nuevo.nombre || '').trim();
+    if (!nombre) throw new Error('Falta el nombre');
+    const { data: etapa } = await window.sb.from('etapas').select('id').eq('user_id', uid).eq('clave', 'a_contactar').maybeSingle();
+    const { data: creado, error } = await window.sb.from('clientes').insert({
+      user_id: uid, nombre, dni: String(nuevo.dni || '').replace(/\D/g, '') || null,
+      telefono_principal: conv.telefono || null, etapa_id: etapa ? etapa.id : null,
+      campos_extra: { monto: '', montoPagado: '', customFields: {}, stageChangedAt: Date.now() },
+    }).select('id').single();
+    if (error) throw error;
+    clienteId = creado.id;
+  }
+  if (conv.telefono) {
+    const { data: tels } = await window.sb.from('clientes_telefonos').select('telefono, principal').eq('cliente_id', clienteId);
+    const yaEsta = (tels || []).some(t => t.telefono === conv.telefono);
+    if (!yaEsta) {
+      await window.sb.from('clientes_telefonos').insert({ cliente_id: clienteId, telefono: conv.telefono, etiqueta: 'Celular', principal: !(tels || []).some(t => t.principal) });
+    }
+  }
+  const { error: errConv } = await window.sb.from('conversaciones').update({ cliente_id: clienteId }).eq('id', conv.id);
+  if (errConv) throw errConv;
+  return clienteId;
+}
+
+// ───────────────────────── recordatorios (Calendario, 5.5) ─────────────────────────
+
+async function crmListRecordatorios(desdeISO, hastaISO) {
+  const uid = await _uid();
+  let q = window.sb.from('recordatorios').select('*, clientes(id, nombre)').eq('user_id', uid);
+  if (desdeISO) q = q.gte('fecha', desdeISO);
+  if (hastaISO) q = q.lte('fecha', hastaISO);
+  const { data, error } = await q.order('fecha');
+  if (error) { console.error('crmListRecordatorios', error); return []; }
+  return data || [];
+}
+
+async function crmCrearRecordatorio({ fecha, texto, clienteId }) {
+  const uid = await _uid();
+  const { error } = await window.sb.from('recordatorios').insert({ user_id: uid, cliente_id: clienteId || null, fecha, tipo: 'manual', texto: texto || null });
+  if (error) { console.error('crmCrearRecordatorio', error); throw error; }
+}
+
+async function crmMarcarRecordatorio(id, hecho) {
+  await window.sb.from('recordatorios').update({ hecho: !!hecho }).eq('id', id);
+}
+
+async function crmEliminarRecordatorio(id) {
+  await window.sb.from('recordatorios').delete().eq('id', id);
+}
+
+// Historial de gestión completo de un cliente (render 5.3): eventos (reglas,
+// etapas, promesas, notas, pagos) + los mensajes de sus chats + los pagos
+// registrados, en una sola línea de tiempo, del más nuevo al más viejo.
+//   [{ tipo: 'regla'|'etapa'|'promesa'|'nota'|'pago'|'mensaje', fecha, detalle }]
+async function crmGetTimelineCliente(clienteId, limiteMensajes) {
+  const [{ data: eventos }, { data: convs }, { data: pagos }] = await Promise.all([
+    window.sb.from('eventos').select('*').eq('cliente_id', clienteId).order('creado_at', { ascending: false }).limit(200),
+    window.sb.from('conversaciones').select('id').eq('cliente_id', clienteId),
+    window.sb.from('pagos').select('*').eq('cliente_id', clienteId).order('creado_at', { ascending: false }),
+  ]);
+  let mensajes = [];
+  const ids = (convs || []).map(c => c.id);
+  if (ids.length) {
+    const { data } = await window.sb.from('mensajes').select('id, direccion, tipo, texto, media_path, estado, creado_at, enviado_por')
+      .in('conversacion_id', ids).order('creado_at', { ascending: false }).limit(limiteMensajes || 40);
+    mensajes = data || [];
+  }
+  const items = [];
+  (eventos || []).forEach(e => items.push({ tipo: e.tipo, fecha: e.creado_at, detalle: e.detalle || {}, id: 'e' + e.id }));
+  mensajes.forEach(m => items.push({ tipo: 'mensaje', fecha: m.creado_at, detalle: m, id: 'm' + m.id }));
+  // Los pagos que ya tienen su evento "pago" no se repiten.
+  const pagosConEvento = (eventos || []).filter(e => e.tipo === 'pago').length;
+  (pagos || []).slice(pagosConEvento).forEach(p => items.push({ tipo: 'pago', fecha: p.creado_at, detalle: { monto: p.monto, origen: p.origen, fecha: p.fecha }, id: 'p' + p.id }));
+  return items.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 }
 
 // Canales de Realtime: avisan cambios en vivo sin tener que hacer polling.
@@ -309,26 +535,27 @@ function crmSuscribirConversaciones(userId, onChange) {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'conversaciones', filter: `user_id=eq.${userId}` }, onChange)
     .subscribe();
 }
+// INSERT (mensajes nuevos) y UPDATE (tildes: enviado -> entregado -> leído).
 function crmSuscribirMensajes(conversacionId, onChange) {
   return window.sb.channel('mensajes-' + conversacionId)
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensajes', filter: `conversacion_id=eq.${conversacionId}` }, onChange)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'mensajes', filter: `conversacion_id=eq.${conversacionId}` }, onChange)
     .subscribe();
 }
 
-// Resumen liviano de préstamo activo por cliente, para la tarjeta del
-// Kanban (sección 5.2: "DNI · Nº de préstamo" y el pill de días de atraso).
-// Igual que en crmGetFichaCliente, si hay más de un préstamo "activo" se
-// prioriza el que tiene saldo_total cargado.
+// Resumen liviano del préstamo principal por cliente, para Kanban, Bandeja
+// y Calendario (sección 5.2: "DNI · Nº de préstamo" y el pill de atraso).
+// Trae activos y cancelados: si el cliente ya no tiene ninguno activo, el
+// resumen es el cancelado (estado: 'cancelado') y se muestra "Cancelado".
 async function crmListResumenPrestamos() {
   const uid = await _uid();
   const { data, error } = await window.sb
-    .from('prestamos').select('cliente_id, nro, dias_atraso, saldo_total, proximo_vencimiento, cuota_monto, cuotas_pagas, cant_cuotas').eq('user_id', uid).eq('estado', 'activo');
+    .from('prestamos').select('cliente_id, nro, estado, dias_atraso, importe_atraso, saldo_total, proximo_vencimiento, cuota_monto, cuotas_pagas, cuotas_vencidas, cant_cuotas')
+    .eq('user_id', uid).in('estado', ['activo', 'cancelado']);
   if (error) { console.error('crmListResumenPrestamos', error); return {}; }
+  const porCliente = {};
+  (data || []).forEach(p => { (porCliente[p.cliente_id] = porCliente[p.cliente_id] || []).push(p); });
   const out = {};
-  (data || []).forEach(p => {
-    const actual = out[p.cliente_id];
-    if (!actual || (actual.saldo_total === null && p.saldo_total !== null)) out[p.cliente_id] = p;
-  });
+  Object.keys(porCliente).forEach(id => { out[id] = _prestamoPrincipal(porCliente[id]); });
   return out;
 }
 
@@ -415,6 +642,9 @@ if (typeof window !== 'undefined') {
     crmEnviarMensaje, crmCrearConversacion,
     crmGetFichaCliente, crmActualizarCliente, crmAgregarNotaCliente, crmListTelefonosCliente,
     crmListEventosConversacion,
+    crmNombreCorto, crmIniciales, crmMoverEtapa, crmGuardarPromesa, crmConfirmarPago,
+    crmBuscarClientes, crmAgendarConversacion, crmGetTimelineCliente,
+    crmListRecordatorios, crmCrearRecordatorio, crmMarcarRecordatorio, crmEliminarRecordatorio,
     crmGetWaSesion, crmPedirComandoWa, crmActualizarLimitesWa,
     crmListReglas, crmGuardarRegla, crmEliminarRegla, crmReordenarReglas,
     crmSuscribirConversaciones, crmSuscribirMensajes,

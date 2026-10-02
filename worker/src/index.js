@@ -5,6 +5,7 @@ const { createClient } = require('@supabase/supabase-js');
 const pino = require('pino');
 const { iniciarWhatsApp } = require('./wa');
 const { iniciarColaEnvios } = require('./cola');
+const { iniciarMoraDiaria } = require('./mora-diaria');
 
 const AUTH_DIR = path.join(__dirname, '..', 'auth');
 
@@ -124,6 +125,9 @@ async function main() {
 
   iniciarColaEnvios({ supabase, userId: WORKER_USER_ID, getSock: () => sockActual });
   iniciarLatido(() => sockActual, (s) => { sockActual = s; });
+  // No depende de WhatsApp: recalcula cuotas vencidas y días de atraso
+  // aunque el celular esté desconectado (ver mora-diaria.js).
+  iniciarMoraDiaria({ supabase, userId: WORKER_USER_ID });
 
   logger.info('Worker corriendo. Ctrl+C para cortar.');
 }

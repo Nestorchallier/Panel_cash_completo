@@ -25,6 +25,24 @@ function _toInt(v) {
   return n === null ? null : Math.round(n);
 }
 
+// Las columnas Pagas / Vencidas / Atrasadas vienen como texto con PUNTO
+// DECIMAL ("3.39" = 3 cuotas y el 39% de la cuarta). Antes pasaban por
+// _toNum, que toma el punto como separador de miles (sirve para "460.200"
+// pesos) y guardaba 339: todos los préstamos quedaron con las cuotas x100 y
+// el plan entero como "pagado". Por eso van por CMMora.numeroDecimal.
+function _toCuotas(v) {
+  return window.CMMora.numeroDecimal(v);
+}
+
+// El importador depende de js/mora.js para armar las cuotas y calcular el
+// atraso al día de hoy. Si la página no lo cargó, mejor frenar con un
+// mensaje claro que volver a guardar números mal calculados.
+function _exigirMora() {
+  if (typeof window === 'undefined' || !window.CMMora || !window.CMMora.construirCuotas) {
+    throw new Error('Falta cargar js/mora.js antes del importador: no se puede calcular el plan de cuotas ni el atraso. No se importó nada.');
+  }
+}
+
 function _toDateISO(v) {
   if (!v) return null;
   if (v instanceof Date && !isNaN(v)) return v.toISOString().slice(0, 10);
@@ -35,13 +53,6 @@ function _toDateISO(v) {
   const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
   if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
   return null;
-}
-
-function _addMonthsISO(iso, n) {
-  if (!iso) return null;
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m - 1 + n, d));
-  return dt.toISOString().slice(0, 10);
 }
 
 function _leerExcel(file) {
@@ -115,8 +126,8 @@ async function _parsearPrestamos(file) {
     primerVencimiento: _toDateISO(r['Primer vto.']),
     proximoVencimiento: _toDateISO(r['Próx. vto.']),
     fechaVencimientoFinal: _toDateISO(r['Vto']),
-    cuotasPagas: _toInt(r['Pagas']) || 0,
-    cuotasVencidas: _toInt(r['Vencidas']) || 0,
+    cuotasPagas: _toCuotas(r['Pagas']),
+    cuotasVencidas: _toCuotas(r['Vencidas']),
     ultimoPago: _toDateISO(r['Ult. Pago']),
     saldoCapital: _toNum(r['Saldo K']),
     saldoTotal: _toNum(r['Saldo Total']),
@@ -142,8 +153,8 @@ async function _parsearHojaRuta(file) {
       montoTotal: _toNum(r['Monto']),
       cantCuotasPlan: planMatch ? parseInt(planMatch[1], 10) : null,
       cuotaMontoPlan: planMatch ? _toNum(planMatch[2]) : null,
-      cuotasPagas: _toInt(r['Pagas']) || 0,
-      cuotasAtrasadas: _toInt(r['Atrasadas']) || 0,
+      cuotasPagas: _toCuotas(r['Pagas']),
+      cuotasAtrasadas: _toCuotas(r['Atrasadas']),
       importeAtraso: _toNum(r['ImporteAtraso']) || 0,
       ultimoPago: _toDateISO(r['UltPago']),
       fechaGestion: _toDateISO(r['FechaGestion']),
@@ -156,6 +167,9 @@ async function _parsearHojaRuta(file) {
 // file2 = Excel "Hoja de Ruta" (opcional: datos de atraso más al día)
 async function importarCarteraDualExcel(file1, file2, onProgress) {
   const progreso = onProgress || (() => {});
+  _exigirMora();
+  const M = window.CMMora;
+  const hoy = M.hoyISO();
   progreso('Leyendo Excel...');
   const prestamosFile1 = await _parsearPrestamos(file1);
   const hojaRutaFile2 = file2 ? await _parsearHojaRuta(file2) : [];
@@ -294,25 +308,57 @@ async function importarCarteraDualExcel(file1, file2, onProgress) {
   // --- Préstamos ---
   progreso(`Guardando ${prestamosPorNro.size} préstamos...`);
   const filasPrestamos = [];
+  // Cuotas ya armadas por nro de préstamo: se calculan ANTES de guardar el
+  // préstamo porque sus totales (pagas, vencidas, días y monto de atraso,
+  // próximo vencimiento, saldo) salen de ellas, y se insertan después,
+  // cuando ya se conoce el id del préstamo.
+  const cuotasPorNro = new Map();
   prestamosPorNro.forEach(p => {
     const clienteId = idPorDni.get(p.dni);
     if (!clienteId) return; // no debería pasar: todo préstamo viene de un cliente ya armado arriba
-    const cancelado = p.saldoTotal !== null && p.saldoTotal <= 0;
-    filasPrestamos.push({
+    const fila = {
       user_id: uid, cliente_id: clienteId, nro: p.nro,
       monto: p.monto, cant_cuotas: p.cantCuotas, cuota_monto: p.cuotaMonto,
       fecha_alta: p.fechaAlta, primer_vencimiento: p.primerVencimiento,
       proximo_vencimiento: p.proximoVencimiento, fecha_vencimiento_final: p.fechaVencimientoFinal,
-      cuotas_pagas: p.cuotasPagas, cuotas_vencidas: p.cuotasVencidas, ultimo_pago: p.ultimoPago,
+      ultimo_pago: p.ultimoPago,
       saldo_capital: p.saldoCapital, saldo_total: p.saldoTotal, saldo_total_punitorios: p.saldoTotalPunitorios,
-      dias_atraso: p.diasAtraso || 0, importe_atraso: p.importeAtraso || 0,
-      estado: cancelado ? 'cancelado' : 'activo', origen: p.origen,
-    });
+      origen: p.origen,
+      actualizado_at: new Date().toISOString(),
+    };
+    const plan = M.planVencimientos(fila);
+    const cuotas = plan.length ? M.construirCuotas(fila, p.cuotasPagas, hoy) : [];
+    const mora = cuotas.length ? M.calcularMora(cuotas, hoy) : null;
+    if (mora) {
+      // Con plan de cuotas, el atraso se calcula al día de HOY con la regla
+      // del negocio (vencida = fecha pasada y no paga completa; días desde
+      // la cuota impaga más vieja), no se copia del Excel, que puede tener
+      // días de antigüedad cuando se sube.
+      cuotasPorNro.set(p.nro, mora.cuotas);
+      Object.assign(fila, {
+        cuotas_pagas: mora.cuotas_pagas, cuotas_vencidas: mora.cuotas_vencidas,
+        dias_atraso: mora.dias_atraso, importe_atraso: mora.importe_atraso,
+        proximo_vencimiento: mora.proximo_vencimiento, saldo_total: mora.saldo_total,
+        estado: mora.cancelado ? 'cancelado' : 'activo',
+      });
+    } else {
+      // Sin plan (falta el primer vto. o la cantidad de cuotas, típico de
+      // los que solo vienen en la Hoja de Ruta): quedan los números del
+      // Excel. Las columnas de la tabla son enteras, así que "3.39" pagas
+      // se guarda como 3 cuotas completas.
+      const cancelado = p.saldoTotal !== null && p.saldoTotal <= 0;
+      Object.assign(fila, {
+        cuotas_pagas: Math.floor(p.cuotasPagas + 1e-9), cuotas_vencidas: Math.floor(p.cuotasVencidas + 1e-9),
+        dias_atraso: p.diasAtraso || 0, importe_atraso: p.importeAtraso || 0,
+        estado: cancelado ? 'cancelado' : 'activo',
+      });
+    }
+    filasPrestamos.push(fila);
   });
   let prestamosGuardados = [];
   if (filasPrestamos.length) {
     const { data, error } = await window.sb.from('prestamos')
-      .upsert(filasPrestamos, { onConflict: 'user_id,nro' }).select('id, nro, cant_cuotas, cuota_monto, primer_vencimiento, cuotas_pagas, cuotas_vencidas');
+      .upsert(filasPrestamos, { onConflict: 'user_id,nro' }).select('id, nro');
     if (error) throw error;
     prestamosGuardados = data;
   }
@@ -321,22 +367,19 @@ async function importarCarteraDualExcel(file1, file2, onProgress) {
   //     reimportación duplique o deje cuotas viejas desalineadas) ---
   progreso('Armando el plan de cuotas...');
   for (const p of prestamosGuardados) {
-    if (!p.cant_cuotas || !p.primer_vencimiento) continue;
-    await window.sb.from('cuotas').delete().eq('prestamo_id', p.id);
-    const filas = [];
-    for (let n = 1; n <= p.cant_cuotas; n++) {
-      let estado = 'pendiente';
-      if (n <= p.cuotas_pagas) estado = 'pagada';
-      else if (n <= p.cuotas_pagas + p.cuotas_vencidas) estado = 'vencida';
-      filas.push({
-        prestamo_id: p.id, numero: n,
-        vencimiento: _addMonthsISO(p.primer_vencimiento, n - 1),
-        monto: p.cuota_monto,
-        estado,
-        monto_pagado: estado === 'pagada' ? p.cuota_monto : null,
-      });
-    }
-    if (filas.length) await window.sb.from('cuotas').insert(filas);
+    const cuotas = cuotasPorNro.get(p.nro);
+    if (!cuotas || !cuotas.length) continue;
+    const { error: errorBorrar } = await window.sb.from('cuotas').delete().eq('prestamo_id', p.id);
+    if (errorBorrar) { console.error('borrar cuotas', p.nro, errorBorrar); continue; }
+    const filas = cuotas.map(c => ({
+      prestamo_id: p.id, numero: c.numero, vencimiento: c.vencimiento,
+      monto: c.monto, estado: c.estado,
+      // La cuota a medio pagar guarda lo que se pagó de ella (ej. el 39%
+      // de la cuarta); así el saldo y el importe en atraso salen bien.
+      monto_pagado: c.monto_pagado || 0, pagado_el: c.pagado_el || null,
+    }));
+    const { error } = await window.sb.from('cuotas').insert(filas);
+    if (error) console.error('insertar cuotas', p.nro, error);
   }
 
   return { clientesNuevos: nuevos, clientesActualizados: actualizados, prestamosImportados: filasPrestamos.length };

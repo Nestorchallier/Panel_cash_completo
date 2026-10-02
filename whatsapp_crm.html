@@ -4,12 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WhatsApp CRM — Cash Market</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="js/embed-guard.js"></script>
+<link rel="stylesheet" href="css/fuentes.css">
+<!-- Emojis a color como los del render del plan (los de Windows se ven
+     distintos y más chicos). Solo baja los emojis que aparecen en pantalla. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase/config.js"></script>
 <script src="supabase/kv.js"></script>
 <script src="js/telefonos.js"></script>
+<script src="js/mora.js"></script>
 <script src="supabase/crm.js"></script>
 <style>
   /* Paleta del plan (sección 5.1 del PDF): fondo claro, tarjetas blancas
@@ -19,10 +23,14 @@
     --bg:#f8fafc; --panel:#ffffff; --panel-2:#f8fafc; --line:#e2e8f0; --line-2:#f1f5f9;
     --text:#0f172a; --text-2:#334155; --muted:#64748b; --faint:#94a3b8;
     --blue:#2563eb; --blue-50:#eff6ff; --green:#16a34a; --green-hover:#15803d; --red:#dc2626; --red-strong:#b91c1c;
-    --chat-bg:#efeae2; --chat-dot:#e2dcd2; --bubble-in:#ffffff; --bubble-out:#d9fdd3;
+    --chat-bg:#efeae2; --chat-dot:#ddd6cb; --bubble-in:#ffffff; --bubble-out:#d9fdd3;
     --aviso-bg:#fef9c3; --aviso-line:#fde68a; --aviso-text:#854d0e;
-    --chip-bg:#fef3c7; --shadow-sm:0 1px 2px rgba(15,23,42,.06); --shadow:0 10px 30px rgba(15,23,42,.12);
+    --chip-bg:#fef3c7; --chip-text:#92400e;
+    --adj-bg:linear-gradient(180deg,#eff6ff 0%,#e0f2fe 100%); --adj-line:#dbeafe;
+    --tilde:#8696a0; --tilde-leido:#53bdeb;
+    --shadow-sm:0 1px 2px rgba(15,23,42,.06); --shadow:0 10px 30px rgba(15,23,42,.12);
     --tab-active-bg:#0f172a; --tab-active-text:#ffffff;
+    --fondo-modal:rgba(15,23,42,.45);
   }
   :root[data-theme="dark"]{
     --bg:#0b1220; --panel:#0f172a; --panel-2:#111c33; --line:#1e293b; --line-2:#162036;
@@ -30,62 +38,83 @@
     --blue:#60a5fa; --blue-50:#132443; --green:#22c55e; --green-hover:#16a34a; --red:#f87171; --red-strong:#f87171;
     --chat-bg:#0b141a; --chat-dot:#111c22; --bubble-in:#1f2c34; --bubble-out:#005c4b;
     --aviso-bg:#3a2f0b; --aviso-line:#5c4a12; --aviso-text:#fde68a;
-    --chip-bg:#3a2f0b; --shadow-sm:none; --shadow:0 10px 30px rgba(0,0,0,.5);
+    --chip-bg:#3a2f0b; --chip-text:#fde68a;
+    --adj-bg:linear-gradient(180deg,#132443 0%,#10263a 100%); --adj-line:#1e3a5f;
+    --tilde:#8696a0; --tilde-leido:#53bdeb;
+    --shadow-sm:none; --shadow:0 10px 30px rgba(0,0,0,.5);
     --tab-active-bg:#e2e8f0; --tab-active-text:#0f172a;
+    --fondo-modal:rgba(0,0,0,.6);
   }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}
+  /* Los emojis van con Noto Color Emoji (como el render) y el texto con
+     Inter; Segoe UI queda antes del emoji para que los números y letras
+     nunca salgan de la fuente de emojis si Inter tarda en cargar. */
   body{
     background:var(--bg); color:var(--text);
-    font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif; font-size:13px;
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif,'Noto Color Emoji','Apple Color Emoji','Segoe UI Emoji';
+    font-size:13px;
     display:flex; flex-direction:column; height:100vh; overflow:hidden;
     -webkit-font-smoothing:antialiased;
   }
-  button{font-family:inherit;}
+  button, input, select, textarea{font-family:inherit;}
 
   /* ── Encabezado ── */
   header{
-    padding:14px 22px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+    height:57px; padding:0 22px; display:flex; align-items:center; justify-content:space-between; gap:14px;
     border-bottom:1px solid var(--line); background:var(--panel); flex-shrink:0;
   }
-  .header-title{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;}
-  header h1{font-size:19px;font-weight:800;margin:0;letter-spacing:-.01em;}
-  .header-sub{font-size:13px;color:var(--muted);}
-  .header-tools{display:flex;align-items:center;gap:10px;}
-  .wa-search{display:flex;align-items:center;gap:8px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;width:300px;}
-  .wa-search input{background:none;border:none;outline:none;color:var(--text);font-size:13px;width:100%;font-family:inherit;}
+  .header-title{display:flex;align-items:baseline;gap:14px;min-width:0;white-space:nowrap;}
+  header h1{font-size:18px;font-weight:800;margin:0;letter-spacing:-.01em;}
+  .header-sub{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;}
+  .header-tools{display:flex;align-items:center;gap:14px;}
+  .wa-search{display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;height:32px;padding:0 10px;width:300px;}
+  .wa-search span{font-size:12px;}
+  .wa-search input{background:none;border:none;outline:none;color:var(--text);font-size:13px;width:100%;}
   .wa-search input::placeholder{color:var(--faint);}
-  .btn{border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;border:1px solid var(--line);background:var(--panel);color:var(--text-2);}
+  .wa-search:focus-within{border-color:var(--blue);}
+  .btn{border-radius:8px;height:32px;padding:0 14px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;border:1px solid var(--line);background:var(--panel);color:var(--text);display:inline-flex;align-items:center;justify-content:center;gap:4px;}
   .btn:hover{border-color:var(--faint);}
-  .btn-verde{background:var(--green);border-color:var(--green);color:#fff;}
+  .btn:disabled{opacity:.55;cursor:default;}
+  .btn-verde{background:var(--green);border-color:var(--green);color:#fff;font-weight:700;}
   .btn-verde:hover{background:var(--green-hover);border-color:var(--green-hover);}
 
   .wa-crm{flex:1;display:flex;min-height:0;}
 
   /* ── Lista de chats ── */
   .wa-chats{width:340px;flex-shrink:0;border-right:1px solid var(--line);display:flex;flex-direction:column;background:var(--panel);}
-  .wa-chats-head{padding:14px 14px 10px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px;}
-  .select-pill{appearance:none;-webkit-appearance:none;background:var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23334155'/%3E%3C/svg%3E") no-repeat right 12px center;border:1px solid var(--line);color:var(--text-2);border-radius:8px;padding:8px 30px 8px 12px;font-size:13px;font-weight:600;font-family:inherit;width:100%;cursor:pointer;}
+  .wa-chats-head{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:12px;}
+  .filtros{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  /* Como en el render: "Etapa: Todas ▾" con la flechita pegada al texto.
+     El <select> real queda invisible encima, así el desplegable sigue
+     siendo el nativo (anda con teclado y en el celular). */
+  .filtro-pill{position:relative;display:flex;align-items:center;height:31px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;cursor:pointer;}
+  .filtro-pill:hover{border-color:var(--faint);}
+  .filtro-pill .txt{overflow:hidden;text-overflow:ellipsis;}
+  .filtro-pill .flecha{margin-left:3px;font-size:11px;}
+  .filtro-pill select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:13px;}
+  .filtro-pill.activo{border-color:var(--blue);color:var(--blue);}
   .wa-tabs{display:flex;gap:6px;flex-wrap:wrap;}
-  .wa-tabs button{background:var(--line-2);border:none;color:var(--text-2);border-radius:7px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;}
-  .wa-tabs button .n{font-weight:500;opacity:.85;}
+  .wa-tabs button{background:var(--line-2);border:none;color:var(--text-2);border-radius:6px;height:22px;padding:0 8px;font-size:12px;font-weight:600;cursor:pointer;}
   .wa-tabs button.active{background:var(--tab-active-bg);color:var(--tab-active-text);}
   #chatList{flex:1;overflow-y:auto;}
-  .chat-item{padding:14px 14px 14px 16px;border-bottom:1px solid var(--line-2);display:flex;gap:12px;cursor:pointer;align-items:flex-start;border-left:3px solid transparent;}
+  .chat-item{padding:11px 14px 11px 11px;border-bottom:1px solid var(--line-2);display:flex;gap:10px;cursor:pointer;align-items:flex-start;border-left:3px solid transparent;}
   .chat-item:hover{background:var(--panel-2);}
   .chat-item.active{background:var(--blue-50);border-left-color:var(--blue);}
-  .avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;}
+  .avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;margin-top:1px;}
   .chat-info{flex:1;min-width:0;}
   .chat-info .row1{display:flex;justify-content:space-between;gap:8px;align-items:baseline;}
-  .chat-info .nombre{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .chat-info .nombre{font-weight:700;font-size:14px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .chat-info .hora{font-size:12px;color:var(--faint);flex-shrink:0;}
-  .chat-info .row2{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:2px;}
-  .chat-info .preview{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .no-leidos{background:var(--green);color:#fff;font-size:11px;font-weight:700;border-radius:10px;min-width:20px;height:20px;padding:0 6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-  .chat-tags{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;}
+  .chat-info .hora.nuevo{color:var(--green);}
+  .chat-info .row2{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:1px;min-height:18px;}
+  .chat-info .preview{font-size:13px;line-height:18px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .no-leidos{background:var(--green);color:#fff;font-size:11px;font-weight:700;border-radius:9px;min-width:18px;height:18px;padding:0 5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .chat-tags{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;}
+  .chat-tags:empty{display:none;}
 
   /* Etiquetas pastel (mismas en lista, ficha y Kanban) */
-  .tag{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:5px;white-space:nowrap;background:#f1f5f9;color:#475569;}
+  .tag{display:inline-flex;align-items:center;gap:3px;font-size:11px;line-height:16px;font-weight:600;padding:0 6px;border-radius:4px;white-space:nowrap;background:#f1f5f9;color:#475569;}
   .tag.azul{background:#dbeafe;color:#1d4ed8;}
   .tag.verde{background:#dcfce7;color:#15803d;}
   .tag.ambar{background:#fef3c7;color:#b45309;}
@@ -97,77 +126,162 @@
 
   /* ── Conversación ── */
   .wa-conv{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--panel);}
-  .conv-head{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--panel);}
+  .conv-head{height:58px;flex-shrink:0;padding:0 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--panel);}
   .conv-head-id{display:flex;align-items:center;gap:12px;min-width:0;}
-  .conv-head .nombre{font-weight:700;font-size:15px;}
-  .conv-head .sub{font-size:12.5px;color:var(--muted);margin-top:1px;}
-  .conv-head-tools{display:flex;gap:8px;align-items:center;}
-  .btn-cuadrado{width:36px;height:36px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;}
-  #convMessages{flex:1;overflow-y:auto;padding:18px 7%;display:flex;flex-direction:column;gap:8px;
+  .conv-head .avatar{width:38px;height:38px;margin:0;}
+  .conv-head .nombre{font-weight:700;font-size:15px;line-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .conv-head .sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .conv-head-tools{display:flex;gap:12px;align-items:center;flex-shrink:0;}
+  .conv-head-tools .btn{height:30px;padding:0 12px;}
+  .pill-usuario{cursor:default;}
+  .pill-usuario:hover{border-color:var(--line);}
+  .btn-cuadrado{width:38px;padding:0 !important;font-size:15px;letter-spacing:1px;}
+  #convMessages{flex:1;overflow-y:auto;padding:12px 30px 16px;display:flex;flex-direction:column;gap:7px;
     background-color:var(--chat-bg);
-    background-image:radial-gradient(var(--chat-dot) 1px, transparent 1px);
+    background-image:radial-gradient(var(--chat-dot) 1px, transparent 1.2px);
     background-size:18px 18px;}
-  .bubble{max-width:64%;padding:8px 12px 6px;border-radius:10px;font-size:14px;line-height:1.45;position:relative;box-shadow:0 1px 1px rgba(15,23,42,.08);white-space:pre-wrap;word-wrap:break-word;}
+  .bubble{max-width:62%;padding:8px 10px 6px;border-radius:8px;font-size:14px;line-height:1.3;position:relative;box-shadow:0 1px .5px rgba(11,20,26,.10);overflow-wrap:anywhere;color:var(--text);}
   .bubble.entrante{align-self:flex-start;background:var(--bubble-in);}
   .bubble.saliente{align-self:flex-end;background:var(--bubble-out);}
-  .bubble .meta{font-size:11px;color:var(--faint);margin-top:3px;text-align:right;white-space:nowrap;}
+  .bubble .txt{white-space:pre-wrap;}
+  .bubble .txt a{color:var(--blue);}
+  .bubble .meta{display:flex;justify-content:flex-end;align-items:center;gap:3px;font-size:11px;color:var(--faint);margin-top:4px;white-space:nowrap;line-height:14px;}
   :root[data-theme="dark"] .bubble .meta{color:#8696a0;}
-  .bubble .autor{font-size:12px;color:var(--blue);font-weight:700;margin-bottom:2px;}
-  .bubble img{max-width:240px;border-radius:8px;display:block;margin:2px 0 4px;}
-  .bubble .adjunto-card{background:var(--blue-50);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--text-2);margin:2px 0 6px;}
-  .bubble .adjunto-card a{color:var(--blue);font-weight:600;text-decoration:none;}
-  .bubble .adjunto-nota{color:var(--muted);font-style:italic;font-size:12.5px;}
-  .regla-aviso{align-self:flex-start;width:min(86%, 560px);font-size:12px;color:var(--aviso-text);background:var(--aviso-bg);border:1px solid var(--aviso-line);border-radius:8px;padding:6px 10px;margin:2px 0;line-height:1.4;}
+  .bubble .autor{font-size:11px;color:var(--blue);font-weight:700;margin-bottom:3px;}
+  /* Tildes como los de WhatsApp: gris = enviado/entregado, celeste = leído. */
+  .tilde{display:inline-flex;align-items:center;color:var(--tilde);}
+  .tilde.leido{color:var(--tilde-leido);}
+  .tilde.error{color:var(--red);font-weight:700;}
+  .tilde svg{display:block;}
+  /* Adjuntos dentro del globo (render 5.1: tarjeta celeste con 🧾 nombre). */
+  .adj-card{display:block;width:240px;max-width:100%;background:var(--adj-bg);border:1px solid var(--adj-line);border-radius:8px;padding:9px 10px 10px;margin:2px 0 6px;color:var(--text-2);font-size:12.5px;text-align:center;}
+  .adj-nombre{display:flex;align-items:center;justify-content:center;gap:5px;color:var(--text-2);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .adj-thumb{display:block;width:100%;margin-top:8px;padding:0;border:none;background:none;cursor:zoom-in;border-radius:6px;overflow:hidden;}
+  .adj-thumb img{display:block;width:100%;max-height:280px;object-fit:cover;background:#e2e8f0;min-height:60px;}
+  .adj-card a{color:var(--blue);font-weight:600;text-decoration:none;}
+  .adj-card a:hover{text-decoration:underline;}
+  .adj-card audio{display:block;width:100%;height:36px;margin-top:6px;}
+  .adj-nodisp{color:var(--muted);font-size:12.5px;margin-top:6px;}
+  .adjunto-nota{color:var(--muted);font-style:italic;font-size:12.5px;margin-bottom:2px;}
+  .regla-aviso{align-self:stretch;font-size:12px;font-weight:500;color:var(--aviso-text);background:var(--aviso-bg);border:1px solid var(--aviso-line);border-radius:6px;padding:5px 12px;line-height:16px;}
   .regla-aviso b{font-weight:700;}
-  .dia-divisor{align-self:center;margin:8px 0 2px;}
-  .dia-divisor span{font-size:12px;font-weight:600;color:var(--aviso-text);background:var(--chip-bg);border-radius:7px;padding:4px 12px;box-shadow:var(--shadow-sm);}
-  .wa-compose{border-top:1px solid var(--line);padding:10px 16px 12px;display:flex;flex-direction:column;gap:8px;position:relative;background:var(--panel);}
+  .dia-divisor{align-self:center;margin:0 0 1px;}
+  .dia-divisor span{display:inline-block;font-size:12.5px;font-weight:500;color:var(--chip-text);background:var(--chip-bg);border-radius:6px;padding:4px 12px;line-height:16px;box-shadow:var(--shadow-sm);}
+  .wa-compose{border-top:1px solid var(--line);padding:10px 16px 10px;display:flex;flex-direction:column;gap:8px;position:relative;background:var(--panel);}
   .plantilla-chips{display:flex;gap:6px;flex-wrap:wrap;}
-  .plantilla-chips button{background:var(--panel);border:1px solid var(--line);color:var(--text-2);border-radius:20px;padding:4px 12px;font-size:12px;font-weight:500;cursor:pointer;}
+  .plantilla-chips button{background:var(--line-2);border:1px solid var(--line);color:var(--text-2);border-radius:999px;height:22px;padding:0 10px;font-size:12px;font-weight:500;cursor:pointer;}
   .plantilla-chips button:hover{border-color:var(--blue);color:var(--blue);}
-  #plantillasPopup{position:absolute;bottom:100%;left:16px;right:16px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);max-height:220px;overflow-y:auto;display:none;z-index:5;}
+  #plantillasPopup, #emojiPopup{position:absolute;bottom:100%;left:16px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);display:none;z-index:5;}
+  #plantillasPopup{right:16px;max-height:220px;overflow-y:auto;}
   #plantillasPopup div{padding:9px 14px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--line-2);}
   #plantillasPopup div:hover{background:var(--blue-50);}
-  .compose-row{display:flex;gap:10px;align-items:flex-end;}
-  .compose-row textarea{flex:1;resize:none;background:var(--panel-2);border:1px solid var(--line);border-radius:22px;color:var(--text);padding:10px 16px;font-size:14px;font-family:inherit;max-height:110px;outline:none;}
+  #emojiPopup{padding:8px;grid-template-columns:repeat(8,32px);gap:2px;}
+  #emojiPopup button{width:32px;height:32px;border:none;background:none;font-size:20px;cursor:pointer;border-radius:6px;}
+  #emojiPopup button:hover{background:var(--line-2);}
+  .compose-row{display:flex;gap:10px;align-items:center;}
+  .btn-icono{background:none;border:none;font-size:20px;width:26px;height:38px;padding:0;cursor:pointer;flex-shrink:0;line-height:1;}
+  .compose-row textarea{flex:1;resize:none;background:var(--panel-2);border:1px solid var(--line);border-radius:20px;color:var(--text);padding:9px 16px;font-size:14px;line-height:18px;max-height:110px;outline:none;min-height:38px;}
+  .compose-row textarea::placeholder{color:var(--faint);}
   .compose-row textarea:focus{border-color:var(--blue);}
-  .btn-enviar{background:var(--green);border:none;color:#fff;font-weight:700;border-radius:50%;width:40px;height:40px;cursor:pointer;flex-shrink:0;font-size:16px;display:flex;align-items:center;justify-content:center;}
+  .btn-enviar{background:var(--green);border:none;color:#fff;font-weight:700;border-radius:50%;width:40px;height:40px;cursor:pointer;flex-shrink:0;font-size:15px;display:flex;align-items:center;justify-content:center;}
   .btn-enviar:hover{background:var(--green-hover);}
 
   /* ── Ficha lateral ── */
-  .wa-ficha{width:330px;flex-shrink:0;border-left:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:16px;display:none;flex-direction:column;gap:12px;}
+  .wa-ficha{width:330px;flex-shrink:0;border-left:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:16px 17px;display:none;flex-direction:column;gap:12px;}
   .wa-ficha.open{display:flex;}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;}
-  .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
-  .card-titulo{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
-  .card-link{font-size:12.5px;font-weight:700;color:var(--blue);background:none;border:none;cursor:pointer;padding:0;}
-  .fila{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;align-items:center;}
-  .fila .k{color:var(--muted);}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 12px 13px;}
+  .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;gap:8px;}
+  .card-titulo{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
+  .card-link{font-size:12px;font-weight:700;color:var(--blue);background:none;border:none;cursor:pointer;padding:0;}
+  .fila{display:flex;justify-content:space-between;gap:10px;font-size:13px;line-height:17px;padding:2px 0;align-items:center;}
+  .fila .k{color:var(--muted);white-space:nowrap;}
   .fila .v{font-weight:700;text-align:right;}
   .fila .v.rojo{color:var(--red-strong);}
-  .saldo-label{font-size:12.5px;color:var(--muted);}
-  .saldo-grande{font-size:28px;font-weight:800;color:var(--red-strong);line-height:1.15;margin:1px 0 4px;letter-spacing:-.01em;}
-  .progreso-bar{height:6px;border-radius:4px;background:var(--line-2);margin-top:10px;overflow:hidden;}
-  .progreso-bar .fill{height:100%;background:var(--blue);border-radius:4px;}
-  .progreso-txt{font-size:12px;color:var(--muted);margin-top:5px;}
-  .campo-label{font-size:12.5px;color:var(--muted);margin:8px 0 5px;}
-  .campo-label:first-of-type{margin-top:2px;}
-  .wa-ficha select, .wa-ficha input[type=date]{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 12px;font-size:13.5px;font-weight:700;font-family:inherit;}
-  .wa-ficha select{appearance:none;-webkit-appearance:none;background:var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%230f172a'/%3E%3C/svg%3E") no-repeat right 12px center;}
-  .guardado-ok{font-size:11.5px;color:var(--green);font-weight:600;height:14px;margin-top:6px;}
-  .ficha-acciones{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .ficha-acciones button{background:var(--panel);border:1px solid var(--line);color:var(--text-2);border-radius:8px;padding:9px 6px;font-size:13px;font-weight:700;cursor:pointer;}
+  .saldo-label{font-size:12px;color:var(--muted);}
+  .saldo-grande{font-size:25px;font-weight:800;color:var(--red-strong);line-height:1.15;margin:0 0 3px;letter-spacing:-.01em;}
+  .saldo-grande.cero{color:var(--green);}
+  .progreso-bar{height:5px;border-radius:3px;background:var(--line);margin-top:9px;overflow:hidden;}
+  .progreso-bar .fill{height:100%;background:var(--blue);border-radius:3px;}
+  .progreso-txt{font-size:11.5px;color:var(--muted);margin-top:5px;}
+  .campo-label{font-size:12px;color:var(--muted);margin:10px 0 5px;}
+  .campo-label.primero{margin-top:0;}
+  .campo-caja{position:relative;display:flex;align-items:center;justify-content:space-between;width:100%;height:31px;background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:0 12px;font-size:13px;font-weight:700;cursor:pointer;}
+  .campo-caja:hover{border-color:var(--faint);}
+  .wa-ficha select.campo-caja{appearance:none;-webkit-appearance:none;background:var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6'%3E%3Cpath d='M0 0l4.5 6L9 0z' fill='%230f172a'/%3E%3C/svg%3E") no-repeat right 12px center;}
+  :root[data-theme="dark"] .wa-ficha select.campo-caja{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6'%3E%3Cpath d='M0 0l4.5 6L9 0z' fill='%23e2e8f0'/%3E%3C/svg%3E");}
+  .campo-caja input[type=date]{position:absolute;inset:0;width:100%;height:100%;opacity:0;border:none;cursor:pointer;}
+  .campo-caja.nativo input[type=date]{position:static;opacity:1;background:none;color:var(--text);font-weight:700;font-size:13px;}
+  .campo-caja.nativo .fecha-txt, .campo-caja.nativo .lapiz{display:none;}
+  .campo-caja .lapiz{font-size:12px;}
+  .campo-caja .fecha-txt.vacia{color:var(--faint);font-weight:600;}
+  .guardado-ok{font-size:11.5px;color:var(--green);font-weight:600;min-height:14px;margin-top:6px;}
+  .ficha-acciones{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px;}
+  .ficha-acciones button{background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:6px;height:30px;padding:0 4px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
   .ficha-acciones button:hover{border-color:var(--faint);}
   .ficha-acciones button.primary{background:var(--green);border-color:var(--green);color:#fff;}
   .ficha-acciones button.primary:hover{background:var(--green-hover);}
+  .sin-agendar-tel{font-size:16px;font-weight:700;margin:2px 0 6px;}
+  .sin-agendar-txt{color:var(--muted);font-size:12.5px;line-height:1.45;margin-bottom:12px;}
+  .btn-ancho{width:100%;}
+
+  /* ── Modales (Agendar, Confirmar pago, Nota, Nuevo chat) ── */
+  .modal-fondo{position:fixed;inset:0;background:var(--fondo-modal);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .modal{background:var(--panel);color:var(--text);border-radius:12px;box-shadow:var(--shadow);width:440px;max-width:100%;max-height:calc(100vh - 40px);display:flex;flex-direction:column;overflow:hidden;}
+  .modal-head{padding:16px 18px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .modal-head h2{font-size:16px;font-weight:800;margin:0;}
+  .modal-head .sub{font-size:12.5px;color:var(--muted);margin-top:3px;}
+  .modal-x{background:none;border:none;font-size:18px;color:var(--muted);cursor:pointer;line-height:1;padding:2px 4px;}
+  .modal-body{padding:4px 18px 8px;overflow-y:auto;}
+  .modal-pie{padding:12px 18px 16px;display:flex;justify-content:flex-end;gap:8px;align-items:center;}
+  .modal-pie .error{flex:1;color:var(--red);font-size:12.5px;font-weight:600;}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--line-2);border-radius:8px;padding:3px;margin-bottom:14px;}
+  .seg button{border:none;background:none;border-radius:6px;height:30px;font-size:12.5px;font-weight:600;color:var(--text-2);cursor:pointer;}
+  .seg button.active{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(15,23,42,.12);}
+  .m-label{display:block;font-size:12px;color:var(--muted);margin:0 0 5px;font-weight:600;}
+  .m-input{width:100%;height:36px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);padding:0 12px;font-size:14px;outline:none;margin-bottom:12px;}
+  .m-input:focus{border-color:var(--blue);}
+  textarea.m-input{height:auto;min-height:90px;padding:9px 12px;resize:vertical;line-height:1.4;}
+  .m-ayuda{font-size:12px;color:var(--muted);line-height:1.45;margin:-4px 0 10px;}
+  .resultados{border:1px solid var(--line);border-radius:8px;max-height:230px;overflow-y:auto;margin-bottom:8px;}
+  .resultados:empty{display:none;}
+  .resultado{display:flex;gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line-2);cursor:pointer;}
+  .resultado:last-child{border-bottom:none;}
+  .resultado:hover{background:var(--panel-2);}
+  .resultado.sel{background:var(--blue-50);box-shadow:inset 3px 0 0 var(--blue);}
+  .resultado .avatar{width:32px;height:32px;font-size:11.5px;margin:0;}
+  .resultado .n{font-weight:700;font-size:13px;}
+  .resultado .d{font-size:12px;color:var(--muted);}
+  .opciones-pago{display:grid;gap:8px;margin-bottom:12px;}
+  .opcion{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:10px 12px;cursor:pointer;}
+  .opcion:has(input:checked){border-color:var(--green);background:rgba(22,163,74,.06);}
+  .opcion input{margin:2px 0 0;accent-color:var(--green);}
+  .opcion b{display:block;font-size:13px;}
+  .opcion span{font-size:12px;color:var(--muted);}
+  .monto-caja{position:relative;}
+  .monto-caja .peso{position:absolute;left:12px;top:9px;font-size:14px;font-weight:700;color:var(--muted);}
+  .monto-caja .m-input{padding-left:24px;font-weight:700;font-size:15px;}
+
+  /* ── Visor de imágenes a pantalla completa ── */
+  .visor{position:fixed;inset:0;background:rgba(2,6,23,.92);z-index:60;display:flex;flex-direction:column;}
+  .visor-barra{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;color:#e2e8f0;font-size:13px;gap:10px;}
+  .visor-barra .acciones{display:flex;gap:8px;}
+  .visor-barra a, .visor-barra button{height:32px;display:inline-flex;align-items:center;padding:0 14px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;}
+  .visor-barra a:hover, .visor-barra button:hover{background:rgba(255,255,255,.18);}
+  .visor-img{flex:1;display:flex;align-items:center;justify-content:center;padding:0 16px 16px;min-height:0;}
+  .visor-img img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;box-shadow:0 10px 40px rgba(0,0,0,.5);}
+
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:#0f172a;color:#fff;font-size:13px;font-weight:600;padding:11px 18px;border-radius:10px;box-shadow:var(--shadow);opacity:0;transition:opacity .2s, transform .2s;z-index:70;max-width:min(560px, calc(100vw - 40px));text-align:center;pointer-events:none;}
+  .toast.visible{opacity:1;transform:translateX(-50%) translateY(0);}
+  .toast.error{background:#b91c1c;}
+  :root[data-theme="dark"] .toast{background:#e2e8f0;color:#0f172a;}
 
   .empty-state{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13.5px;flex-direction:column;gap:8px;text-align:center;padding:20px;}
   ::-webkit-scrollbar{width:8px;height:8px;}
   ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px;}
   :root[data-theme="dark"] ::-webkit-scrollbar-thumb{background:#334155;}
 
-  @media (max-width:1250px){ .wa-ficha{width:290px;} .wa-search{width:220px;} }
-  @media (max-width:1050px){ .wa-chats{width:290px;} .wa-ficha{position:absolute;right:0;top:0;bottom:0;box-shadow:var(--shadow);z-index:10;} .wa-crm{position:relative;} }
+  @media (max-width:1150px){ .wa-ficha{width:300px;} .wa-search{width:230px;} .wa-chats{width:310px;} }
+  @media (max-width:1000px){ .wa-ficha{position:absolute;right:0;top:0;bottom:0;box-shadow:var(--shadow);z-index:10;} .wa-crm{position:relative;} .header-sub{display:none;} }
 </style>
 </head>
 <body>
@@ -180,7 +294,7 @@
   <div class="header-tools">
     <div class="wa-search">
       <span>🔍</span>
-      <input type="text" id="buscarChat" placeholder="Buscar nombre, DNI o teléfono...">
+      <input type="text" id="buscarChat" placeholder="Buscar nombre, DNI, teléfono o préstamo...">
     </div>
     <button class="btn" id="btnPlantillas" title="Editar las plantillas en Envío de Mensajes">⚡ Plantillas</button>
     <button class="btn btn-verde" id="btnNuevoChat">+ Nuevo chat</button>
@@ -190,11 +304,16 @@
 <div class="wa-crm">
   <aside class="wa-chats">
     <div class="wa-chats-head">
-      <select class="select-pill" id="filtroEtapa"><option value="">Etapa: Todas</option></select>
+      <div class="filtros">
+        <label class="filtro-pill" id="pillEtapa"><span class="txt" id="txtEtapa">Etapa: Todas</span><span class="flecha">▾</span>
+          <select id="filtroEtapa" aria-label="Filtrar por etapa"><option value="">Todas</option></select></label>
+        <label class="filtro-pill" id="pillCobrador"><span class="txt" id="txtCobrador">Cobrador: Todos</span><span class="flecha">▾</span>
+          <select id="filtroCobrador" aria-label="Filtrar por cobrador"><option value="">Todos</option></select></label>
+      </div>
       <div class="wa-tabs">
-        <button class="active" data-filtro="todos">Todos <span class="n" id="nTodos"></span></button>
-        <button data-filtro="sinleer">Sin leer <span class="n" id="nSinLeer"></span></button>
-        <button data-filtro="sinvincular">Sin vincular <span class="n" id="nSinVincular"></span></button>
+        <button class="active" data-filtro="todos">Todos <span id="nTodos"></span></button>
+        <button data-filtro="sinleer">Sin leer <span id="nSinLeer"></span></button>
+        <button data-filtro="sinvincular">Sin vincular <span id="nSinVincular"></span></button>
       </div>
     </div>
     <div id="chatList"></div>
@@ -210,6 +329,8 @@
   <aside class="wa-ficha" id="fichaLateral"></aside>
 </div>
 
+<div class="toast" id="toast"></div>
+
 <script>
 let conversaciones = [];
 let conversacionActual = null;
@@ -218,6 +339,7 @@ let eventosActuales = [];
 let fichaActual = null;
 let etapasCache = [];
 let plantillasCache = {};
+let reglasCache = [];
 let resumenPrestamosCache = {};
 let filtroActivo = 'todos';
 let canalMensajes = null;
@@ -227,10 +349,14 @@ function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&'
 function iniciales(nombre){
   const s = String(nombre||'').trim();
   if(!s || /^[+\d\s()-]+$/.test(s)) return '?';
-  const partes = s.split(/\s+/);
+  const partes = s.replace(/^~\s*/, '').split(/\s+/);
   return (((partes[0]||'')[0]||'') + ((partes[1]||'')[0]||'')).toUpperCase() || '?';
 }
+// "nestor.challier" -> "Nestor C." (como en los globos y el encabezado del render).
+function nombreCorto(n){ return (window.crmNombreCorto ? window.crmNombreCorto(n) : n) || ''; }
 // Mismos tonos que los avatares del plan (rosa, cian, violeta, naranja...).
+// Sale del nombre y no de la posición en la lista, así cada cliente
+// conserva siempre su color aunque la lista se reordene.
 const AVATAR_PALETTE = ['#db2777','#0891b2','#7c3aed','#ea580c','#16a34a','#dc2626','#ca8a04','#2563eb'];
 function colorParaNombre(nombre){
   if(iniciales(nombre) === '?') return '#64748b';
@@ -245,6 +371,30 @@ function fmtFecha(iso){
   const [y,m,d] = String(iso).slice(0,10).split('-');
   return `${d}/${m}/${y}`;
 }
+// 3.39 -> "3,4"; 5 -> "5" (cuotas pagas con fracción, como pide el plan).
+function fmtDecimal(n){
+  const v = Math.round((Number(n)||0) * 10) / 10;
+  return v.toLocaleString('es-AR', { maximumFractionDigits: 1 });
+}
+// "32145678" -> "32.145.678" (como en el render).
+function fmtDni(dni){
+  const s = String(dni||'').trim();
+  return /^\d{7,8}$/.test(s) ? Number(s).toLocaleString('es-AR') : s;
+}
+// "5491162038841" -> "+54 9 11 6203-8841" (como en el render). Para Buenos
+// Aires (11) el corte es exacto; para el resto se asume código de área de 3
+// cifras (Córdoba, Rosario, La Plata...), que es lo más común en la cartera.
+// Si no es un celular argentino se usa el formato general de telefonos.js.
+function telefonoLindo(tel){
+  const d = String(tel||'').replace(/\D/g,'');
+  if(/^549\d{10}$/.test(d)){
+    const r = d.slice(3);
+    if(r.startsWith('11')) return `+54 9 11 ${r.slice(2,6)}-${r.slice(6)}`;
+    return `+54 9 ${r.slice(0,3)} ${r.slice(3,6)}-${r.slice(6)}`;
+  }
+  return (window.formatearTelefonoAR && d && window.formatearTelefonoAR(d)) || tel || '';
+}
+function hoyISO(){ return window.CMMora ? window.CMMora.hoyISO() : new Date().toISOString().slice(0,10); }
 function diasHasta(iso){
   if(!iso) return null;
   const hoy = new Date(); hoy.setHours(0,0,0,0);
@@ -259,6 +409,27 @@ function horaCorta(iso){
   const ayer = new Date(Date.now() - 86400000);
   if(d.toDateString() === ayer.toDateString()) return 'Ayer';
   return d.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit'});
+}
+function horaMensaje(iso){ return new Date(iso).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false}); }
+
+// Formato de WhatsApp: *negrita*, _cursiva_, ~tachado~ y links (en el render
+// el "$86.400" y el alias salen en negrita porque el mensaje los marca así).
+function formatoWA(texto){
+  let s = escapeHtml(texto);
+  s = s.replace(/\bhttps?:\/\/[^\s<]+/g, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+  const borde = '(?=$|[\\s.,;:!?¡¿)\\]"\'])';
+  s = s.replace(new RegExp('(^|[\\s(¡¿])\\*([^*\\n]+?)\\*' + borde, 'g'), '$1<b>$2</b>');
+  s = s.replace(new RegExp('(^|[\\s(¡¿])_([^_\\n]+?)_' + borde, 'g'), '$1<i>$2</i>');
+  s = s.replace(new RegExp('(^|[\\s(¡¿])~([^~\\n]+?)~' + borde, 'g'), '$1<s>$2</s>');
+  return s;
+}
+
+function toast(texto, tipo){
+  const t = document.getElementById('toast');
+  t.textContent = texto;
+  t.className = 'toast visible' + (tipo === 'error' ? ' error' : '');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>{ t.className = 'toast'; }, 4200);
 }
 
 // Etapa del Kanban -> etiqueta de color + emoji (como en el render 5.1).
@@ -275,8 +446,10 @@ const ESTILO_ETIQUETA = {
   'comprobante':      { cls:'violeta', emoji:'📎' },
   'pide refinanciar': { cls:'cian',    emoji:'🔁' },
   'consulta':         { cls:'gris',    emoji:'❓' },
+  'cancelado':        { cls:'verde',   emoji:'✅' },
 };
 function etapaPorRowId(rowId){ return etapasCache.find(e => e._rowId === rowId) || null; }
+function emojiEtiqueta(texto){ const est = ESTILO_ETIQUETA[String(texto).toLowerCase()]; return est ? est.emoji + ' ' : ''; }
 function tagEtiqueta(texto){
   const est = ESTILO_ETIQUETA[String(texto).toLowerCase()] || { cls:'gris', emoji:'' };
   return `<span class="tag ${est.cls}">${est.emoji ? est.emoji + ' ' : ''}${escapeHtml(texto)}</span>`;
@@ -285,13 +458,21 @@ function diaSemanaCorto(iso){
   const d = new Date(String(iso).slice(0,10) + 'T00:00:00');
   return ['dom','lun','mar','mié','jue','vie','sáb'][d.getDay()] + ' ' + String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
 }
+function tieneEtiqueta(cli, nombre){ return ((cli && cli.etiquetas) || []).some(e => String(e).toLowerCase() === nombre); }
+// Préstamo saldado: lo dice el resumen (estado 'cancelado') o la etiqueta
+// "Cancelado" que pone "Confirmar pago" cuando se paga todo.
+function estaCancelado(c){
+  const p = resumenPrestamosCache[c.cliente_id];
+  return (p && p.estado === 'cancelado') || tieneEtiqueta(c.clientes, 'cancelado');
+}
 function tagsDeChat(c){
   if(c.es_grupo) return `<span class="tag gris">👥 Grupo</span>`;
   if(!c.cliente_id) return `<span class="tag gris">❓ Sin cliente vinculado</span>`;
+  if(estaCancelado(c)) return `<span class="tag verde">✅ Cancelado</span>`;
   const out = [];
   const cli = c.clientes || {};
   const etapa = etapaPorRowId(cli.etapa_id);
-  const etiquetas = cli.etiquetas || [];
+  const etiquetas = (cli.etiquetas || []).filter(e => String(e).toLowerCase() !== 'cancelado');
   // Como en el render: la promesa (con su fecha) y el cerrado siempre se
   // ven; si no, manda la etiqueta de la regla (Comprobante, Reclamo...) y
   // solo si no hay ninguna se muestra la etapa.
@@ -315,7 +496,7 @@ function tagsDeChat(c){
 function nombreConversacion(c){
   if(c.es_grupo) return c.nombre || 'Grupo';
   if(c.clientes && c.clientes.nombre) return c.clientes.nombre;
-  return (window.formatearTelefonoAR && c.telefono && window.formatearTelefonoAR(c.telefono)) || c.telefono || c.nombre || 'Contacto sin agendar';
+  return (c.telefono && telefonoLindo(c.telefono)) || c.nombre || 'Contacto sin agendar';
 }
 
 function pasaFiltroBase(c){
@@ -324,11 +505,19 @@ function pasaFiltroBase(c){
     const etapaId = c.clientes ? c.clientes.etapa_id : null;
     if(etapaId !== etapaSel) return false;
   }
+  const cobSel = document.getElementById('filtroCobrador').value;
+  if(cobSel){
+    const cob = (c.clientes && c.clientes.cobrador_nombre) || '';
+    if(cobSel === '__sin' ? !!cob : cob !== cobSel) return false;
+  }
   const q = document.getElementById('buscarChat').value.trim().toLowerCase();
   if(!q) return true;
   const nombre = nombreConversacion(c).toLowerCase();
   const dni = (c.clientes && c.clientes.dni || '').toLowerCase();
-  return nombre.includes(q) || dni.includes(q) || (c.telefono||'').includes(q);
+  const nro = String((resumenPrestamosCache[c.cliente_id] || {}).nro || '').toLowerCase();
+  const qDig = q.replace(/\D/g, '');
+  return nombre.includes(q) || dni.includes(q) || (nro && nro.includes(q))
+    || (qDig.length >= 3 && ((c.telefono||'').includes(qDig) || dni.replace(/\D/g,'').includes(qDig)));
 }
 function pasaFiltro(c){
   if(filtroActivo === 'sinleer' && !(c.no_leidos > 0)) return false;
@@ -351,13 +540,13 @@ function renderChatList(){
   const cont = document.getElementById('chatList');
   const lista = conversaciones.filter(pasaFiltro);
   if(!lista.length){
-    cont.innerHTML = `<div class="empty-state" style="height:160px;">Sin chats${filtroActivo==='sinleer'?' sin leer':''}.</div>`;
+    cont.innerHTML = `<div class="empty-state" style="height:160px;">Sin chats${filtroActivo==='sinleer'?' sin leer':filtroActivo==='sinvincular'?' sin vincular':''}.</div>`;
     return;
   }
   cont.innerHTML = lista.map(c=>{
     const nombre = nombreConversacion(c);
-    return `<div class="chat-item ${conversacionActual && conversacionActual.id===c.id?'active':''}" data-id="${c.id}">
-      <div class="avatar" style="background:${colorParaNombre(nombre)}">${iniciales(nombre)}</div>
+    return `<div class="chat-item ${conversacionActual && conversacionActual.id===c.id?'active':''}" data-id="${escapeHtml(c.id)}">
+      <div class="avatar" style="background:${colorParaNombre(nombre)}">${escapeHtml(iniciales(nombre))}</div>
       <div class="chat-info">
         <div class="row1"><span class="nombre">${escapeHtml(nombre)}</span><span class="hora">${horaCorta(c.ultimo_at)}</span></div>
         <div class="row2">
@@ -368,13 +557,51 @@ function renderChatList(){
       </div>
     </div>`;
   }).join('');
-  cont.querySelectorAll('.chat-item').forEach(el=>{
-    el.addEventListener('click', ()=> abrirConversacion(el.dataset.id));
+}
+// Un solo listener para toda la lista (con 1000 chats, uno por fila
+// se notaba en cada recarga).
+document.getElementById('chatList').addEventListener('click', e=>{
+  const item = e.target.closest('.chat-item');
+  if(item) abrirConversacion(item.dataset.id);
+});
+
+// Cobradores distintos de los clientes con chat, para el filtro "Cobrador".
+function actualizarFiltroCobrador(){
+  const sel = document.getElementById('filtroCobrador');
+  const actual = sel.value;
+  const nombres = new Set();
+  let haySin = false;
+  conversaciones.forEach(c => {
+    if(!c.cliente_id || c.es_grupo) return;
+    const n = c.clientes && c.clientes.cobrador_nombre;
+    if(n) nombres.add(n); else haySin = true;
   });
+  const lista = [...nombres].sort((a,b)=>a.localeCompare(b,'es'));
+  const html = `<option value="">Todos</option>` + lista.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')
+    + (haySin && lista.length ? `<option value="__sin">Sin cobrador</option>` : '');
+  if(sel.__html !== html){ sel.innerHTML = html; sel.__html = html; }
+  sel.value = (actual && (actual === '__sin' ? haySin : nombres.has(actual))) ? actual : '';
+  pintarPillFiltros();
+}
+function pintarPillFiltros(){
+  const selE = document.getElementById('filtroEtapa');
+  const selC = document.getElementById('filtroCobrador');
+  document.getElementById('txtEtapa').textContent = 'Etapa: ' + (selE.value ? selE.options[selE.selectedIndex].text : 'Todas');
+  document.getElementById('txtCobrador').textContent = 'Cobrador: ' + (selC.value ? selC.options[selC.selectedIndex].text : 'Todos');
+  document.getElementById('pillEtapa').classList.toggle('activo', !!selE.value);
+  document.getElementById('pillCobrador').classList.toggle('activo', !!selC.value);
 }
 
 async function cargarConversaciones(){
   conversaciones = await crmListConversaciones();
+  // La lista se reemplaza entera: el chat abierto pasa a apuntar a su
+  // versión nueva (si no, quedaba con datos viejos, ej. sin el cliente
+  // recién agendado).
+  if(conversacionActual){
+    const nueva = conversaciones.find(c => c.id === conversacionActual.id);
+    if(nueva) conversacionActual = nueva;
+  }
+  actualizarFiltroCobrador();
   renderChatList();
 }
 
@@ -404,6 +631,8 @@ async function abrirConversacion(id){
   eventosActuales = [];
   fichaActual = null;
   renderConversacionShell();
+  renderFicha();
+  document.getElementById('fichaLateral').classList.add('open');
 
   const [mensajes, eventos] = await Promise.all([
     crmListMensajes(id),
@@ -413,7 +642,7 @@ async function abrirConversacion(id){
 
   mensajesActuales = mensajes;
   eventosActuales = eventos;
-  await renderMensajes();
+  await renderMensajes(true);
 
   crmMarcarConversacionLeida(id).then(() => {
     if (miCarga !== cargaActual) return;
@@ -421,68 +650,181 @@ async function abrirConversacion(id){
     renderChatList();
   });
 
-  if (conversacionActual.cliente_id) {
-    crmGetFichaCliente(conversacionActual.cliente_id).then(f => {
-      if (miCarga !== cargaActual) return;
-      fichaActual = f;
-      renderFicha();
-    });
-  } else {
-    renderFicha();
-  }
-  document.getElementById('fichaLateral').classList.add('open');
+  if (conversacionActual.cliente_id) recargarFicha(miCarga);
 
   if(canalMensajes) window.sb.removeChannel(canalMensajes);
-  canalMensajes = crmSuscribirMensajes(id, async ()=>{
+  let recargaPendiente = null;
+  canalMensajes = crmSuscribirMensajes(id, (payload)=>{
     if (miCarga !== cargaActual) return;
-    mensajesActuales = await crmListMensajes(id);
-    if (miCarga !== cargaActual) return;
-    await renderMensajes();
+    // Cambio de tilde (enviado -> entregado -> leído): llega la fila nueva
+    // entera, alcanza con actualizar ese globo sin volver a pedir todo.
+    if(payload && payload.eventType === 'UPDATE' && payload.new){
+      const m = mensajesActuales.find(x => x.id === payload.new.id);
+      if(m){ Object.assign(m, payload.new); renderMensajes(); return; }
+    }
+    // Mensaje nuevo: se recarga (con una pausita, por si llegan varios juntos).
+    clearTimeout(recargaPendiente);
+    recargaPendiente = setTimeout(async ()=>{
+      const lista = await crmListMensajes(id);
+      if (miCarga !== cargaActual) return;
+      mensajesActuales = lista;
+      renderMensajes();
+    }, 250);
   });
 }
 
-// El bucket de comprobantes es privado (puede traer datos personales), así
-// que las imágenes se muestran con una URL firmada de corta duración.
-async function resolverUrlsAdjuntos(mensajes){
-  const urls = {};
-  await Promise.all(mensajes.filter(m => m.media_path).map(async m=>{
-    const { data } = await window.sb.storage.from('comprobantes').createSignedUrl(m.media_path, 3600);
-    if(data) urls[m.id] = data.signedUrl;
-  }));
-  return urls;
+async function recargarFicha(miCarga){
+  const f = await crmGetFichaCliente(conversacionActual.cliente_id);
+  if (miCarga !== undefined && miCarga !== cargaActual) return;
+  fichaActual = f;
+  renderFicha();
 }
-function burbujaAdjunto(m, urlsAdjuntos){
-  const url = urlsAdjuntos[m.id];
-  if(m.tipo === 'imagen' && m.media_path){
-    return url ? `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="imagen"></a>` : `<div class="adjunto-card">📷 Imagen</div>`;
+
+/* ===== Adjuntos (bucket privado "comprobantes") ===== */
+// El bucket es privado (puede traer datos personales), así que se muestran
+// con URLs firmadas de una hora. Se guardan por media_path para no pedir
+// una firma nueva cada vez que llega un mensaje y se redibuja el chat; se
+// renuevan a los 50 minutos. Si la firma falla (ej. falta el permiso de
+// lectura del bucket) se reintenta recién al minuto.
+const urlsFirmadas = new Map();
+async function firmarAdjuntos(paths){
+  const ahora = Date.now();
+  const faltan = [...new Set(paths)].filter(p => { const c = urlsFirmadas.get(p); return !c || c.vence <= ahora; });
+  if(!faltan.length) return;
+  const guardar = (p, url) => urlsFirmadas.set(p, { url: url || null, vence: ahora + (url ? 50 * 60000 : 60000) });
+  const bucket = window.sb.storage.from('comprobantes');
+  try{
+    if(bucket.createSignedUrls){
+      const { data, error } = await bucket.createSignedUrls(faltan, 3600);
+      if(error) throw error;
+      (data || []).forEach(r => guardar(r.path, !r.error && r.signedUrl));
+      faltan.forEach(p => { if(!urlsFirmadas.has(p) || urlsFirmadas.get(p).vence <= ahora) guardar(p, null); });
+    } else {
+      await Promise.all(faltan.map(async p => {
+        try{ const { data, error } = await bucket.createSignedUrl(p, 3600); guardar(p, !error && data && data.signedUrl); }
+        catch(e){ guardar(p, null); }
+      }));
+    }
+  }catch(e){
+    console.error('No se pudieron firmar los adjuntos', e);
+    faltan.forEach(p => guardar(p, null));
   }
-  if(m.tipo === 'audio' && m.media_path){
-    return url ? `<audio controls src="${url}" style="max-width:240px;height:36px;"></audio>` : `<div class="adjunto-card">🎙️ Audio</div>`;
+}
+function urlAdjunto(path){ const c = urlsFirmadas.get(path); return c ? c.url : null; }
+function extension(path, tipo){
+  const m = /\.([a-z0-9]{2,4})$/i.exec(path || '');
+  return (m ? m[1] : (tipo === 'pdf' ? 'pdf' : tipo === 'audio' ? 'ogg' : 'jpg')).toLowerCase();
+}
+// WhatsApp no manda el nombre original de las fotos: se nombran como en el
+// render ("comprobante...") con la fecha, para que la descarga sea clara.
+function nombreAdjunto(m){
+  const d = new Date(m.creado_at);
+  const sufijo = isNaN(d) ? '' : `_${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  return (m.tipo === 'audio' ? 'audio' : 'comprobante') + sufijo + '.' + extension(m.media_path, m.tipo);
+}
+function burbujaAdjunto(m){
+  if(m.media_path){
+    const url = urlAdjunto(m.media_path);
+    const nombre = nombreAdjunto(m);
+    if(m.tipo === 'imagen'){
+      return `<div class="adj-card"><div class="adj-nombre">📄 ${escapeHtml(nombre)}</div>${url
+        ? `<button class="adj-thumb" data-ver="${escapeHtml(m.media_path)}" data-nombre="${escapeHtml(nombre)}" title="Ver en grande"><img class="adj-img" src="${escapeHtml(url)}" alt="${escapeHtml(nombre)}" loading="lazy"></button>`
+        : `<div class="adj-nodisp">📷 Imagen no disponible</div>`}</div>`;
+    }
+    if(m.tipo === 'pdf'){
+      return `<div class="adj-card"><div class="adj-nombre">📄 ${escapeHtml(nombre)}${url ? ` · <a href="${escapeHtml(url)}" target="_blank" rel="noopener">Ver PDF</a>` : ''}</div>${url ? '' : `<div class="adj-nodisp">PDF no disponible</div>`}</div>`;
+    }
+    if(m.tipo === 'audio'){
+      return `<div class="adj-card"><div class="adj-nombre">🎙️ Audio</div>${url ? `<audio controls preload="none" src="${escapeHtml(url)}"></audio>` : `<div class="adj-nodisp">Audio no disponible</div>`}</div>`;
+    }
+    return `<div class="adj-card"><div class="adj-nombre">📎 Adjunto${url ? ` · <a href="${escapeHtml(url)}" target="_blank" rel="noopener">Abrir</a>` : ''}</div></div>`;
   }
-  if(m.tipo === 'pdf' && m.media_path){
-    return `<div class="adjunto-card">📄 ${url ? `<a href="${url}" target="_blank" rel="noopener">Ver PDF</a>` : 'PDF'}</div>`;
-  }
-  if(m.media_path) return `<div class="adjunto-card">📎 Adjunto recibido</div>`;
   if(m.tipo === 'audio') return `<div class="adjunto-nota">🎙️ Audio (del historial, no se descargó)</div>`;
   if(m.tipo === 'imagen') return `<div class="adjunto-nota">📷 Imagen (no se pudo descargar)</div>`;
   if(m.tipo === 'pdf') return `<div class="adjunto-nota">📄 PDF (no se pudo descargar)</div>`;
   return '';
 }
 
-// "🤖 Regla automática: imagen + 'transferí' → etiqueta Comprobante ·
-// movido a Verificar pago" (como en el render 5.1).
+// Visor a pantalla completa. "Descargar" pide otra URL firmada con el
+// nombre del archivo (el navegador no deja forzar la descarga de un link de
+// otro dominio con solo el atributo download).
+async function abrirVisor(path, nombre){
+  const url = urlAdjunto(path);
+  if(!url) return;
+  const v = document.createElement('div');
+  v.className = 'visor';
+  v.innerHTML = `<div class="visor-barra"><span>📄 ${escapeHtml(nombre)}</span><div class="acciones">
+      <a id="visorDescargar" href="${escapeHtml(url)}" target="_blank" rel="noopener" download="${escapeHtml(nombre)}">⬇ Descargar</a>
+      <button id="visorCerrar">✕ Cerrar</button></div></div>
+    <div class="visor-img"><img src="${escapeHtml(url)}" alt="${escapeHtml(nombre)}"></div>`;
+  document.body.appendChild(v);
+  const cerrar = () => { v.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if(e.key === 'Escape') cerrar(); };
+  document.addEventListener('keydown', onKey);
+  v.querySelector('#visorCerrar').addEventListener('click', cerrar);
+  v.addEventListener('click', e => { if(e.target === v || e.target.classList.contains('visor-img')) cerrar(); });
+  try{
+    const { data } = await window.sb.storage.from('comprobantes').createSignedUrl(path, 600, { download: nombre });
+    if(data && data.signedUrl) v.querySelector('#visorDescargar').href = data.signedUrl;
+  }catch(e){ /* queda el link común: abre la imagen y se guarda desde ahí */ }
+}
+
+/* ===== Tildes de WhatsApp ===== */
+const SVG_RELOJ = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6 3.4V6l1.7 1.1" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>';
+const SVG_TILDE = '<svg width="12" height="11" viewBox="0 0 12 11" aria-hidden="true"><path d="M1.3 5.9 4.3 8.9 10.7 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const SVG_DOBLE = '<svg width="16" height="11" viewBox="0 0 16 11" aria-hidden="true"><path d="M1.3 5.9 4.3 8.9 10.7 2M8.2 7.9l1 1L15.6 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+function tildeHtml(m){
+  if(m.direccion !== 'saliente') return '';
+  switch(m.estado){
+    case 'leido':     return `<span class="tilde leido" title="Leído">${SVG_DOBLE}</span>`;
+    case 'entregado': return `<span class="tilde" title="Entregado">${SVG_DOBLE}</span>`;
+    case 'enviado':   return `<span class="tilde" title="Enviado">${SVG_TILDE}</span>`;
+    case 'error':     return `<span class="tilde error" title="No se pudo enviar">⚠️</span>`;
+    default:          return `<span class="tilde" title="En cola de envío">${SVG_RELOJ}</span>`;
+  }
+}
+
+/* ===== Avisos de regla automática ===== */
+function normalizarTxt(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+// Qué disparó la regla (como en el render: “hoy lo transfiero”, o
+// imagen + “transferí”): el evento solo guarda el nombre de la regla, así
+// que se busca en el mensaje entrante que lo provocó cuál de las palabras
+// clave de esa regla aparece.
+function disparadorRegla(ev){
+  const d = ev.detalle || {};
+  const regla = reglasCache.find(r => r.nombre === d.regla);
+  if(!regla) return null;
+  const t = new Date(ev.creado_at).getTime();
+  let msg = null;
+  for(const m of mensajesActuales){
+    if(m.direccion !== 'entrante') continue;
+    const tm = new Date(m.creado_at).getTime();
+    if(tm <= t + 5000 && t - tm < 15 * 60000) msg = m;
+  }
+  if(!msg) return null;
+  const partes = [];
+  if(regla.tipo_adjunto && (msg.tipo === 'imagen' || msg.tipo === 'pdf')) partes.push(msg.tipo === 'imagen' ? 'imagen' : 'PDF');
+  const txt = normalizarTxt(msg.texto);
+  const palabra = (regla.palabras || []).find(p => p && txt.includes(normalizarTxt(p)));
+  if(palabra) partes.push(`“${escapeHtml(palabra)}”`);
+  return partes.length ? partes.join(' + ') : null;
+}
+// "🤖 Regla automática: “hoy lo transfiero” → Promesa de pago (30/09) ·
+// movido a Promesa de pago" (como en el render 5.1).
 function textoEventoRegla(ev){
   const d = ev.detalle || {};
   const a = d.accion || {};
+  const disparo = disparadorRegla(ev);
   const partes = [];
-  if(a.etiqueta) partes.push(`etiqueta ${escapeHtml(a.etiqueta)}`);
-  if(d.fecha_detectada) partes.push(`fecha ${escapeHtml(fmtFecha(d.fecha_detectada).slice(0,5))}`);
+  if(d.fecha_detectada) partes.push(`${escapeHtml(d.regla || 'Promesa')} (${escapeHtml(fmtFecha(d.fecha_detectada).slice(0,5))})`);
+  if(a.etiqueta) partes.push(`etiqueta ${emojiEtiqueta(a.etiqueta)}${escapeHtml(a.etiqueta)}`);
   if(a.mueve_a){
     const destino = etapasCache.find(e => e.id === a.mueve_a);
     const origen = a.mueve_de ? etapasCache.find(e => e.id === a.mueve_de) : null;
     partes.push(`movido ${origen ? `de <b>${escapeHtml(origen.name)}</b> ` : ''}a <b>${escapeHtml(destino ? destino.name : a.mueve_a)}</b>`);
   }
-  return `🤖 Regla automática: “${escapeHtml(d.regla || '')}”${partes.length ? ' → ' + partes.join(' · ') : ''}`;
+  if(disparo && !partes.length) partes.push(escapeHtml(d.regla || ''));
+  return `🤖 Regla automática: ${disparo || `“${escapeHtml(d.regla || '')}”`}${partes.length ? ' → ' + partes.join(' · ') : ''}`;
 }
 
 // Dibuja el header + la caja de escribir UNA sola vez al abrir un chat. Los
@@ -490,33 +832,38 @@ function textoEventoRegla(ev){
 // así no se borra lo que el usuario está escribiendo.
 function renderConversacionShell(){
   const wrap = document.getElementById('wacConv');
-  const nombre = nombreConversacion(conversacionActual);
-  const dni = conversacionActual.clientes && conversacionActual.clientes.dni;
-  const telFmt = conversacionActual.telefono
-    ? ((window.formatearTelefonoAR && window.formatearTelefonoAR(conversacionActual.telefono)) || conversacionActual.telefono)
-    : (conversacionActual.es_grupo ? '' : 'Número todavía no disponible');
-  const subLinea = conversacionActual.es_grupo
-    ? 'Grupo de WhatsApp'
-    : escapeHtml(telFmt) + (dni ? ' · DNI ' + escapeHtml(dni) : '');
+  const c = conversacionActual;
+  const nombre = nombreConversacion(c);
+  const dni = c.clientes && c.clientes.dni;
+  const sinAgendar = !c.cliente_id && !c.es_grupo;
+  const telFmt = c.telefono ? telefonoLindo(c.telefono) : (c.es_grupo ? '' : 'Número todavía no disponible');
+  let subLinea;
+  if(c.es_grupo) subLinea = 'Grupo de WhatsApp';
+  else if(sinAgendar) subLinea = escapeHtml(telFmt) + (c.nombre && !c.telefono ? '' : '') + ' · Sin agendar';
+  else subLinea = escapeHtml(telFmt) + (dni ? ' · DNI ' + escapeHtml(fmtDni(dni)) : '');
   wrap.innerHTML = `
     <div class="conv-head">
       <div class="conv-head-id">
-        <div class="avatar" style="background:${colorParaNombre(nombre)}">${iniciales(nombre)}</div>
-        <div>
+        <div class="avatar" style="background:${colorParaNombre(nombre)}">${escapeHtml(iniciales(nombre))}</div>
+        <div style="min-width:0;">
           <div class="nombre">${escapeHtml(nombre)}</div>
           <div class="sub">${subLinea}</div>
         </div>
       </div>
       <div class="conv-head-tools">
-        ${nombreUsuarioCache ? `<span class="btn" style="cursor:default;">👤 ${escapeHtml(nombreUsuarioCache)}</span>` : ''}
-        <button id="btnToggleFicha" class="btn btn-cuadrado" title="Mostrar / ocultar la ficha">⋯</button>
+        ${sinAgendar ? `<button class="btn btn-verde" id="btnAgendarHead" title="Crear el cliente o vincular este chat a uno existente">👤 Agendar</button>`
+          : (nombreUsuarioCache ? `<span class="btn pill-usuario" title="Estás atendiendo como ${escapeHtml(nombreUsuarioCache)}">👤 ${escapeHtml(nombreUsuarioCache)}</span>` : '')}
+        <button id="btnToggleFicha" class="btn btn-cuadrado" title="Mostrar / ocultar la ficha">···</button>
       </div>
     </div>
     <div id="convMessages"><div class="empty-state">Cargando mensajes...</div></div>
     <div class="wa-compose">
       <div id="plantillasPopup"></div>
+      <div id="emojiPopup"></div>
       <div class="plantilla-chips" id="plantillaChips"></div>
       <div class="compose-row">
+        <button class="btn-icono" id="btnEmoji" title="Emojis">😊</button>
+        <button class="btn-icono" id="btnAdjuntar" title="Adjuntar">📎</button>
         <textarea id="composeTexto" rows="1" placeholder="Escribí un mensaje... (usá / para plantillas)"></textarea>
         <button class="btn-enviar" id="btnEnviar" title="Enviar">➤</button>
       </div>
@@ -524,6 +871,8 @@ function renderConversacionShell(){
 
   renderPlantillaChips();
 
+  const btnAg = document.getElementById('btnAgendarHead');
+  if(btnAg) btnAg.addEventListener('click', abrirModalAgendar);
   document.getElementById('btnToggleFicha').addEventListener('click', ()=>{
     document.getElementById('fichaLateral').classList.toggle('open');
   });
@@ -531,15 +880,62 @@ function renderConversacionShell(){
   textarea.addEventListener('input', ()=>{
     if(textarea.value.startsWith('/')) mostrarPopupPlantillas(textarea.value.slice(1));
     else ocultarPopupPlantillas();
+    // La caja crece con el texto (hasta 110px), como en WhatsApp.
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(110, textarea.scrollHeight + 2) + 'px';
   });
   textarea.addEventListener('keydown', e=>{
     if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); enviarMensajeActual(); }
   });
   document.getElementById('btnEnviar').addEventListener('click', enviarMensajeActual);
+  document.getElementById('btnEmoji').addEventListener('click', alternarEmojis);
+  document.getElementById('btnAdjuntar').addEventListener('click', ()=>{
+    toast('📎 Por ahora desde el panel solo se mandan textos: las fotos y PDF mandalos desde el celular.');
+  });
+
+  // Visor de imágenes y "imagen no disponible" si el link firmado no carga.
+  const msgs = document.getElementById('convMessages');
+  msgs.addEventListener('click', e=>{
+    const b = e.target.closest('.adj-thumb');
+    if(b) abrirVisor(b.dataset.ver, b.dataset.nombre);
+  });
+  msgs.addEventListener('error', e=>{
+    const img = e.target;
+    if(img && img.classList && img.classList.contains('adj-img')){
+      const b = img.closest('.adj-thumb');
+      if(b) b.outerHTML = `<div class="adj-nodisp">📷 Imagen no disponible</div>`;
+    }
+  }, true);
+  msgs.addEventListener('load', e=>{
+    if(e.target && e.target.tagName === 'IMG' && msgs.__abajo) msgs.scrollTop = msgs.scrollHeight;
+  }, true);
+  msgs.__abajo = true;
+  msgs.addEventListener('scroll', ()=>{ msgs.__abajo = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 80; });
 }
 
-async function renderMensajes(){
-  const urlsAdjuntos = await resolverUrlsAdjuntos(mensajesActuales);
+function etiquetaDia(fecha){
+  const d = new Date(fecha);
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const dia = new Date(d); dia.setHours(0,0,0,0);
+  const dif = Math.round((hoy - dia) / 86400000);
+  if(dif === 0) return 'Hoy';
+  if(dif === 1) return 'Ayer';
+  if(dif > 1 && dif < 7){ const s = d.toLocaleDateString('es-AR', { weekday:'long' }); return s[0].toUpperCase() + s.slice(1); }
+  return d.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+
+// Redibuja la conversación reutilizando los globos que no cambiaron (por
+// clave): así un cambio de tilde o un mensaje nuevo no recarga las fotos
+// ni corta un audio que se está escuchando.
+let renderToken = 0;
+async function renderMensajes(forzarAbajo){
+  const miRender = ++renderToken;
+  const conAdjunto = mensajesActuales.filter(m => m.media_path).map(m => m.media_path);
+  if(conAdjunto.length) await firmarAdjuntos(conAdjunto);
+  if(miRender !== renderToken) return;
+  const msgs = document.getElementById('convMessages');
+  if (!msgs) return;
+
   // Mezcla mensajes + eventos de regla en una sola línea de tiempo, para
   // que el aviso "Regla automática: ..." aparezca pegado al mensaje que lo
   // disparó, igual que en el render del plan.
@@ -548,26 +944,44 @@ async function renderMensajes(){
     ...eventosActuales.map(ev => ({ tipo: 'regla', fecha: ev.creado_at, data: ev })),
   ].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
-  const msgs = document.getElementById('convMessages');
-  if (!msgs) return;
-
+  if(!items.length){
+    msgs.innerHTML = `<div class="empty-state">Todavía no hay mensajes en este chat.</div>`;
+    return;
+  }
+  const estabaAbajo = forzarAbajo || msgs.__abajo !== false;
+  const piezas = [];
   let diaAnterior = null;
-  const hoy = new Date().toDateString();
-  const ayer = new Date(Date.now() - 86400000).toDateString();
-  msgs.innerHTML = items.map(it=>{
+  items.forEach(it=>{
     const dia = new Date(it.fecha).toDateString();
-    let divisor = '';
     if(dia !== diaAnterior){
       diaAnterior = dia;
-      const etiqueta = dia === hoy ? 'Hoy' : dia === ayer ? 'Ayer' : new Date(it.fecha).toLocaleDateString('es-AR', {day:'2-digit', month:'long', year:'numeric'});
-      divisor = `<div class="dia-divisor"><span>${escapeHtml(etiqueta)}</span></div>`;
+      piezas.push({ key: 'd' + dia, html: `<div class="dia-divisor"><span>${escapeHtml(etiquetaDia(it.fecha))}</span></div>` });
     }
-    if(it.tipo === 'regla') return divisor + `<div class="regla-aviso">${textoEventoRegla(it.data)}</div>`;
+    if(it.tipo === 'regla'){
+      piezas.push({ key: 'r' + (it.data.id || it.data.creado_at), html: `<div class="regla-aviso">${textoEventoRegla(it.data)}</div>` });
+      return;
+    }
     const m = it.data;
-    const tilde = m.direccion==='saliente' ? (m.estado==='leido'?' ✓✓':m.estado==='entregado'?' ✓✓':m.estado==='enviado'?' ✓':' 🕓') : '';
-    return divisor + `<div class="bubble ${m.direccion}">${m.direccion==='saliente' ? `<div class="autor">${escapeHtml(nombreUsuarioCache || 'Vos')}</div>` : ''}${burbujaAdjunto(m, urlsAdjuntos)}${m.texto ? escapeHtml(m.texto) : ''}<div class="meta">${new Date(m.creado_at).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false})}${tilde}</div></div>`;
-  }).join('') || `<div class="empty-state">Todavía no hay mensajes en este chat.</div>`;
-  msgs.scrollTop = msgs.scrollHeight;
+    const autor = m.direccion === 'saliente' ? `<div class="autor">${escapeHtml(nombreUsuarioCache || 'Vos')}</div>` : '';
+    piezas.push({ key: 'm' + m.id, html: `<div class="bubble ${m.direccion === 'saliente' ? 'saliente' : 'entrante'}">${autor}${burbujaAdjunto(m)}${m.texto ? `<div class="txt">${formatoWA(m.texto)}</div>` : ''}<div class="meta"><span>${horaMensaje(m.creado_at)}</span>${tildeHtml(m)}</div></div>` });
+  });
+
+  const viejos = new Map();
+  [...msgs.children].forEach(n => { if(n.dataset && n.dataset.key) viejos.set(n.dataset.key, n); });
+  const frag = document.createDocumentFragment();
+  const tpl = document.createElement('template');
+  piezas.forEach(p=>{
+    let n = viejos.get(p.key);
+    if(!n || n.__html !== p.html){
+      tpl.innerHTML = p.html;
+      n = tpl.content.firstElementChild;
+      n.dataset.key = p.key;
+      n.__html = p.html;
+    }
+    frag.appendChild(n);
+  });
+  msgs.replaceChildren(frag);
+  if(estabaAbajo){ msgs.scrollTop = msgs.scrollHeight; msgs.__abajo = true; }
 }
 
 function textoPlantillaConDatos(nombrePlantilla){
@@ -575,9 +989,11 @@ function textoPlantillaConDatos(nombrePlantilla){
   if(fichaActual){
     const c = fichaActual.cliente;
     const p = fichaActual.prestamoActivo;
+    const mora = fichaActual.mora;
+    const monto = mora ? (mora.importe_atraso || mora.saldo_total) : p ? (p.saldo_total_punitorios || p.saldo_total) : '';
     texto = texto.replace(/{cliente}/g, c.nombre||'')
-      .replace(/{monto}/g, p ? String(p.saldo_total_punitorios || p.saldo_total || '') : '')
-      .replace(/{fecha}/g, c.promesa_fecha || '')
+      .replace(/{monto}/g, monto ? fmtPesos(monto) : '')
+      .replace(/{fecha}/g, c.promesa_fecha ? fmtFecha(c.promesa_fecha) : '')
       .replace(/{ejecutivo}/g, nombreUsuarioCache || '');
   }
   return texto;
@@ -585,22 +1001,61 @@ function textoPlantillaConDatos(nombrePlantilla){
 
 function renderPlantillaChips(){
   const cont = document.getElementById('plantillaChips');
-  const nombres = Object.keys(plantillasCache).slice(0, 5);
+  const nombres = Object.keys(plantillasCache).slice(0, 4);
   cont.innerHTML = nombres.map(n => `<button data-n="${escapeHtml(n)}">/${escapeHtml(n)}</button>`).join('')
     + `<button data-nota="1">📝 Nota interna</button>`;
   cont.querySelectorAll('button[data-n]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{ document.getElementById('composeTexto').value = textoPlantillaConDatos(btn.dataset.n); });
+    btn.addEventListener('click', ()=>{ const t = document.getElementById('composeTexto'); t.value = textoPlantillaConDatos(btn.dataset.n); t.dispatchEvent(new Event('input')); t.focus(); });
   });
   const btnNota = cont.querySelector('[data-nota]');
   if(btnNota) btnNota.addEventListener('click', agregarNotaInterna);
 }
 
-async function agregarNotaInterna(){
-  if(!fichaActual){ alert('Este chat no está vinculado a un cliente todavía.'); return; }
-  const texto = prompt('Nota interna (no la ve el cliente):');
-  if(!texto) return;
-  await crmAgregarNotaCliente(fichaActual.cliente.id, texto);
-  alert('Nota guardada en la ficha del cliente.');
+const EMOJIS = ['😊','😉','🙂','😅','🙏','👍','👌','👏','🙌','🤝','💪','✅','❌','⚠️','📎','📄','📅','⏰','💰','💵','🏦','📲','👇','👉','❤️','🔥','🎉','😔','😕','🤔','📞','✍️'];
+function alternarEmojis(){
+  const pop = document.getElementById('emojiPopup');
+  if(pop.style.display === 'grid'){ pop.style.display = 'none'; return; }
+  pop.innerHTML = EMOJIS.map(e => `<button type="button">${e}</button>`).join('');
+  pop.style.display = 'grid';
+  pop.querySelectorAll('button').forEach(b => b.addEventListener('click', ()=>{
+    const t = document.getElementById('composeTexto');
+    const i = t.selectionStart ?? t.value.length;
+    t.value = t.value.slice(0, i) + b.textContent + t.value.slice(t.selectionEnd ?? i);
+    t.focus(); t.selectionStart = t.selectionEnd = i + b.textContent.length;
+    pop.style.display = 'none';
+  }));
+}
+document.addEventListener('click', e=>{
+  const pop = document.getElementById('emojiPopup');
+  if(pop && pop.style.display === 'grid' && !e.target.closest('#emojiPopup') && !e.target.closest('#btnEmoji')) pop.style.display = 'none';
+});
+
+function agregarNotaInterna(){
+  if(!fichaActual){
+    toast('Agendá el contacto primero: las notas se guardan en la ficha del cliente.');
+    if(conversacionActual && !conversacionActual.cliente_id && !conversacionActual.es_grupo) abrirModalAgendar();
+    return;
+  }
+  const clienteId = fichaActual.cliente.id;
+  const m = abrirModal(`
+    <div class="modal-head"><div><h2>📝 Nota interna</h2><div class="sub">La ve solo el equipo, no el cliente. Queda en el historial de ${escapeHtml(fichaActual.cliente.nombre)}.</div></div><button class="modal-x" data-cerrar>✕</button></div>
+    <div class="modal-body"><textarea class="m-input" id="notaTexto" placeholder="Ej: dice que cobra el 5, volver a escribir ese día"></textarea></div>
+    <div class="modal-pie"><span class="error" id="notaError"></span><button class="btn" data-cerrar>Cancelar</button><button class="btn btn-verde" id="notaGuardar">Guardar nota</button></div>`);
+  const ta = m.el.querySelector('#notaTexto');
+  ta.focus();
+  m.el.querySelector('#notaGuardar').addEventListener('click', async (e)=>{
+    const texto = ta.value.trim();
+    if(!texto){ m.el.querySelector('#notaError').textContent = 'Escribí la nota.'; return; }
+    e.target.disabled = true; e.target.textContent = 'Guardando...';
+    try{
+      await crmAgregarNotaCliente(clienteId, texto);
+      m.cerrar();
+      toast('📝 Nota guardada en la ficha del cliente.');
+    }catch(err){
+      e.target.disabled = false; e.target.textContent = 'Guardar nota';
+      m.el.querySelector('#notaError').textContent = 'No se pudo guardar la nota.';
+    }
+  });
 }
 
 function mostrarPopupPlantillas(filtro){
@@ -623,64 +1078,302 @@ async function enviarMensajeActual(){
   const texto = textarea.value.trim();
   if(!texto || !conversacionActual) return;
   textarea.value = '';
+  textarea.style.height = '';
   mensajesActuales.push({ id:'tmp_'+Date.now(), direccion:'saliente', tipo:'texto', texto, estado:'pendiente', creado_at:new Date().toISOString() });
-  renderMensajes();
+  renderMensajes(true);
   try{
     await crmEnviarMensaje(conversacionActual.id, texto);
     await cargarConversaciones();
   }catch(e){
-    alert('No se pudo dejar el mensaje en la cola de envío.');
+    toast('No se pudo dejar el mensaje en la cola de envío.', 'error');
   }
 }
 
 function irAVista(view){ window.top.postMessage({ type:'cm-ir-a-vista', view }, '*'); }
 
+/* ===== Modales ===== */
+function abrirModal(html, ancho){
+  const fondo = document.createElement('div');
+  fondo.className = 'modal-fondo';
+  fondo.innerHTML = `<div class="modal" role="dialog" aria-modal="true" ${ancho ? `style="width:${ancho}px"` : ''}>${html}</div>`;
+  document.body.appendChild(fondo);
+  const cerrar = () => { fondo.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if(e.key === 'Escape') cerrar(); };
+  document.addEventListener('keydown', onKey);
+  fondo.addEventListener('mousedown', e => { if(e.target === fondo) cerrar(); });
+  fondo.querySelectorAll('[data-cerrar]').forEach(b => b.addEventListener('click', cerrar));
+  return { el: fondo, cerrar };
+}
+
+// "👤 Agendar": crea el cliente o vincula el chat a uno que ya existe. Al
+// guardar, se recarga la lista y se reabre el chat ya con su ficha.
+function abrirModalAgendar(){
+  const conv = conversacionActual;
+  if(!conv || conv.cliente_id || conv.es_grupo) return;
+  const tel = conv.telefono ? telefonoLindo(conv.telefono) : 'Número todavía no disponible';
+  // El nombre con el que se agendó en WhatsApp (si lo mandó) sirve de punto
+  // de partida para el nombre del cliente.
+  const nombreWa = conv.nombre && !/^[+\d\s()-]+$/.test(conv.nombre) ? String(conv.nombre).replace(/^~\s*/, '') : '';
+  const m = abrirModal(`
+    <div class="modal-head"><div><h2>👤 Agendar contacto</h2><div class="sub">📱 ${escapeHtml(tel)}</div></div><button class="modal-x" data-cerrar>✕</button></div>
+    <div class="modal-body">
+      <div class="seg"><button class="active" data-tab="nuevo">Crear cliente nuevo</button><button data-tab="existente">Vincular a cliente existente</button></div>
+      <div data-panel="nuevo">
+        <label class="m-label" for="agNombre">Nombre y apellido *</label>
+        <input class="m-input" id="agNombre" placeholder="Ej: María González" value="${escapeHtml(nombreWa)}">
+        <label class="m-label" for="agDni">DNI (opcional)</label>
+        <input class="m-input" id="agDni" inputmode="numeric" placeholder="Ej: 32145678">
+        <div class="m-ayuda">Se crea en la etapa “A contactar” del Kanban${conv.telefono ? ' con este número como teléfono' : ''}.</div>
+      </div>
+      <div data-panel="existente" style="display:none;">
+        <label class="m-label" for="agBuscar">Buscar por nombre o DNI</label>
+        <input class="m-input" id="agBuscar" placeholder="Escribí al menos 2 letras o 4 números..." autocomplete="off">
+        <div class="resultados" id="agResultados"></div>
+        <div class="m-ayuda" id="agEstado"></div>
+      </div>
+    </div>
+    <div class="modal-pie"><span class="error" id="agError"></span><button class="btn" data-cerrar>Cancelar</button><button class="btn btn-verde" id="agGuardar">Crear y agendar</button></div>`, 460);
+  const el = m.el;
+  let pestana = 'nuevo';
+  let elegido = null;
+  const btnGuardar = el.querySelector('#agGuardar');
+  const error = el.querySelector('#agError');
+  const actualizarBoton = () => {
+    btnGuardar.textContent = pestana === 'nuevo' ? 'Crear y agendar' : 'Vincular';
+    btnGuardar.disabled = pestana === 'existente' && !elegido;
+  };
+  el.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', ()=>{
+    pestana = b.dataset.tab;
+    el.querySelectorAll('.seg button').forEach(x => x.classList.toggle('active', x === b));
+    el.querySelectorAll('[data-panel]').forEach(p => p.style.display = p.dataset.panel === pestana ? '' : 'none');
+    error.textContent = '';
+    actualizarBoton();
+    el.querySelector(pestana === 'nuevo' ? '#agNombre' : '#agBuscar').focus();
+  }));
+  el.querySelector('#agNombre').focus();
+
+  const inputBuscar = el.querySelector('#agBuscar');
+  const cont = el.querySelector('#agResultados');
+  const estado = el.querySelector('#agEstado');
+  let tBuscar = null, nBusqueda = 0;
+  inputBuscar.addEventListener('input', ()=>{
+    clearTimeout(tBuscar);
+    const q = inputBuscar.value.trim();
+    elegido = null; actualizarBoton();
+    if(q.replace(/\D/g,'').length < 4 && q.length < 2){ cont.innerHTML = ''; estado.textContent = ''; return; }
+    estado.textContent = 'Buscando...';
+    tBuscar = setTimeout(async ()=>{
+      const miBusqueda = ++nBusqueda;
+      const lista = await crmBuscarClientes(q);
+      if(miBusqueda !== nBusqueda) return;
+      estado.textContent = lista.length ? (lista.length === 20 ? 'Se muestran los primeros 20: afiná la búsqueda si no está.' : '') : 'No se encontró ningún cliente con eso. Probá con otra parte del nombre o creá uno nuevo.';
+      cont.innerHTML = lista.map(c => `<div class="resultado" data-id="${escapeHtml(c.id)}" data-nombre="${escapeHtml(c.nombre)}">
+          <div class="avatar" style="background:${colorParaNombre(c.nombre)}">${escapeHtml(iniciales(c.nombre))}</div>
+          <div style="min-width:0;"><div class="n">${escapeHtml(c.nombre)}</div><div class="d">${c.dni ? 'DNI ' + escapeHtml(fmtDni(c.dni)) : 'Sin DNI'}${c.telefono_principal ? ' · ' + escapeHtml(telefonoLindo(c.telefono_principal)) : ''}</div></div>
+        </div>`).join('');
+    }, 300);
+  });
+  cont.addEventListener('click', e=>{
+    const r = e.target.closest('.resultado');
+    if(!r) return;
+    cont.querySelectorAll('.resultado').forEach(x => x.classList.toggle('sel', x === r));
+    elegido = { id: r.dataset.id, nombre: r.dataset.nombre };
+    error.textContent = '';
+    actualizarBoton();
+  });
+  cont.addEventListener('dblclick', e=>{ if(e.target.closest('.resultado')) btnGuardar.click(); });
+  el.querySelectorAll('#agNombre, #agDni').forEach(i => i.addEventListener('keydown', e => { if(e.key === 'Enter') btnGuardar.click(); }));
+
+  btnGuardar.addEventListener('click', async ()=>{
+    error.textContent = '';
+    let opciones, nombreFinal;
+    if(pestana === 'nuevo'){
+      const nombre = el.querySelector('#agNombre').value.trim();
+      const dni = el.querySelector('#agDni').value.replace(/\D/g,'');
+      if(!nombre){ error.textContent = 'Poné el nombre del cliente.'; el.querySelector('#agNombre').focus(); return; }
+      if(dni && (dni.length < 7 || dni.length > 8)){ error.textContent = 'El DNI tiene que tener 7 u 8 números.'; return; }
+      opciones = { conversacionId: conv.id, nuevo: { nombre, dni } };
+      nombreFinal = nombre;
+    } else {
+      if(!elegido){ error.textContent = 'Elegí un cliente de la lista.'; return; }
+      opciones = { conversacionId: conv.id, clienteId: elegido.id };
+      nombreFinal = elegido.nombre;
+    }
+    btnGuardar.disabled = true; btnGuardar.textContent = 'Guardando...';
+    try{
+      await crmAgendarConversacion(opciones);
+      m.cerrar();
+      toast(`✅ Contacto agendado como ${nombreFinal}`);
+      await cargarConversaciones();
+      cargarResumenPrestamos();
+      abrirConversacion(conv.id);
+    }catch(err){
+      console.error(err);
+      btnGuardar.disabled = false; actualizarBoton();
+      error.textContent = 'No se pudo agendar: ' + (err && err.message ? err.message : 'probá de nuevo.');
+    }
+  });
+}
+
+// "123.456,50" / "$ 86400" / "86.400" -> número.
+function parseMonto(txt){
+  let s = String(txt||'').replace(/[^\d.,-]/g, '');
+  if(s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if(/\.\d{3}(\.|$)/.test(s)) s = s.replace(/\./g, '');
+  return parseFloat(s) || 0;
+}
+
+// "✅ Confirmar pago": imputa el pago a las cuotas (crmConfirmarPago), lo
+// suma en Sueldo & Cobros y pasa al cliente a "Cerrado (Cobrado)".
+// soloMoverEtapa: viene de elegir "Cerrado" en el select de etapa; deja
+// la opción de mover sin registrar pago (ej. lo registró otra persona).
+function abrirModalPago(soloMoverEtapa){
+  if(!fichaActual) return;
+  const { cliente, prestamoActivo: p, mora } = fichaActual;
+  const conv = conversacionActual;
+  const miCarga = cargaActual;
+  const saldoVencido = mora ? mora.importe_atraso : (p ? p.importe_atraso || 0 : 0);
+  const valorCuota = (p && p.cuota_monto) || (mora && mora.cuotas && mora.cuotas[0] && mora.cuotas[0].monto) || 0;
+  const saldoTotal = mora ? mora.saldo_total : (p ? p.saldo_total : null);
+  const sugerido = saldoVencido > 0 ? saldoVencido : valorCuota;
+  const fmtNum = n => Math.round(Number(n)||0).toLocaleString('es-AR');
+  const m = abrirModal(`
+    <div class="modal-head"><div><h2>✅ Confirmar pago</h2><div class="sub">${escapeHtml(cliente.nombre)}${p && p.nro ? ' · Préstamo Nº ' + escapeHtml(p.nro) : ''}</div></div><button class="modal-x" data-cerrar>✕</button></div>
+    <div class="modal-body">
+      <label class="m-label" for="pagoMonto">Monto que pagó</label>
+      <div class="monto-caja"><span class="peso">$</span><input class="m-input" id="pagoMonto" inputmode="decimal" value="${sugerido ? fmtNum(sugerido) : ''}" placeholder="0"></div>
+      <div class="m-ayuda" style="margin-top:-6px;">${saldoVencido > 0 ? `Saldo vencido: <b>${fmtPesos(saldoVencido)}</b>` : 'Sin saldo vencido'}${valorCuota ? ` · Cuota: ${fmtPesos(valorCuota)}` : ''}${saldoTotal ? ` · Saldo total: ${fmtPesos(saldoTotal)}` : ''}</div>
+      <div class="opciones-pago">
+        <label class="opcion"><input type="radio" name="pagoTipo" value="cuotas" checked><div><b>Pagó cuota(s)</b><span>Se imputa a las cuotas impagas más viejas.</span></div></label>
+        <label class="opcion"><input type="radio" name="pagoTipo" value="total"><div><b>Canceló el préstamo completo</b><span>Se saldan todas las cuotas y queda con la etiqueta “Cancelado”.</span></div></label>
+      </div>
+      <div class="m-ayuda">El pago se suma en Sueldo & Cobros y el cliente pasa a “Cerrado (Cobrado)”.</div>
+    </div>
+    <div class="modal-pie"><span class="error" id="pagoError"></span>
+      ${soloMoverEtapa ? `<button class="btn" id="pagoSoloMover" title="Mover a Cerrado sin registrar un pago">Solo mover</button>` : `<button class="btn" data-cerrar>Cancelar</button>`}
+      <button class="btn btn-verde" id="pagoConfirmar">Confirmar</button></div>`, 440);
+  const el = m.el;
+  const input = el.querySelector('#pagoMonto');
+  input.focus(); input.select();
+  let editado = false;
+  input.addEventListener('input', ()=>{ editado = true; });
+  el.querySelectorAll('input[name=pagoTipo]').forEach(r => r.addEventListener('change', ()=>{
+    if(editado) return;
+    input.value = r.value === 'total' && saldoTotal ? fmtNum(saldoTotal) : (sugerido ? fmtNum(sugerido) : '');
+  }));
+  input.addEventListener('keydown', e => { if(e.key === 'Enter') el.querySelector('#pagoConfirmar').click(); });
+
+  const refrescar = async () => {
+    await Promise.all([cargarConversaciones(), cargarResumenPrestamos()]);
+    if(conversacionActual && conv && conversacionActual.id === conv.id && miCarga === cargaActual) await recargarFicha(miCarga);
+  };
+  const btnSolo = el.querySelector('#pagoSoloMover');
+  if(btnSolo) btnSolo.addEventListener('click', async ()=>{
+    const etapaCerrado = etapasCache.find(e => e.id === 'cerrado');
+    btnSolo.disabled = true;
+    try{
+      await crmMoverEtapa(cliente.id, etapaCerrado._rowId);
+      m.cerrar();
+      toast('Cliente movido a Cerrado (Cobrado), sin registrar pago.');
+      await refrescar();
+    }catch(e){ btnSolo.disabled = false; el.querySelector('#pagoError').textContent = 'No se pudo mover de etapa.'; }
+  });
+  // Si se cierra sin confirmar (venía del select de etapa), el select vuelve a como estaba.
+  const obs = new MutationObserver(()=>{ if(!document.body.contains(el)){ obs.disconnect(); if(soloMoverEtapa && miCarga === cargaActual) renderFicha(); } });
+  obs.observe(document.body, { childList: true });
+
+  el.querySelector('#pagoConfirmar').addEventListener('click', async (e)=>{
+    const cancelaTotal = el.querySelector('input[name=pagoTipo]:checked').value === 'total';
+    const monto = parseMonto(input.value);
+    const error = el.querySelector('#pagoError');
+    if(!cancelaTotal && !(monto > 0)){ error.textContent = 'Poné el monto que pagó.'; input.focus(); return; }
+    e.target.disabled = true; e.target.textContent = 'Confirmando...';
+    try{
+      const r = await crmConfirmarPago({ clienteId: cliente.id, monto, cancelaTotal, origen: 'whatsapp' });
+      m.cerrar();
+      const cant = (p && p.cant_cuotas) || (r.mora && r.mora.cuotas && r.mora.cuotas.length) || 0;
+      if(r.cancelado) toast(`✅ Préstamo cancelado${monto ? ' · pago de ' + fmtPesos(monto) : ''} · cliente movido a Cerrado (Cobrado)`);
+      else if(r.mora) toast(`✅ Pago de ${fmtPesos(monto)} registrado · Cuotas: ${fmtDecimal(Math.min(r.mora.cuotas_pagas_decimal, cant || Infinity))}${cant ? ' de ' + cant : ''} · Saldo vencido: ${fmtPesos(r.mora.importe_atraso)}`);
+      else toast(`✅ Pago de ${fmtPesos(monto)} registrado · cliente movido a Cerrado (Cobrado)`);
+      await refrescar();
+    }catch(err){
+      console.error(err);
+      e.target.disabled = false; e.target.textContent = 'Confirmar';
+      error.textContent = 'No se pudo confirmar el pago: ' + (err && err.message ? err.message : 'probá de nuevo.');
+    }
+  });
+}
+
 function renderFicha(){
   const el = document.getElementById('fichaLateral');
-  if(conversacionActual && conversacionActual.es_grupo){
+  const conv = conversacionActual;
+  if(!conv){ el.innerHTML = ''; return; }
+  if(conv.es_grupo){
     el.innerHTML = `<div class="empty-state" style="height:200px;">Este es un chat grupal — no tiene ficha de cliente.</div>`;
     return;
   }
-  if(!fichaActual){
-    el.innerHTML = `<div class="card"><div class="card-head"><span class="card-titulo">Cliente</span></div>
-      <div style="color:var(--muted);font-size:13px;line-height:1.5;">Este chat todavía no está vinculado a ningún cliente de tu cartera.${conversacionActual && !conversacionActual.telefono ? '<br><br>WhatsApp todavía no informó el número de este contacto: se vincula solo apenas lo haga.' : ''}</div></div>`;
+  if(!conv.cliente_id){
+    el.innerHTML = `<div class="card">
+      <div class="card-head"><span class="card-titulo">Contacto sin agendar</span></div>
+      <div class="sin-agendar-tel">${conv.telefono ? '📱 ' + escapeHtml(telefonoLindo(conv.telefono)) : '📱 Número no disponible'}</div>
+      ${conv.nombre && !conv.telefono ? `<div class="fila"><span class="k">Nombre en WhatsApp</span><span class="v">${escapeHtml(String(conv.nombre).replace(/^~\s*/, ''))}</span></div>` : ''}
+      <div class="sin-agendar-txt">Este chat no está vinculado a ningún cliente de tu cartera. Agendalo para ver su préstamo, moverlo en el Kanban y que las reglas automáticas lo sigan.${conv.telefono ? '' : '<br><br>WhatsApp todavía no informó el número de este contacto: igual lo podés vincular a mano.'}</div>
+      <button class="btn btn-verde btn-ancho" id="fichaAgendar">👤 Agendar contacto</button>
+    </div>`;
+    el.querySelector('#fichaAgendar').addEventListener('click', abrirModalAgendar);
     return;
   }
-  const { cliente, prestamoActivo: p, prestamos } = fichaActual;
-  const saldoVencido = p ? (p.importe_atraso || 0) : 0;
+  if(!fichaActual){
+    el.innerHTML = `<div class="empty-state" style="height:200px;">Cargando ficha...</div>`;
+    return;
+  }
+  const { cliente, prestamoActivo: p, prestamos, mora } = fichaActual;
   const cancelados = (prestamos || []).filter(x => x.estado === 'cancelado').length;
   const totalCreditos = (prestamos || []).length;
-  let progresoPct = 0;
-  if(p && p.cant_cuotas) progresoPct = Math.round(((p.cuotas_pagas||0) / p.cant_cuotas) * 100);
-  const venc = p && p.proximo_vencimiento;
-  const dias = p ? (p.dias_atraso || 0) : 0;
+  // Con plan de cuotas (mora), todo sale calculado al día de hoy; si no,
+  // se usan los campos del préstamo, acotados (hay datos viejos del Excel
+  // con "339 de 5" cuotas pagas).
+  const prestamoCancelado = !!p && (p.estado === 'cancelado' || (mora && mora.cancelado));
+  const cant = p ? (p.cant_cuotas || (mora && mora.cuotas ? mora.cuotas.length : 0)) : 0;
+  const saldoVencido = prestamoCancelado ? 0 : mora ? (mora.importe_atraso || 0) : (p ? (p.importe_atraso || 0) : 0);
+  const pagas = mora ? mora.cuotas_pagas_decimal : (p ? (p.cuotas_pagas || 0) : 0);
+  const pagasAcotadas = Math.max(0, cant ? Math.min(pagas, cant) : pagas);
+  let progresoPct = mora ? mora.porcentaje_cancelado : (cant ? (pagasAcotadas / cant) * 100 : 0);
+  if(prestamoCancelado) progresoPct = 100;
+  progresoPct = Math.max(0, Math.min(100, Math.round(Number(progresoPct) || 0)));
+  const valorCuota = p ? (p.cuota_monto || (mora && mora.cuotas && mora.cuotas[0] && mora.cuotas[0].monto) || 0) : 0;
+  const venc = mora ? mora.proximo_vencimiento : (p && p.proximo_vencimiento);
+  const dias = prestamoCancelado ? 0 : mora ? (mora.dias_atraso || 0) : (p ? (p.dias_atraso || 0) : 0);
   const etapaSel = etapaPorRowId(cliente.etapa_id);
+  const promesa = cliente.promesa_fecha;
+  const dPromesa = diasHasta(promesa);
+  const promesaRel = promesa ? (dPromesa === 0 ? 'Hoy' : dPromesa === 1 ? 'Mañana' : dPromesa === -1 ? 'Ayer' : diaSemanaCorto(promesa).split(' ')[0]) : '';
   el.innerHTML = `
     <div class="card">
       <div class="card-head"><span class="card-titulo">Cliente</span><button class="card-link" id="fichaVerCompleta">Ver ficha →</button></div>
       <div class="fila"><span class="k">Nombre</span><span class="v">${escapeHtml(cliente.nombre)}</span></div>
-      <div class="fila"><span class="k">DNI</span><span class="v">${escapeHtml(cliente.dni||'—')}</span></div>
-      <div class="fila"><span class="k">Créditos históricos</span><span class="v">${totalCreditos}${totalCreditos ? ` (${cancelados === totalCreditos ? 'todos pagados' : cancelados + ' pagados'})` : ''}</span></div>
+      <div class="fila"><span class="k">DNI</span><span class="v">${escapeHtml(fmtDni(cliente.dni) || '—')}</span></div>
+      <div class="fila"><span class="k">Créditos históricos</span><span class="v">${totalCreditos}${totalCreditos ? ` (${cancelados === totalCreditos ? 'todos pagados' : cancelados + ' pagado' + (cancelados === 1 ? '' : 's')})` : ''}</span></div>
       ${cliente.categoria ? `<div class="fila"><span class="k">Categoría</span><span class="tag verde">${escapeHtml(cliente.categoria)}</span></div>` : ''}
     </div>
     ${p ? `
     <div class="card">
-      <div class="card-head"><span class="card-titulo">Préstamo activo</span>${p.nro ? `<span class="card-titulo">Nº ${escapeHtml(p.nro)}</span>` : ''}</div>
+      <div class="card-head"><span class="card-titulo">${prestamoCancelado ? 'Préstamo' : 'Préstamo activo'}</span>${prestamoCancelado ? `<span class="tag verde">✅ Cancelado</span>` : (p.nro ? `<span class="card-titulo">Nº ${escapeHtml(p.nro)}</span>` : '')}</div>
       <div class="saldo-label">Saldo vencido</div>
-      <div class="saldo-grande">${fmtPesos(saldoVencido)}</div>
+      <div class="saldo-grande ${saldoVencido > 0 ? '' : 'cero'}">${fmtPesos(saldoVencido)}</div>
       ${p.monto ? `<div class="fila"><span class="k">Monto otorgado</span><span class="v">${fmtPesos(p.monto)}</span></div>` : ''}
-      ${p.cant_cuotas ? `<div class="fila"><span class="k">Cuotas</span><span class="v">${p.cuotas_pagas||0} de ${p.cant_cuotas}${p.cuota_monto ? ' · ' + fmtPesos(p.cuota_monto) + ' c/u' : ''}</span></div>` : ''}
-      <div class="fila"><span class="k">Vencimiento</span><span class="v ${dias > 0 ? 'rojo' : ''}">${fmtFecha(venc)}${dias > 0 ? ` · ${dias} días` : ''}</span></div>
-      ${p.cant_cuotas ? `
+      ${cant ? `<div class="fila"><span class="k">Cuotas</span><span class="v">${fmtDecimal(pagasAcotadas)} de ${cant}${valorCuota ? ' · ' + fmtPesos(valorCuota) + ' c/u' : ''}</span></div>` : ''}
+      <div class="fila"><span class="k">Vencimiento</span><span class="v ${dias > 0 ? 'rojo' : ''}">${prestamoCancelado ? 'Pagado' : fmtFecha(venc)}${dias > 0 ? ` · ${dias} día${dias === 1 ? '' : 's'}` : ''}</span></div>
+      ${cant || mora ? `
       <div class="progreso-bar"><div class="fill" style="width:${progresoPct}%;"></div></div>
       <div class="progreso-txt">${progresoPct}% del préstamo cancelado</div>` : ''}
     </div>` : ''}
     <div class="card">
       <div class="card-head"><span class="card-titulo">Gestión</span></div>
-      <div class="campo-label">Etapa en el Kanban</div>
-      <select id="fichaEtapa">${etapasCache.map(e=>`<option value="${e._rowId}" ${cliente.etapa_id===e._rowId?'selected':''}>${(ESTILO_ETAPA[e.id]||{emoji:'⚫'}).emoji} ${escapeHtml(e.name)}</option>`).join('')}${etapaSel ? '' : '<option value="" selected>— Sin etapa —</option>'}</select>
+      <div class="campo-label primero">Etapa en el Kanban</div>
+      <select class="campo-caja" id="fichaEtapa">${etapaSel ? '' : '<option value="" selected>— Sin etapa —</option>'}${etapasCache.map(e=>`<option value="${escapeHtml(e._rowId)}" ${cliente.etapa_id===e._rowId?'selected':''}>${(ESTILO_ETAPA[e.id]||{emoji:'⚫'}).emoji} ${escapeHtml(e.name)}</option>`).join('')}</select>
       <div class="campo-label">Promesa de pago</div>
-      <input type="date" id="fichaPromesa" value="${cliente.promesa_fecha||''}">
+      <label class="campo-caja" id="cajaPromesa"><span class="fecha-txt ${promesa ? '' : 'vacia'}">📅 ${promesa ? `${fmtFecha(promesa)} · ${promesaRel}` : 'Sin promesa'}</span><span class="lapiz">✏️</span><input type="date" id="fichaPromesa" value="${escapeHtml(promesa||'')}"></label>
       <div class="guardado-ok" id="fichaGuardadoOk"></div>
     </div>
     <div class="ficha-acciones">
@@ -696,49 +1389,52 @@ function renderFicha(){
     const ok = document.getElementById('fichaGuardadoOk');
     if(ok){ ok.textContent = txt; setTimeout(()=>{ if(ok) ok.textContent = ''; }, 2500); }
   };
+  const reflejarEnLista = (cambios) => {
+    Object.assign(cliente, cambios);
+    if(conversacionActual.clientes) Object.assign(conversacionActual.clientes, cambios);
+    renderChatList();
+  };
   document.getElementById('fichaEtapa').addEventListener('change', async (e)=>{
-    const etapaId = e.target.value || null;
+    const etapaId = e.target.value;
+    if(!etapaId) return;
+    const etapa = etapaPorRowId(etapaId);
+    // Pasar a "Cerrado (Cobrado)" es confirmar un pago: se abre el mismo
+    // cuadro (con la opción de solo mover, si el pago ya se registró).
+    if(etapa && etapa.id === 'cerrado'){ abrirModalPago(true); return; }
     try{
-      await crmActualizarCliente(cliente.id, { etapa_id: etapaId });
-      cliente.etapa_id = etapaId;
-      if(conversacionActual.clientes) conversacionActual.clientes.etapa_id = etapaId;
-      renderChatList();
+      await crmMoverEtapa(cliente.id, etapaId);
+      reflejarEnLista({ etapa_id: etapaId });
       avisarGuardado('✓ Etapa guardada');
-    }catch(err){ alert('No se pudo guardar la etapa.'); }
+    }catch(err){ toast('No se pudo guardar la etapa.', 'error'); renderFicha(); }
   });
-  document.getElementById('fichaPromesa').addEventListener('change', async (e)=>{
-    const promesa = e.target.value || null;
+  const inputPromesa = document.getElementById('fichaPromesa');
+  document.getElementById('cajaPromesa').addEventListener('click', (e)=>{
+    if(e.target !== inputPromesa) e.preventDefault();
+    try{ inputPromesa.showPicker(); }
+    catch(err){ document.getElementById('cajaPromesa').classList.add('nativo'); inputPromesa.focus(); }
+  });
+  inputPromesa.addEventListener('change', async (e)=>{
+    const fecha = e.target.value || null;
     try{
-      await crmActualizarCliente(cliente.id, { promesa_fecha: promesa });
-      cliente.promesa_fecha = promesa;
-      if(conversacionActual.clientes) conversacionActual.clientes.promesa_fecha = promesa;
-      renderChatList();
-      avisarGuardado('✓ Promesa guardada');
-    }catch(err){ alert('No se pudo guardar la promesa.'); }
+      await crmGuardarPromesa(cliente.id, fecha);
+      reflejarEnLista({ promesa_fecha: fecha });
+      renderFicha();
+      avisarGuardado(fecha ? '✓ Promesa guardada' : '✓ Promesa borrada');
+    }catch(err){ toast('No se pudo guardar la promesa.', 'error'); }
   });
   document.getElementById('fichaVerCompleta').addEventListener('click', ()=>{
     window.top.postMessage({type:'cm-ir-a-clientes', id: cliente.id}, '*');
   });
-  document.getElementById('fichaConfirmarPago').addEventListener('click', async ()=>{
-    const etapaCerrado = etapasCache.find(e => e.id === 'cerrado');
-    if(!etapaCerrado){ alert('No se encontró la etapa "Cerrado (Cobrado)" en tu Kanban.'); return; }
-    const monto = prompt('¿Qué monto pagó?', saldoVencido || '');
-    if(monto === null) return;
-    await crmActualizarCliente(cliente.id, { etapa_id: etapaCerrado._rowId });
-    await crmAddPago({ cliente_id: cliente.id, nombre: cliente.nombre, monto: parseFloat(monto)||0, fecha: new Date().toISOString().slice(0,10), estado: 'Cobrado', origen: 'whatsapp' });
-    cliente.etapa_id = etapaCerrado._rowId;
-    if(conversacionActual.clientes) conversacionActual.clientes.etapa_id = etapaCerrado._rowId;
-    renderFicha(); renderChatList();
-    alert('Pago confirmado: cliente movido a Cerrado (Cobrado) y pago sumado en Sueldo & Cobros.');
-  });
+  document.getElementById('fichaConfirmarPago').addEventListener('click', ()=> abrirModalPago(false));
   document.getElementById('fichaRefinanciar').addEventListener('click', async ()=>{
     const etapaRef = etapasCache.find(e => e.id === 'refinanciado');
-    if(!etapaRef){ alert('No se encontró la etapa "Refinanciado" en tu Kanban.'); return; }
-    await crmActualizarCliente(cliente.id, { etapa_id: etapaRef._rowId });
-    cliente.etapa_id = etapaRef._rowId;
-    if(conversacionActual.clientes) conversacionActual.clientes.etapa_id = etapaRef._rowId;
-    renderFicha(); renderChatList();
-    irAVista('view-refi');
+    if(!etapaRef){ toast('No se encontró la etapa "Refinanciado" en tu Kanban.', 'error'); return; }
+    try{
+      await crmMoverEtapa(cliente.id, etapaRef._rowId);
+      reflejarEnLista({ etapa_id: etapaRef._rowId });
+      renderFicha();
+      irAVista('view-refi');
+    }catch(err){ toast('No se pudo mover a Refinanciado.', 'error'); }
   });
   document.getElementById('fichaProxCredito').addEventListener('click', ()=> irAVista('view-calc'));
   document.getElementById('fichaNota').addEventListener('click', agregarNotaInterna);
@@ -753,18 +1449,27 @@ document.querySelectorAll('.wa-tabs button').forEach(btn=>{
   });
 });
 document.getElementById('buscarChat').addEventListener('input', renderChatList);
-document.getElementById('filtroEtapa').addEventListener('change', renderChatList);
+['filtroEtapa','filtroCobrador'].forEach(id => document.getElementById(id).addEventListener('change', ()=>{ pintarPillFiltros(); renderChatList(); }));
 document.getElementById('btnPlantillas').addEventListener('click', ()=> irAVista('view-mensajes'));
-document.getElementById('btnNuevoChat').addEventListener('click', async ()=>{
-  const tel = prompt('Número de WhatsApp (con código de área, ej: 11 4532-7781):');
-  if(!tel) return;
-  try{
-    const conv = await crmCrearConversacion(tel);
-    await cargarConversaciones();
-    abrirConversacion(conv.id);
-  }catch(e){
-    alert('Teléfono inválido.');
-  }
+document.getElementById('btnNuevoChat').addEventListener('click', ()=>{
+  const m = abrirModal(`
+    <div class="modal-head"><div><h2>+ Nuevo chat</h2><div class="sub">Arrancá una conversación con un número que todavía no escribió.</div></div><button class="modal-x" data-cerrar>✕</button></div>
+    <div class="modal-body"><label class="m-label" for="ncTel">Número de WhatsApp (con código de área)</label><input class="m-input" id="ncTel" inputmode="tel" placeholder="Ej: 11 4532-7781"></div>
+    <div class="modal-pie"><span class="error" id="ncError"></span><button class="btn" data-cerrar>Cancelar</button><button class="btn btn-verde" id="ncCrear">Abrir chat</button></div>`, 400);
+  const input = m.el.querySelector('#ncTel');
+  input.focus();
+  input.addEventListener('keydown', e => { if(e.key === 'Enter') m.el.querySelector('#ncCrear').click(); });
+  m.el.querySelector('#ncCrear').addEventListener('click', async ()=>{
+    if(!input.value.trim()) return;
+    try{
+      const conv = await crmCrearConversacion(input.value);
+      m.cerrar();
+      await cargarConversaciones();
+      abrirConversacion(conv.id);
+    }catch(e){
+      m.el.querySelector('#ncError').textContent = 'Teléfono inválido: revisá el código de área.';
+    }
+  });
 });
 
 /* ===== Tema (lo manda el panel principal) ===== */
@@ -784,7 +1489,7 @@ async function abrirChatDeCliente(clienteId){
   let conv = conversaciones.find(c => c.cliente_id === clienteId);
   if(!conv){
     const { data: tel } = await window.sb.from('clientes_telefonos').select('telefono').eq('cliente_id', clienteId).eq('principal', true).maybeSingle();
-    if(!tel){ alert('Este cliente no tiene teléfono cargado todavía.'); return; }
+    if(!tel){ toast('Este cliente no tiene teléfono cargado todavía.', 'error'); return; }
     conv = await crmCrearConversacion(tel.telefono);
     await cargarConversaciones();
   }
@@ -803,9 +1508,15 @@ window.appReady.then(async ()=>{
   const { data: { session } } = await window.sb.auth.getSession();
   etapasCache = await crmListEtapas();
   const selEtapa = document.getElementById('filtroEtapa');
-  etapasCache.forEach(e => { selEtapa.innerHTML += `<option value="${e._rowId}">Etapa: ${escapeHtml(e.name)}</option>`; });
-  plantillasCache = await crmListPlantillas();
-  nombreUsuarioCache = await crmGetNombreUsuario();
+  selEtapa.innerHTML = `<option value="">Todas</option>` + etapasCache.map(e => `<option value="${escapeHtml(e._rowId)}">${escapeHtml(e.name)}</option>`).join('');
+  const [plantillas, nombre, reglas] = await Promise.all([
+    crmListPlantillas(),
+    crmGetNombreUsuario(),
+    window.crmListReglas ? crmListReglas().catch(() => []) : Promise.resolve([]),
+  ]);
+  plantillasCache = plantillas;
+  nombreUsuarioCache = nombreCorto(nombre);
+  reglasCache = reglas || [];
   await cargarConversaciones();
   cargarResumenPrestamos();
 

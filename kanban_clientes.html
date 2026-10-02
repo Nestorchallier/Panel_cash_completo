@@ -4,13 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kanban de Cartera — Cash Market</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Inter auto-alojada (misma fuente en todo el panel, sin depender de Google Fonts). -->
+<link rel="stylesheet" href="css/fuentes.css">
+<!-- Si alguien abre esta página suelta (fuera del panel), la manda a index.html. -->
+<script src="js/embed-guard.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase/config.js"></script>
 <script src="supabase/kv.js"></script>
 <script src="js/telefonos.js"></script>
+<!-- mora.js va antes que crm.js e importer-cartera.js: los dos lo usan para
+     calcular cuotas, atraso e imputar pagos (crmConfirmarPago). -->
+<script src="js/mora.js"></script>
 <script src="supabase/crm.js"></script>
 <script src="js/importer-cartera.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -534,6 +539,94 @@
     margin-top:10px;padding-top:10px;border-top:1px solid var(--line);
   }
   .day-item-notas{font-size:11px;color:var(--muted);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;}
+
+  /* ================= Ajustes al PDF (5.2 y 5.5) ================= */
+  /* Filtros: el chip de "sin leer" va verdecito como en el render; prendido
+     se rellena, para que se note que está filtrando. */
+  .chip-sinleer{background:#f0fdf4;border-color:#86efac;color:#15803d;font-weight:600;}
+  .chip-sinleer.on{background:#16a34a;border-color:#16a34a;color:#fff;}
+  :root[data-theme="dark"] .chip-sinleer{background:#052e16;border-color:#166534;color:#4ade80;}
+  :root[data-theme="dark"] .chip-sinleer.on{background:#16a34a;border-color:#16a34a;color:#fff;}
+  .filters-bar select{max-width:260px;}
+  .filters-row .search input{width:290px;font-size:13px;}
+  .clasif-auto{cursor:default;}
+  .card-cobrador .mini-avatar{font-size:9px;}
+  .card-nl{border-radius:50%;min-width:20px;}
+  .card .mas{font-size:15px;color:#475569;background:none;border:none;padding:3px 5px;line-height:1;letter-spacing:1px;}
+  .card .mas:hover{color:#0f172a;}
+  :root[data-theme="dark"] .card .mas{color:var(--muted);}
+  .card-menu{position:fixed;display:none;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:5px;z-index:70;min-width:190px;}
+  .card-menu.open{display:flex;}
+  .card-menu button{background:none;border:none;text-align:left;color:var(--text);padding:8px 11px;border-radius:7px;font-weight:500;font-size:13px;}
+  .card-menu button:hover{background:var(--panel-2);}
+  .card-menu button.danger{color:#dc2626;}
+
+  /* Modal de confirmar pago (al pasar a Cerrado). */
+  .pago-sub{font-size:12.5px;color:var(--muted);margin:-8px 0 14px;line-height:1.5;}
+  .pago-opciones{display:flex;flex-direction:column;gap:8px;margin:4px 0 12px;}
+  .pago-opcion{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:13.5px;cursor:pointer;}
+  .pago-opcion input{accent-color:#16a34a;width:16px;height:16px;margin:0;}
+  .pago-opcion.sel{border-color:#86efac;background:#f0fdf4;}
+  :root[data-theme="dark"] .pago-opcion.sel{background:#052e16;border-color:#166534;}
+  .pago-nota{font-size:11.5px;color:var(--muted);line-height:1.5;}
+  .btn-verde{background:#16a34a;color:#fff;}
+  .btn-verde:hover{background:#15803d;}
+  button:disabled{opacity:.6;cursor:wait;}
+
+  /* Encabezado del Calendario: "Mes" / "Semana" / "+ Recordatorio". */
+  .cal-toolbar{display:none;gap:10px;align-items:center;}
+  .cal-toolbar .vista-btn{background:var(--panel);border:1px solid var(--line);color:#94a3b8;font-weight:600;padding:9px 16px;}
+  .cal-toolbar .vista-btn.on{color:#0f172a;border-color:#cbd5e1;}
+  :root[data-theme="dark"] .cal-toolbar .vista-btn.on{color:var(--text);border-color:#475569;}
+  .cal-toolbar .btn-primary{padding:9px 16px;}
+  #calendarView{background:#f8fafc;padding:20px 22px;}
+  :root[data-theme="dark"] #calendarView{background:var(--bg);}
+  #calendarView .cal-header{padding:14px 16px;}
+  #calendarView .cal-nav button.cal-hoy{margin-left:6px;padding:0 14px;}
+  #calendarView .cal-title{min-width:150px;text-align:center;}
+  #calendarView .cal-weekday{background:var(--panel);text-transform:uppercase;padding:9px 10px;}
+  #calendarView .cal-day{height:126px;}
+  #calendarView .cal-day.fuera{background:var(--panel);}
+  #calendarView .cal-day.today .cal-day-num span{width:26px;height:26px;}
+  #calendarView .cal-ev.recordatorio{background:#dbeafe;color:#1d4ed8;border-color:#3b82f6;}
+  #calendarView .cal-ev.hecho{opacity:.5;text-decoration:line-through;}
+  #calendarView .cal-mas{cursor:pointer;}
+  #calendarView .cal-mas:hover{color:#2563eb;}
+  /* Vista Semana: 7 columnas altas con todos los eventos del día. */
+  #calendarView .cal-semana{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));}
+  #calendarView .cal-semana .sem-col{border-right:1px solid var(--line);min-height:560px;display:flex;flex-direction:column;}
+  #calendarView .cal-semana .sem-col:last-child{border-right:none;}
+  #calendarView .cal-semana .sem-head{padding:9px 10px;border-bottom:1px solid var(--line);font-size:12px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:8px;}
+  #calendarView .cal-semana .sem-head b{font-size:15px;color:var(--text);}
+  #calendarView .cal-semana .sem-col.today{background:#eff6ff;}
+  #calendarView .cal-semana .sem-col.today .sem-head b{background:#2563eb;color:#fff;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;}
+  :root[data-theme="dark"] #calendarView .cal-semana .sem-col.today{background:#132443;}
+  #calendarView .cal-semana .sem-evs{padding:8px 6px;display:flex;flex-direction:column;gap:4px;overflow-y:auto;max-height:620px;}
+  #calendarView .cal-semana .sem-vacio{color:#cbd5e1;font-size:12px;text-align:center;padding-top:10px;}
+  #calendarView .cal-agenda{max-height:calc(100vh - 130px);overflow-y:auto;position:sticky;top:12px;}
+  #calendarView .agenda-top b{font-weight:700;}
+  #calendarView .agenda-badge.rec{background:#dbeafe;color:#1d4ed8;}
+  #calendarView .agenda-acciones .ag-hecho{background:#2563eb;border-color:#2563eb;color:#fff;}
+  #calendarView .agenda-acciones button:disabled{opacity:.4;cursor:not-allowed;}
+  #calendarView .agenda-seccion{font-size:11.5px;font-weight:700;color:var(--muted);margin-top:4px;}
+
+  /* Modal "+ Recordatorio": buscador de cliente con sugerencias. */
+  .rec-cli-wrap{position:relative;}
+  .rec-sugerencias{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--panel);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow);z-index:5;max-height:220px;overflow-y:auto;display:none;}
+  .rec-sugerencias.open{display:block;}
+  .rec-sugerencias div{padding:8px 11px;font-size:13px;cursor:pointer;}
+  .rec-sugerencias div:hover{background:var(--panel-2);}
+  .rec-sugerencias small{color:var(--muted);margin-left:6px;}
+  .rec-cli-elegido{display:inline-flex;align-items:center;gap:8px;background:#dbeafe;color:#1d4ed8;font-weight:600;font-size:13px;border-radius:7px;padding:6px 10px;}
+  .rec-cli-elegido button{background:none;border:none;color:#1d4ed8;padding:0 2px;font-size:14px;}
+
+  /* Detalle del día (todos los eventos, no solo promesas). */
+  .day-item.recordatorio{border-left-color:#3b82f6;}
+  .day-item.vence{border-left-color:#ef4444;}
+  .day-item.cobrado{border-left-color:#22c55e;}
+  .day-item.promesa{border-left-color:#f59e0b;}
+  #confirmMsg{color:#334155 !important;}
+  :root[data-theme="dark"] #confirmMsg{color:var(--text) !important;}
 </style>
 </head>
 <body>
@@ -561,6 +654,12 @@
     <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
     <input type="file" id="fileInputPagos" accept=".xlsx,.xls,.csv">
   </div>
+  <!-- Solo en la vista Calendario (render 5.5). -->
+  <div class="cal-toolbar" id="calToolbar">
+    <button class="vista-btn on" id="calVistaMes">Mes</button>
+    <button class="vista-btn" id="calVistaSemana">Semana</button>
+    <button class="btn-primary" id="btnNuevoRecordatorio">+ Recordatorio</button>
+  </div>
 </header>
 
 <div class="stats" id="stats"></div>
@@ -571,7 +670,7 @@
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
     <input id="searchInput" type="text" placeholder="Buscar cliente, DNI o préstamo...">
   </div>
-  <span class="clasif-auto">🤖 Clasif. automática <b>ON</b></span>
+  <span class="clasif-auto" title="Las reglas automáticas del worker mueven las tarjetas solas según lo que escribe el cliente (se configuran en Conexión WhatsApp)">🤖 Clasif. automática <b>ON</b></span>
 </div>
 
 <main id="board"></main>
@@ -756,21 +855,63 @@
   </div>
 </div>
 
-<!-- Modal: registrar pago manual (drag a Cerrado) -->
+<!-- Modal: confirmar pago (arrastrar o cambiar la etapa a Cerrado) -->
 <div class="modal-overlay" id="cobradoModal">
   <div class="modal">
-    <h2>Registrar pago</h2>
-    <div class="field">
-      <label>Cliente</label>
-      <div id="cobradoNombre" style="font-weight:600;font-size:14px;"></div>
+    <h2>✅ Confirmar pago · <span id="cobradoNombre"></span></h2>
+    <div class="pago-sub" id="cobradoSub"></div>
+    <div class="pago-opciones">
+      <label class="pago-opcion sel" id="optCuotas"><input type="radio" name="tipoPago" value="cuotas" checked> Pagó cuota(s)</label>
+      <label class="pago-opcion" id="optTotal"><input type="radio" name="tipoPago" value="total"> Canceló el préstamo completo</label>
     </div>
-    <div class="field"><label>Monto pagado</label><input id="cobradoMonto" type="number" placeholder="Ej: 150000"></div>
-    <div style="font-size:11.5px;color:var(--muted);">Se va a sumar al Registro de pagos de Sueldo &amp; Cobros como "Cobrado".</div>
+    <div class="field"><label>Monto pagado</label><input id="cobradoMonto" type="number" min="0" placeholder="Ej: 150000"></div>
+    <div class="pago-nota">Se imputa a las cuotas impagas más viejas, se recalcula el atraso, queda en el Registro de pagos de Sueldo &amp; Cobros y la tarjeta pasa a "Cerrado (Cobrado)".</div>
     <div class="modal-actions">
       <button class="btn-ghost" id="btnCancelCobrado">Cancelar</button>
-      <button class="btn-primary" id="btnConfirmCobrado">Confirmar y mover a Cerrado</button>
+      <button class="btn-verde" id="btnConfirmCobrado">✅ Confirmar pago</button>
     </div>
   </div>
+</div>
+
+<!-- Modal: nuevo recordatorio (Calendario) -->
+<div class="modal-overlay" id="recModal">
+  <div class="modal">
+    <h2>🔔 Nuevo recordatorio</h2>
+    <div class="field"><label>Fecha</label><input id="recFecha" type="date"></div>
+    <div class="field"><label>¿Qué hay que hacer?</label><input id="recTexto" type="text" placeholder="Ej: Llamar a Fernanda por la refi"></div>
+    <div class="field">
+      <label>Cliente (opcional)</label>
+      <div class="rec-cli-wrap">
+        <input id="recClienteBuscar" type="text" placeholder="Buscar por nombre o DNI..." autocomplete="off">
+        <div class="rec-sugerencias" id="recSugerencias"></div>
+      </div>
+      <div id="recClienteElegido" style="margin-top:8px;"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btnCancelRec">Cancelar</button>
+      <button class="btn-primary" id="btnGuardarRec">Guardar recordatorio</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: mover una promesa / recordatorio a otra fecha (Agenda de hoy) -->
+<div class="modal-overlay" id="moverModal">
+  <div class="modal">
+    <h2>📅 Mover a otra fecha</h2>
+    <div class="pago-sub" id="moverSub"></div>
+    <div class="field"><label>Nueva fecha</label><input id="moverFecha" type="date"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="btnCancelMover">Cancelar</button>
+      <button class="btn-primary" id="btnConfirmMover">Mover</button>
+    </div>
+  </div>
+</div>
+
+<!-- Menú "⋯" de cada tarjeta -->
+<div class="card-menu" id="cardMenu">
+  <button id="cmEditar">✏️ Editar cliente</button>
+  <button id="cmChat">💬 Abrir chat</button>
+  <button id="cmEliminar" class="danger">🗑️ Eliminar de la cartera</button>
 </div>
 
 <!-- Modal: detalle de un dia del calendario (todos los clientes con promesa ese dia) -->
@@ -901,8 +1042,39 @@ document.getElementById('btnConfirmOk').addEventListener('click', ()=>{
 function load(){
   return {clients:[]};
 }
-function save(){
-  crmSaveClientes(state.clients).catch(e => console.error('No se pudo guardar el Kanban', e));
+// Guarda SOLO el cliente que cambió. Antes se mandaba toda la cartera en
+// memoria con cada movimiento y eso pisaba lo que el worker (reglas
+// automáticas) o la Bandeja habían cambiado mientras tanto: devolvía a
+// "Contactado" a alguien que el worker ya había pasado a "Verificar pago".
+//   opciones.etapaAnterior -> si cambió la etapa, queda en el historial de
+//                             gestión (evento 'etapa', vía crmMoverEtapa)
+//   opciones.promesaAnterior -> si cambió la fecha de promesa, idem ('promesa')
+// Devuelve una promesa que nunca falla (avisa con un toast), para poder
+// esperarla antes de un paso que dependa de que ya esté guardado.
+async function guardarCliente(c, opciones){
+  const op = opciones || {};
+  try{
+    if(op.etapaAnterior !== undefined && op.etapaAnterior !== c.stage && typeof crmMoverEtapa === 'function'){
+      const st = STAGES.find(s => s.id === c.stage);
+      // Sin _rowId (columna recién creada que todavía no volvió de la base)
+      // alcanza con el upsert de abajo; solo se pierde el evento del historial.
+      if(st && st._rowId) await crmMoverEtapa(c.id, st._rowId);
+    }
+    await crmSaveClientes([c]);
+    if(op.promesaAnterior !== undefined && (c.fechaPromesa || '') !== (op.promesaAnterior || '') && c.fechaPromesa && typeof crmGuardarPromesa === 'function'){
+      await crmGuardarPromesa(c.id, c.fechaPromesa);
+    }
+    return true;
+  }catch(e){
+    console.error('No se pudo guardar el cliente', c && c.id, e);
+    toast('No se pudo guardar el cambio — revisá la conexión y reintentá');
+    return false;
+  }
+}
+// Borra de verdad en la base (crmSaveClientes ya no borra a los ausentes).
+async function borrarCliente(id){
+  try{ await crmDeleteCliente(id); return true; }
+  catch(e){ console.error('No se pudo borrar el cliente', id, e); return false; }
 }
 function uid(){ return 'c_'+Date.now()+'_'+Math.random().toString(36).slice(2,8); }
 // El id de cada cliente arranca con su timestamp de creación (c_<fecha>_...),
@@ -961,9 +1133,20 @@ function matchesSearch(c, q){
 }
 
 // --- Filtros por campo personalizado (ej: Método) y por promesa de pago ---
-let activeFilters = { customFields: {}, promesa: '', sort: '', sinLeer: false };
+const FILTROS_VACIOS = () => ({ customFields: {}, promesa: '', sort: '', sinLeer: false, cobrador: '', tramo: '' });
+let activeFilters = FILTROS_VACIOS();
+// Cobrador de la tarjeta: el del Excel de Préstamos; si no vino, el usuario
+// de la cuenta (una cartera por cobrador).
+function cobradorDe(c){ return (c.cobrador || '').trim() || nombreUsuarioCompleto || ''; }
+// Tramo de mora: sale de los días de atraso del préstamo (pedido del usuario).
+function tramoDe(c){
+  const dias = c.prestamo ? c.prestamo.dias_atraso : 0;
+  return window.CMMora ? CMMora.tramoMora(dias) : ((dias || 0) > 0 ? '1_30' : 'al_dia');
+}
 function matchesFilters(c){
   if(activeFilters.sinLeer && !(c.chat && c.chat.noLeidos > 0)) return false;
+  if(activeFilters.cobrador && cobradorDe(c) !== activeFilters.cobrador) return false;
+  if(activeFilters.tramo && tramoDe(c) !== activeFilters.tramo) return false;
   for(const fieldId in activeFilters.customFields){
     const val = activeFilters.customFields[fieldId];
     if(val && (!c.customFields || c.customFields[fieldId] !== val)) return false;
@@ -983,6 +1166,12 @@ function renderFiltersBar(){
   if(!selectFields.length && !document.getElementById('filterPromesa')){
     // igual mostramos el filtro de promesa aunque no haya campos con opciones
   }
+  // Orden de los filtros como el render 5.2: Promesa, Cobrador, Tramo mora,
+  // "sin leer", Orden (y después los campos personalizados del usuario).
+  const cobradores = [...new Set(state.clients.map(cobradorDe).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'es'));
+  if(activeFilters.cobrador && !cobradores.includes(activeFilters.cobrador)) cobradores.push(activeFilters.cobrador);
+  const tramos = (window.CMMora && CMMora.TRAMOS_MORA) || [];
   let html = '';
   html += `
     <select id="filterPromesa">
@@ -991,22 +1180,41 @@ function renderFiltersBar(){
       <option value="vencida">Promesa: Vencidas</option>
       <option value="hoy">Promesa: Es hoy</option>
       <option value="sin">Promesa: Sin fecha</option>
+    </select>
+    <select id="filterCobrador">
+      <option value="">Cobrador: Todos</option>
+      ${cobradores.map(n => `<option value="${escapeHtml(n)}">Cobrador: ${escapeHtml(nombreCorto(n))}</option>`).join('')}
+    </select>
+    <select id="filterTramo">
+      <option value="">Tramo mora: Todos</option>
+      ${tramos.map(t => `<option value="${t.id}">Tramo mora: ${escapeHtml(t.nombre)}</option>`).join('')}
+    </select>`;
+  html += `<button class="chip-sinleer ${activeFilters.sinLeer ? 'on' : ''}" id="btnSoloSinLeer">💬 Solo con mensajes sin leer</button>`;
+  html += `
+    <select id="filterSort">
+      <option value="">Orden: Más reciente</option>
+      <option value="oldest">Orden: Más antiguo</option>
+      <option value="atraso">Orden: Más días de atraso</option>
+      <option value="monto">Orden: Mayor monto</option>
     </select>`;
   selectFields.forEach(f=>{
     html += `<select data-filter-field="${f.id}"><option value="">${escapeHtml(f.label)}: Todos</option>`;
     html += f.options.map(o=>`<option value="${escapeHtml(o)}">${escapeHtml(f.label)}: ${escapeHtml(o)}</option>`).join('');
     html += `</select>`;
   });
-  html += `<button class="chip-sinleer ${activeFilters.sinLeer ? 'on' : ''}" id="btnSoloSinLeer">💬 Solo con mensajes sin leer</button>`;
-  html += `
-    <select id="filterSort">
-      <option value="">Orden: Último movimiento</option>
-      <option value="recent">Orden: Más reciente</option>
-      <option value="oldest">Orden: Más antiguo</option>
-    </select>`;
-  const hayFiltros = activeFilters.promesa || activeFilters.sort || activeFilters.sinLeer || Object.values(activeFilters.customFields).some(Boolean);
+  const hayFiltros = activeFilters.promesa || activeFilters.sort || activeFilters.sinLeer || activeFilters.cobrador || activeFilters.tramo || Object.values(activeFilters.customFields).some(Boolean);
   if(hayFiltros) html += `<button class="btn-clear-filters" id="btnClearFilters">✕ Limpiar</button>`;
   bar.innerHTML = html;
+  [['filterCobrador','cobrador'], ['filterTramo','tramo']].forEach(([elId, clave])=>{
+    const sel = document.getElementById(elId);
+    sel.value = activeFilters[clave];
+    sel.classList.toggle('active-filter', !!activeFilters[clave]);
+    sel.addEventListener('change', e=>{
+      activeFilters[clave] = e.target.value;
+      renderFiltersBar();
+      renderBoard();
+    });
+  });
   document.getElementById('btnSoloSinLeer').addEventListener('click', ()=>{
     activeFilters.sinLeer = !activeFilters.sinLeer;
     renderFiltersBar();
@@ -1038,11 +1246,30 @@ function renderFiltersBar(){
   });
   const btnClear = document.getElementById('btnClearFilters');
   if(btnClear) btnClear.addEventListener('click', ()=>{
-    activeFilters = { customFields: {}, promesa: '', sort: '', sinLeer: false };
+    activeFilters = FILTROS_VACIOS();
     renderFiltersBar();
     renderBoard();
   });
+  bar.querySelectorAll('select').forEach(ajustarAnchoSelect);
 }
+// Un <select> mide lo que su opción más larga ("Tramo mora: Temprana
+// (1–30 d)"); en el render cada filtro mide lo justo para lo elegido
+// ("Tramo mora: Todos ▾"), así que se ajusta al texto seleccionado.
+let _canvasMedir = null;
+function ajustarAnchoSelect(sel){
+  try{
+    _canvasMedir = _canvasMedir || document.createElement('canvas');
+    const ctx = _canvasMedir.getContext('2d');
+    const cs = getComputedStyle(sel);
+    ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const txt = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+    sel.style.width = Math.ceil(ctx.measureText(txt).width + 44) + 'px';
+  }catch(e){}
+}
+// "nestor.challier" / "Nestor Challier" -> "Nestor C." (crm.js); si por
+// algún motivo crm.js es viejo, se usa el nombre tal cual.
+function nombreCorto(n){ return typeof crmNombreCorto === 'function' ? crmNombreCorto(n) : String(n || ''); }
+function inicialesDe(n){ return typeof crmIniciales === 'function' ? crmIniciales(n) : iniciales(n); }
 function highlight(text, q){
   if(!q) return escapeHtml(text||'');
   const t = escapeHtml(text||'');
@@ -1084,18 +1311,37 @@ function tagDeEtiqueta(texto){
   const [cls, emoji] = ESTILO_ETIQUETA[String(texto).toLowerCase()] || ['azul', ''];
   return `<span class="tag ${cls}">${emoji ? emoji + ' ' : ''}${escapeHtml(texto)}</span>`;
 }
-// El cobrador de cada tarjeta es el usuario de la cuenta (una cartera por
-// cobrador), como el "NC Nestor C." del render.
-let nombreUsuarioCorto = '', inicialesUsuario = '';
+// Cobrador de cada tarjeta ("NC Nestor C." del render): el que trae el Excel
+// de Préstamos; si no vino, el usuario de la cuenta.
+let nombreUsuarioCompleto = '';
 window.appReady && window.appReady.then(async ()=>{
   try{
-    const nombre = (await crmGetNombreUsuario()) || '';
-    const partes = nombre.trim().split(/\s+/).filter(Boolean);
-    nombreUsuarioCorto = partes.length > 1 ? `${partes[0]} ${partes[1][0]}.` : nombre;
-    inicialesUsuario = ((partes[0]||'?')[0] + ((partes[1]||'')[0]||'')).toUpperCase();
+    nombreUsuarioCompleto = ((await crmGetNombreUsuario()) || '').trim();
+    renderFiltersBar();
     renderBoard();
   }catch(e){}
 });
+// Cada cobrador con su color de avatar fijo (azul, violeta, naranja... como
+// "NC", "LP", "MR" en el render).
+const COLORES_COBRADOR = ['#2563eb', '#9333ea', '#ea580c', '#16a34a', '#0891b2', '#db2777', '#4f46e5', '#ca8a04'];
+function colorCobrador(nombre){
+  const s = String(nombre || '').toLowerCase();
+  let h = 0;
+  for(let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return COLORES_COBRADOR[h % COLORES_COBRADOR.length];
+}
+// Fecha del último pago registrado de cada cliente (tabla pagos), para el
+// "✅ Cobrado 29/09" de la columna Cerrado y los cobrados del Calendario.
+let pagosCache = [];
+let ultimoPagoPorCliente = {};
+function ddmm(iso){
+  const p = String(iso || '').slice(0, 10).split('-');
+  return p.length === 3 ? `${p[2]}/${p[1]}` : '';
+}
+function esCancelado(c){
+  return (c.prestamo && c.prestamo.estado === 'cancelado')
+    || (c.etiquetas || []).some(e => String(e).toLowerCase() === 'cancelado');
+}
 function atrasoPillInfo(diasAtraso){
   const d = diasAtraso || 0;
   if(d <= 0) return { cls:'ok', label:'Al día' };
@@ -1124,8 +1370,12 @@ function renderBoard(){
   board.innerHTML = '';
   STAGES.forEach(stage=>{
     const clients = state.clients.filter(c=>c.stage===stage.id && matchesSearch(c,q) && matchesFilters(c));
-    if(activeFilters.sort === 'recent') clients.sort((a,b)=> getCreatedAt(b) - getCreatedAt(a));
-    else if(activeFilters.sort === 'oldest') clients.sort((a,b)=> getCreatedAt(a) - getCreatedAt(b));
+    // "Más reciente" = último movido arriba (lo que se acaba de tocar queda a mano).
+    const diasDe = c => (c.prestamo && c.prestamo.dias_atraso) || 0;
+    const montoDe = c => montoANumero(c.monto || (c.prestamo && c.prestamo.saldo_total) || 0);
+    if(activeFilters.sort === 'oldest') clients.sort((a,b)=> getStageChangedAt(a) - getStageChangedAt(b));
+    else if(activeFilters.sort === 'atraso') clients.sort((a,b)=> diasDe(b) - diasDe(a));
+    else if(activeFilters.sort === 'monto') clients.sort((a,b)=> montoDe(b) - montoDe(a));
     else clients.sort((a,b)=> getStageChangedAt(b) - getStageChangedAt(a));
     const col = document.createElement('div');
     col.className = 'column';
@@ -1168,39 +1418,53 @@ function renderBoard(){
         // Etiquetas como en el render 5.2: las de las reglas (Comprobante...),
         // atraso en rojo, promesa en ámbar (roja si venció) y cobrado en verde.
         const tags = [];
-        (c.etiquetas || []).slice(0, 2).forEach(e => tags.push(tagDeEtiqueta(e)));
+        // "Cancelado" no se repite como etiqueta suelta: tiene su propio tag verde.
+        const etiquetasVisibles = (c.etiquetas || []).filter(e => String(e).toLowerCase() !== 'cancelado');
+        etiquetasVisibles.slice(0, 2).forEach(e => tags.push(tagDeEtiqueta(e)));
+        const cancelado = esCancelado(c);
         if(stage.id === 'cerrado'){
-          tags.push(`<span class="tag verde">✅ Cobrado${c.montoPagado ? ' ' + escapeHtml(fmtMontoCorto(c.montoPagado)) : ''}</span>`);
+          // "✅ Cobrado 29/09" (render 5.2): fecha del último pago registrado;
+          // si no hay pago en la tabla, la del pase a Cerrado.
+          const fechaCobro = ultimoPagoPorCliente[c.id] || (c.stageChangedAt ? isoLocal(new Date(c.stageChangedAt)) : '');
+          tags.push(`<span class="tag verde">✅ Cobrado${fechaCobro ? ' ' + ddmm(fechaCobro) : ''}</span>`);
+          if(cancelado) tags.push(`<span class="tag verde">✅ Cancelado</span>`);
+        } else if(cancelado){
+          tags.push(`<span class="tag verde">✅ Cancelado</span>`);
         } else if(dias > 0){
-          tags.push(`<span class="tag rojo">${(c.etiquetas||[]).length ? '' : 'Atraso '}${dias} d</span>`);
+          tags.push(`<span class="tag rojo">${etiquetasVisibles.length ? '' : 'Atraso '}${dias} d</span>`);
         }
         if(config.visibleFields.fechaPromesa && pInfo && stage.id !== 'cerrado'){
           tags.push(pInfo.diffDias < 0
             ? `<span class="tag rojo">📅 Vencida ${pInfo.fechaTxt}</span>`
             : `<span class="tag ambar">📅 ${pInfo.diffDias === 0 ? 'Hoy' : diaCorto(c.fechaPromesa)}</span>`);
         }
+        // Vista previa del chat SOLO si el cliente escribió y no está leído
+        // (pedido del usuario: "solo mostrame cuando el cliente me mande
+        // mensaje"); nuestro propio último mensaje no aporta en el tablero.
+        const noLeidos = (c.chat && Number(c.chat.noLeidos)) || 0;
         const ultimo = (c.chat && c.chat.ultimoTexto) || '';
-        const esNuestro = /^vos:/i.test(ultimo);
+        const mostrarPreview = noLeidos > 0 && ultimo && !/^vos:/i.test(ultimo);
+        const cobrador = cobradorDe(c);
         card.innerHTML = `
           <div class="card-top">
             <div class="card-id">
               <h4>${highlight(c.nombre, q)}</h4>
               ${subPartes.length ? `<div class="card-sub">${subPartes.join(' · ')}</div>` : ''}
             </div>
-            ${c.chat && c.chat.noLeidos ? `<span class="card-nl">${c.chat.noLeidos}</span>` : ''}
+            ${noLeidos > 0 ? `<span class="card-nl" title="${noLeidos} mensaje(s) sin leer">${noLeidos}</span>` : ''}
           </div>
           ${config.visibleFields.monto && (c.monto || (c.prestamo && c.prestamo.saldo_total)) ? `<span class="card-amount">${escapeHtml(fmtMontoCorto(c.monto || c.prestamo.saldo_total))}</span>` : ''}
           ${(tags.length || cfBadges) ? `<div class="card-tags">${tags.join('')}${cfBadges}</div>` : ''}
           ${(config.visibleFields.telefono && c.telefono) ? `<div class="meta">📞 ${escapeHtml(c.telefono)}</div>` : ''}
-          ${ultimo ? `<div class="chat-preview-row ${esNuestro ? 'saliente' : ''}" title="${escapeHtml(ultimo)}">
-            <span>${esNuestro ? '↩️' : '💬'} ${escapeHtml(ultimo)}</span>
+          ${mostrarPreview ? `<div class="chat-preview-row" title="${escapeHtml(ultimo)}">
+            <span>💬 ${escapeHtml(ultimo)}</span>
           </div>` : ''}
           <div class="card-footer">
-            <div class="card-cobrador"><span class="mini-avatar">${escapeHtml(inicialesUsuario)}</span><span>${escapeHtml(nombreUsuarioCorto)}</span></div>
+            <div class="card-cobrador" title="${escapeHtml(cobrador)}">${cobrador ? `<span class="mini-avatar" style="background:${colorCobrador(cobrador)}">${escapeHtml(inicialesDe(cobrador))}</span><span>${escapeHtml(nombreCorto(cobrador))}</span>` : ''}</div>
             <div class="card-acciones">
-              <button class="chat-open" title="Abrir el chat en WhatsApp CRM" data-id="${c.id}">💬</button>
+              <button class="chat-open" title="Abrir el chat en la Bandeja de WhatsApp" data-id="${c.id}">💬</button>
               <button class="wa ${c.telefono ? '' : 'disabled'}" title="${c.telefono ? 'Enviar WhatsApp con plantilla' : 'Sin teléfono cargado'}" data-id="${c.id}">📞</button>
-              <button class="del" title="Eliminar de la cartera" data-id="${c.id}">🗑️</button>
+              <button class="mas" title="Más opciones" data-id="${c.id}">⋯</button>
             </div>
           </div>
         `;
@@ -1209,17 +1473,10 @@ function renderBoard(){
           e.dataTransfer.setData('text/plain', c.id);
         });
         card.addEventListener('dragend', ()=> card.classList.remove('dragging'));
-        card.addEventListener('click', (e)=>{
-          if(e.target.classList.contains('del')) return;
-          openClientModal(c.id);
-        });
-        card.querySelector('.del').addEventListener('click', (e)=>{
+        card.addEventListener('click', ()=> openClientModal(c.id));
+        card.querySelector('.mas').addEventListener('click', (e)=>{
           e.stopPropagation();
-          askConfirm('Eliminar cliente', `¿Eliminar a ${c.nombre} de la cartera?`, async ()=>{
-            await deleteClientFromGoogle(c).catch(()=>{});
-            state.clients = state.clients.filter(x=>x.id!==c.id);
-            save(); renderBoard(); renderStats(); renderCalendar();
-          });
+          abrirMenuTarjeta(c.id, e.currentTarget);
         });
         card.querySelector('.wa').addEventListener('click', (e)=>{
           e.stopPropagation();
@@ -1241,16 +1498,53 @@ function renderBoard(){
       const id = e.dataTransfer.getData('text/plain');
       const client = state.clients.find(c=>c.id===id);
       if(!client) return;
-      if(stage.id === 'cerrado' && client.stage !== 'cerrado'){
+      if(client.stage === stage.id) return;
+      if(stage.id === 'cerrado'){
         openCobradoModal(id);
         return;
       }
-      client.stage = stage.id; stampStageChange(client); save(); renderBoard(); renderStats(); renderCalendar();
+      const etapaAnterior = client.stage;
+      client.stage = stage.id; stampStageChange(client);
+      guardarCliente(client, { etapaAnterior });
+      renderBoard(); renderStats(); renderCalendar();
     });
     board.appendChild(col);
   });
   renderRecordatoriosBadge();
 }
+
+// Menú "⋯" de la tarjeta (render 5.2): editar, abrir chat, eliminar.
+let cardMenuId = null;
+function abrirMenuTarjeta(id, boton){
+  const menu = document.getElementById('cardMenu');
+  cardMenuId = id;
+  const r = boton.getBoundingClientRect();
+  menu.classList.add('open');
+  const ancho = menu.offsetWidth, alto = menu.offsetHeight;
+  menu.style.left = Math.max(8, Math.min(r.right - ancho, window.innerWidth - ancho - 8)) + 'px';
+  menu.style.top = (r.bottom + 4 + alto > window.innerHeight ? r.top - alto - 4 : r.bottom + 4) + 'px';
+}
+function cerrarMenuTarjeta(){ document.getElementById('cardMenu').classList.remove('open'); }
+document.addEventListener('click', e=>{ if(!e.target.closest('#cardMenu')) cerrarMenuTarjeta(); });
+document.addEventListener('scroll', cerrarMenuTarjeta, true);
+document.getElementById('cmEditar').addEventListener('click', ()=>{ cerrarMenuTarjeta(); if(cardMenuId) openClientModal(cardMenuId); });
+document.getElementById('cmChat').addEventListener('click', ()=>{
+  cerrarMenuTarjeta();
+  if(cardMenuId) window.top.postMessage({ type: 'cm-abrir-chat-cliente', clienteId: cardMenuId }, '*');
+});
+document.getElementById('cmEliminar').addEventListener('click', ()=>{
+  cerrarMenuTarjeta();
+  const c = state.clients.find(x => x.id === cardMenuId);
+  if(!c) return;
+  askConfirm('Eliminar cliente', `¿Eliminar a ${c.nombre} de la cartera?`, async ()=>{
+    if(typeof deleteClientFromGoogle === 'function') await deleteClientFromGoogle(c).catch(()=>{});
+    const ok = await borrarCliente(c.id);
+    if(!ok){ toast('No se pudo eliminar — reintentá'); return; }
+    state.clients = state.clients.filter(x=>x.id!==c.id);
+    renderBoard(); renderStats(); renderCalendar();
+    toast('Cliente eliminado');
+  });
+});
 
 document.getElementById('searchInput').addEventListener('input', renderBoard);
 
@@ -1307,15 +1601,24 @@ document.getElementById('btnSaveClient').addEventListener('click', async ()=>{
     if(v) customFieldsData[inp.dataset.field] = v;
   });
   data.customFields = customFieldsData;
-  let c;
+  let c, opciones = {};
   if(editingId){
     c = state.clients.find(x=>x.id===editingId);
+    if(!c){ document.getElementById('clientModal').classList.remove('open'); toast('Ese cliente ya no está en la cartera'); return; }
     const prevStage = c.stage;
+    opciones = { etapaAnterior: prevStage, promesaAnterior: c.fechaPromesa || '' };
     if(newStage === 'cerrado' && prevStage !== 'cerrado'){
       Object.assign(c, data);
-      c.stage = prevStage; // se confirma recién al ingresar el monto pagado
-      save(); renderBoard(); renderStats(); renderCalendar();
+      c.stage = prevStage; // pasa a Cerrado recién cuando se confirma el pago
       document.getElementById('clientModal').classList.remove('open');
+      // Primero se guardan los otros cambios del formulario, y recién
+      // después se abre el pago: si no, este guardado podía llegar tarde y
+      // devolver la tarjeta a la etapa anterior.
+      const btn = document.getElementById('btnSaveClient');
+      btn.disabled = true;
+      await guardarCliente(c, opciones);
+      btn.disabled = false;
+      renderBoard(); renderStats(); renderCalendar();
       openCobradoModal(c.id);
       return;
     }
@@ -1324,15 +1627,19 @@ document.getElementById('btnSaveClient').addEventListener('click', async ()=>{
   } else {
     c = {id:uid(), ...data, stageChangedAt: Date.now()};
     state.clients.push(c);
+    opciones = { promesaAnterior: '' };
   }
   document.getElementById('clientModal').classList.remove('open');
-  toast('Cliente guardado');
-  try {
-    await syncClientToGoogle(c);
-  } catch (e) {
-    toast('Cliente guardado, pero no se pudo sincronizar con Google');
+  renderBoard(); renderStats(); renderCalendar();
+  const ok = await guardarCliente(c, opciones);
+  if(ok) toast('Cliente guardado');
+  if(typeof syncClientToGoogle === 'function'){
+    try {
+      await syncClientToGoogle(c);
+    } catch (e) {
+      toast('Cliente guardado, pero no se pudo sincronizar con Google');
+    }
   }
-  save(); renderBoard(); renderStats(); renderCalendar();
 });
 
 // --- Importación Excel ---
@@ -1430,11 +1737,11 @@ document.getElementById('btnConfirmImport').addEventListener('click', ()=>{
   const defaultStage = document.getElementById('mapEtapaDefault').value;
   if(idxNombre === -1){ toast('Mapeá al menos la columna Nombre'); return; }
 
-  let added = 0;
+  const nuevos = [];
   importRows.forEach(row=>{
     const nombre = String(row[idxNombre]||'').trim();
     if(!nombre) return;
-    state.clients.push({
+    nuevos.push({
       id: uid(),
       nombre,
       dni: idxDni!==-1 ? String(row[idxDni]||'').trim() : '',
@@ -1442,12 +1749,16 @@ document.getElementById('btnConfirmImport').addEventListener('click', ()=>{
       telefono: idxTelefono!==-1 ? primerTelefono(String(row[idxTelefono]||'').trim()) : '',
       notas: '',
       stage: defaultStage,
+      stageChangedAt: Date.now(),
     });
-    added++;
   });
-  save(); renderBoard(); renderStats(); renderCalendar();
+  state.clients.push(...nuevos);
+  renderBoard(); renderStats(); renderCalendar();
   importModal.classList.remove('open');
-  toast(`${added} clientes importados`);
+  // Solo los clientes nuevos (no toda la cartera).
+  crmSaveClientes(nuevos)
+    .then(()=> toast(`${nuevos.length} clientes importados`))
+    .catch(e=>{ console.error('Importar vencimientos', e); toast('No se pudieron guardar los clientes importados — reintentá'); });
 });
 
 // --- Plantillas de WhatsApp (compartidas con "Envío de Mensajes") ---
@@ -1556,72 +1867,100 @@ document.getElementById('btnSendWa').addEventListener('click', ()=>{
 // --- Vaciar cartera ---
 document.getElementById('btnClear').addEventListener('click', ()=>{
   if(state.clients.length === 0){ toast('La cartera ya está vacía'); return; }
-  askConfirm('Vaciar cartera', `¿Seguro que querés vaciar toda la cartera? Se eliminarán ${state.clients.length} clientes. Esta acción no se puede deshacer.`, ()=>{
-    state.clients = [];
-    save(); renderBoard(); renderStats(); renderCalendar();
-    toast('Cartera vaciada');
+  askConfirm('Vaciar cartera', `¿Seguro que querés vaciar toda la cartera? Se eliminarán ${state.clients.length} clientes. Esta acción no se puede deshacer.`, async ()=>{
+    // Se borra uno por uno en la base (crmSaveClientes ya no borra a los
+    // que faltan), de a 10 a la vez para no saturar la conexión.
+    const ids = state.clients.map(c => c.id);
+    toast(`Eliminando ${ids.length} clientes...`);
+    let fallidos = 0;
+    for(let i = 0; i < ids.length; i += 10){
+      const res = await Promise.all(ids.slice(i, i + 10).map(borrarCliente));
+      fallidos += res.filter(ok => !ok).length;
+    }
+    await hydrateFromSupabase();
+    toast(fallidos ? `Cartera vaciada, pero ${fallidos} no se pudieron borrar — reintentá` : 'Cartera vaciada');
   });
 });
 
-// --- Sincronización con Sueldo & Cobros (panel unificado) ---
-const PANEL_STORAGE_KEY = 'panelComisionesCobros_state_v1';
 function normalizeDni(v){ return String(v||'').replace(/\D/g,''); }
-// Registra una lista de pagos [{name, monto}] en el Registro de pagos del panel,
-// usando la MISMA regla de duplicados que "Importar cobros mensuales" (mismo nombre
-// + mismo monto redondeado ya existente = posible duplicado, va a la cola de revisión
-// en vez de sumarse dos veces).
-// Devuelve {synced, added, dup}.
-//
-// Ya no escribe directo en el estado de Sueldo & Cobros (si esa pantalla
-// estaba abierta en otra pestaña, al guardar pisaba el pago y se perdía):
-// lo deja en la tabla pagos, igual que "Confirmar pago" de la Bandeja, y
-// Sueldo & Cobros lo suma solo (integrarPagosCRM en index.html), aplicando
-// ahí la regla de duplicados.
-async function registrarPagosEnPanel(list){
-  if(!list || !list.length) return {synced:false, added:0, dup:0};
-  try{
-    const hoy = new Date().toISOString().slice(0,10);
-    await Promise.all(list.map(p => crmAddPago({
-      cliente_id: p.clienteId || null, nombre: p.name, monto: p.monto || 0,
-      fecha: hoy, estado: 'Cobrado', origen: 'kanban',
-    })));
-    return { synced:true, added:list.length, dup:0 };
-  }catch(e){ console.error('registrarPagosEnPanel', e); return {synced:false, added:0, dup:0}; }
-}
 
-// --- Modal: registrar pago (drag o cambio manual a Cerrado) ---
+// --- Modal: confirmar pago (arrastrar o cambiar la etapa a Cerrado) ---
+// Todo lo pesado lo hace crmConfirmarPago (crm.js), igual que el
+// "✅ Confirmar pago" de la Bandeja: imputa a las cuotas impagas más viejas,
+// recalcula el atraso, registra el pago (Sueldo & Cobros lo suma solo),
+// pone "Cancelado" si saldó todo y mueve la tarjeta a Cerrado. Después se
+// recarga todo desde Supabase para mostrar los números ya recalculados.
 let pendingCobradoId = null;
+let montoSugeridoCuotas = '';
 function openCobradoModal(id){
-  pendingCobradoId = id;
   const c = state.clients.find(x=>x.id===id);
   if(!c) return;
+  pendingCobradoId = id;
+  const p = c.prestamo || {};
   document.getElementById('cobradoNombre').textContent = c.nombre;
-  document.getElementById('cobradoMonto').value = '';
+  const partes = [];
+  if(p.nro) partes.push('Préstamo #' + p.nro);
+  if(p.cant_cuotas) partes.push(`${p.cuotas_pagas || 0} de ${p.cant_cuotas} cuotas pagas`);
+  if(p.importe_atraso) partes.push('Atraso ' + fmtMontoCorto(p.importe_atraso) + (p.dias_atraso ? ` (${p.dias_atraso} d)` : ''));
+  if(p.saldo_total) partes.push('Saldo ' + fmtMontoCorto(p.saldo_total));
+  document.getElementById('cobradoSub').textContent = partes.join(' · ') || 'Sin préstamo cargado: el pago se registra igual.';
+  // Monto sugerido: lo atrasado; si está al día, una cuota.
+  montoSugeridoCuotas = p.importe_atraso ? Math.round(p.importe_atraso) : (p.cuota_monto ? Math.round(p.cuota_monto) : '');
+  document.getElementById('cobradoMonto').value = montoSugeridoCuotas;
+  document.querySelector('input[name="tipoPago"][value="cuotas"]').checked = true;
+  marcarTipoPago();
+  const btn = document.getElementById('btnConfirmCobrado');
+  btn.disabled = false; btn.textContent = '✅ Confirmar pago';
   document.getElementById('cobradoModal').classList.add('open');
-  setTimeout(()=>document.getElementById('cobradoMonto').focus(), 60);
+  setTimeout(()=>{ const i = document.getElementById('cobradoMonto'); i.focus(); i.select(); }, 60);
 }
+function tipoPagoElegido(){
+  const r = document.querySelector('input[name="tipoPago"]:checked');
+  return r ? r.value : 'cuotas';
+}
+function marcarTipoPago(){
+  const total = tipoPagoElegido() === 'total';
+  document.getElementById('optCuotas').classList.toggle('sel', !total);
+  document.getElementById('optTotal').classList.toggle('sel', total);
+}
+document.querySelectorAll('input[name="tipoPago"]').forEach(r => r.addEventListener('change', ()=>{
+  marcarTipoPago();
+  // Al elegir "canceló todo" se propone el saldo; si vuelve a "cuotas", lo atrasado.
+  const c = state.clients.find(x=>x.id===pendingCobradoId);
+  const p = (c && c.prestamo) || {};
+  const input = document.getElementById('cobradoMonto');
+  if(tipoPagoElegido() === 'total' && p.saldo_total) input.value = Math.round(p.saldo_total);
+  else if(tipoPagoElegido() === 'cuotas') input.value = montoSugeridoCuotas;
+}));
 document.getElementById('btnCancelCobrado').addEventListener('click', ()=>{
   pendingCobradoId = null;
   document.getElementById('cobradoModal').classList.remove('open');
 });
 async function confirmCobrado(){
   const montoInput = document.getElementById('cobradoMonto');
-  const monto = parseFloat(montoInput.value);
-  if(!monto || monto <= 0){ montoInput.focus(); toast('Ingresá un monto válido'); return; }
+  const monto = parseFloat(montoInput.value) || 0;
+  const cancelaTotal = tipoPagoElegido() === 'total';
+  // Si canceló todo y no puso monto, crmConfirmarPago usa el saldo pendiente.
+  if(!cancelaTotal && monto <= 0){ montoInput.focus(); toast('Ingresá un monto válido'); return; }
   const c = state.clients.find(x=>x.id===pendingCobradoId);
   if(!c) return;
-  c.stage = 'cerrado';
-  stampStageChange(c);
-  c.montoPagado = monto;
-  save(); renderBoard(); renderStats(); renderCalendar();
-  const result = await registrarPagosEnPanel([{name: c.nombre, monto, clienteId: c.id}]);
-  document.getElementById('cobradoModal').classList.remove('open');
-  if(!result.synced){
-    toast('Cliente movido a Cerrado, pero no se pudo registrar el pago — reintentá');
-  } else {
-    toast('Pago registrado — se suma solo en Sueldo & Cobros');
+  const btn = document.getElementById('btnConfirmCobrado');
+  if(btn.disabled) return; // evita doble clic = pago duplicado
+  btn.disabled = true; btn.textContent = 'Registrando...';
+  try{
+    const r = await crmConfirmarPago({ clienteId: c.id, monto, cancelaTotal, origen: 'kanban' });
+    document.getElementById('cobradoModal').classList.remove('open');
+    pendingCobradoId = null;
+    if(r && r.cancelado) toast(`✅ ${c.nombre}: préstamo cancelado — el pago se suma solo en Sueldo & Cobros`);
+    else if(r && r.mora && r.prestamo && r.prestamo.cant_cuotas) toast(`✅ Pago imputado: ${r.mora.cuotas_pagas} de ${r.prestamo.cant_cuotas} cuotas pagas`);
+    else toast('✅ Pago registrado — se suma solo en Sueldo & Cobros');
+    await hydrateFromSupabase();
+  }catch(e){
+    console.error('crmConfirmarPago', e);
+    toast('No se pudo registrar el pago — reintentá');
+  }finally{
+    btn.disabled = false; btn.textContent = '✅ Confirmar pago';
   }
-  pendingCobradoId = null;
 }
 document.getElementById('btnConfirmCobrado').addEventListener('click', confirmCobrado);
 document.getElementById('cobradoMonto').addEventListener('keydown', e=>{ if(e.key==='Enter') confirmCobrado(); });

@@ -73,8 +73,12 @@ function detectarFecha(textoOriginal, ahora = new Date()) {
 }
 
 // reglas: filas de la tabla `reglas` (ya ordenadas por prioridad asc).
-// contexto: { texto, tieneAdjunto, tipoAdjunto: 'imagen'|'pdf'|null, etapaActualClave }
+// contexto: { texto, tieneAdjunto, tipoAdjunto: 'imagen'|'pdf'|null, etapaActualClave, fecha? }
+// fecha (opcional): cuándo se mandó el mensaje. Las fechas de promesa
+// ("mañana", "el viernes") se calculan desde ese día — importa al releer
+// mensajes viejos del historial; si no viene, se usa hoy.
 function clasificarMensaje(reglas, contexto) {
+  const fechaMensaje = contexto.fecha ? new Date(contexto.fecha) : new Date();
   const texto = normalizar(contexto.texto || '');
   for (const regla of reglas) {
     if (!regla.activa) continue;
@@ -92,7 +96,7 @@ function clasificarMensaje(reglas, contexto) {
     // terminaba cayendo en "Respondió".
     if (regla.tipo_adjunto && palabras.length) {
       if (!matchAdjunto && !matchPalabra) continue;
-      const fechaDetectada = accion.detecta_fecha ? detectarFecha(contexto.texto, new Date()) : null;
+      const fechaDetectada = accion.detecta_fecha ? detectarFecha(contexto.texto, fechaMensaje) : null;
       return { regla, fechaDetectada };
     }
     // Solo adjunto: tiene que venir el adjunto.
@@ -107,7 +111,7 @@ function clasificarMensaje(reglas, contexto) {
 
     if (!matchPalabra && !regla.tipo_adjunto) continue;
 
-    const fechaDetectada = accion.detecta_fecha ? detectarFecha(contexto.texto, new Date()) : null;
+    const fechaDetectada = accion.detecta_fecha ? detectarFecha(contexto.texto, fechaMensaje) : null;
     return { regla, fechaDetectada };
   }
   return null;

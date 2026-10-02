@@ -5,9 +5,20 @@
   <meta charset="UTF-8">
   <title>Panel Cash Market — Comisiones, Cobros & Envíos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    // El panel nunca debería quedar adentro de sí mismo. Pasa si una pantalla
+    // embebida pierde la sesión y salta a index.html dentro de su iframe: se
+    // vería un panel entero metido en el cuadro de otro. En ese caso no se
+    // muestra nada; el panel de afuera ya se encarga de pedir el login.
+    try { if (window.top !== window.self) document.documentElement.style.display = 'none'; } catch (e) { }
+  </script>
+  <!-- Inter va auto-alojada (css/fuentes.css) para que se vea igual que el
+       plan aunque Google Fonts no cargue; de Google quedan solo Sora y
+       JetBrains Mono, que usa Sueldo & Cobros. -->
+  <link rel="stylesheet" href="css/fuentes.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
-    href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
     rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1756,8 +1767,12 @@
       font-family: 'Inter', sans-serif;
     }
 
+    /* Menú achicado: antes el botón ⟨ lo dejaba en ancho 0 y quedaba solo
+       un ☰ flotante encima de la pantalla, fácil de no ver (y la preferencia
+       quedaba guardada para siempre). Ahora achicado queda una franja con
+       los íconos, así el menú nunca desaparece del todo. */
     .sidebar.collapsed {
-      width: 0;
+      width: 68px;
     }
 
     .sidebar-head {
@@ -1780,7 +1795,7 @@
       width: 38px;
       height: 38px;
       border-radius: 9px;
-      background: linear-gradient(90deg, #2563eb 0 50%, #16a34a 50% 100%);
+      background: linear-gradient(135deg, #2563eb 0%, #16a34a 100%);
       color: #fff;
       font-weight: 800;
       font-size: 14px;
@@ -2033,25 +2048,105 @@
       background: #1e293b;
     }
 
-    .sidebar-open-btn {
+    /* "⋯": Backup, Restaurar y Salir. En el render del plan abajo del todo
+       van solo el estado de WhatsApp y el usuario, así que estas opciones
+       quedan guardadas en un menú chico. Es "fixed" para que no lo recorte
+       el menú lateral cuando está achicado. */
+    .sidebar-mas {
       position: fixed;
-      top: 14px;
-      left: 14px;
-      z-index: 40;
+      z-index: 60;
+      bottom: 14px;
+      min-width: 190px;
       background: #0f172a;
-      border: none;
-      color: #e2e8f0;
-      border-radius: 9px;
-      width: 38px;
-      height: 38px;
-      font-size: 15px;
-      box-shadow: 0 4px 18px -4px #00000080;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 6px;
+      box-shadow: 0 12px 30px -8px #00000099;
       display: none;
-      cursor: pointer;
+      flex-direction: column;
+      gap: 2px;
+      font-family: 'Inter', sans-serif;
     }
 
-    .sidebar-open-btn.visible {
-      display: block;
+    .sidebar-mas.abierto {
+      display: flex;
+    }
+
+    .sidebar-mas .sidebar-backup-btn {
+      text-align: left;
+      color: #cbd5e1;
+      font-size: 12.5px;
+      padding: 7px 10px;
+    }
+
+    .sidebar-mas-estado {
+      font-size: 11px;
+      color: #94a3b8;
+      padding: 2px 10px 4px;
+    }
+
+    .sidebar-mas-estado:empty {
+      display: none;
+    }
+
+    /* ── Menú achicado (franja de íconos) ── */
+    .sidebar.collapsed .sidebar-head {
+      flex-direction: column;
+      padding: 16px 0 12px;
+    }
+
+    .sidebar.collapsed .sidebar-brand-txt,
+    .sidebar.collapsed .si-label,
+    .sidebar.collapsed .si-nuevo,
+    .sidebar.collapsed .sidebar-user-txt,
+    .sidebar.collapsed #sidebarWaEstadoTxt {
+      display: none;
+    }
+
+    .sidebar.collapsed .sidebar-menu {
+      padding: 4px 8px;
+      overflow-x: hidden;
+    }
+
+    .sidebar.collapsed .sidebar-seccion {
+      font-size: 0;
+      padding: 0;
+      margin: 8px 6px;
+      border-top: 1px solid #1e293b;
+    }
+
+    .sidebar.collapsed .sidebar-item {
+      justify-content: center;
+      padding: 10px 0;
+      position: relative;
+    }
+
+    .sidebar.collapsed .si-icon {
+      font-size: 17px;
+    }
+
+    .sidebar.collapsed .si-badge {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      font-size: 9.5px;
+      padding: 0 5px;
+      line-height: 15px;
+    }
+
+    .sidebar.collapsed .sidebar-backup {
+      padding: 12px 8px 14px;
+      align-items: center;
+    }
+
+    .sidebar.collapsed .sidebar-wa-estado {
+      justify-content: center;
+      padding: 10px;
+    }
+
+    .sidebar.collapsed .sidebar-user {
+      flex-direction: column;
+      gap: 6px;
     }
 
     .content-area {
@@ -2087,12 +2182,25 @@
       background: #fff;
     }
 
+    /* Pantallas angostas (celular, ventana chica o el navegador con zoom
+       grande): el menú arranca achicado en franja y, si se lo abre, se
+       despliega por encima de la pantalla con un fondo oscuro. Antes en
+       este ancho el menú abierto tapaba todo con el fondo oscuro y la única
+       salida era esconderlo del todo. El relleno a la izquierda ocupa el
+       lugar de la franja para que la pantalla no salte al abrirlo. */
+    .sidebar.flotante {
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 0 0 100vw #0f172a99;
+    }
+
+    .app-shell.menu-flotante {
+      padding-left: 68px;
+    }
+
     @media (max-width: 900px) {
-      .sidebar {
-        position: fixed;
-        z-index: 50;
-        box-shadow: 0 0 0 100vw #00000080;
-      }
       .content-area { padding: 28px 20px 80px; }
     }
 
@@ -2184,33 +2292,33 @@
       <button class="sidebar-item active" data-view="view-comisiones"><span class="si-icon">📊</span><span class="si-label">Sueldo & Cobros</span></button>
       <button class="sidebar-item" data-view="view-whatsapp"><span class="si-icon">💬</span><span class="si-label">WhatsApp CRM</span><span class="si-badge" id="sidebarBadgeWa"></span></button>
       <button class="sidebar-item" data-view="view-kanban" data-mode="kanban"><span class="si-icon">🗂️</span><span class="si-label">Kanban de Cartera</span></button>
-      <button class="sidebar-item" data-view="view-clientes"><span class="si-icon">👥</span><span class="si-label">Clientes</span></button>
+      <button class="sidebar-item" data-view="view-clientes"><span class="si-icon">👥</span><span class="si-label">Clientes</span><span class="si-nuevo">NUEVO</span></button>
       <div class="sidebar-seccion">HERRAMIENTAS</div>
       <button class="sidebar-item" data-view="view-calendario" data-target="view-kanban" data-mode="calendar"><span class="si-icon">📅</span><span class="si-label">Calendario</span></button>
       <button class="sidebar-item" data-view="view-mensajes"><span class="si-icon">📨</span><span class="si-label">Envío de Mensajes</span></button>
       <button class="sidebar-item" data-view="view-refi"><span class="si-icon">🔎</span><span class="si-label">Refinanciaciones</span></button>
       <button class="sidebar-item" data-view="view-calc"><span class="si-icon">🧮</span><span class="si-label">Calculadora</span></button>
       <div class="sidebar-seccion">CONFIGURACIÓN</div>
-      <button class="sidebar-item" data-view="view-conexion"><span class="si-icon">⚙️</span><span class="si-label">Conexión WhatsApp</span></button>
+      <button class="sidebar-item" data-view="view-conexion"><span class="si-icon">⚙️</span><span class="si-label">Conexión WhatsApp</span><span class="si-nuevo">NUEVO</span></button>
     </nav>
     <div class="sidebar-backup">
       <button class="sidebar-wa-estado desconectado" id="sidebarWaEstado" title="Ir a Conexión WhatsApp"><span class="dot"></span><span id="sidebarWaEstadoTxt">WhatsApp sin conectar</span></button>
       <div class="sidebar-user">
         <div class="sidebar-user-avatar" id="sidebarUserAvatar">?</div>
-        <div class="sidebar-user-txt"><b id="sidebarUserNombre">—</b><span>Cobrador</span></div>
+        <div class="sidebar-user-txt"><b id="sidebarUserNombre">—</b><span id="sidebarUserRol">Cobrador</span></div>
         <button class="sidebar-icon-btn" id="btnToggleTheme" title="Cambiar modo claro / oscuro">🌙</button>
-      </div>
-      <div class="sidebar-links">
-        <button class="sidebar-backup-btn" id="btnExportarBackup" title="Descarga un archivo con todos los datos guardados">⬇ Backup</button>
-        <button class="sidebar-backup-btn" id="btnImportarBackup" title="Restaura los datos desde un archivo de backup exportado antes">⬆ Restaurar</button>
-        <button class="sidebar-backup-btn" id="btnLogout">Salir</button>
+        <button class="sidebar-icon-btn" id="btnSidebarMas" title="Más opciones: backup, restaurar, salir">⋯</button>
       </div>
       <input type="file" id="fileInputBackup" accept=".json" style="display:none">
-      <div id="backupStatus" style="font-size:10.5px;color:#64748b;min-height:12px;"></div>
     </div>
   </aside>
 
-  <button class="sidebar-open-btn" id="sidebarOpenBtn" title="Mostrar menú">☰</button>
+  <div class="sidebar-mas" id="sidebarMas">
+    <button class="sidebar-backup-btn" id="btnExportarBackup" title="Descarga un archivo con todos los datos guardados">⬇ Descargar backup</button>
+    <button class="sidebar-backup-btn" id="btnImportarBackup" title="Restaura los datos desde un archivo de backup exportado antes">⬆ Restaurar backup</button>
+    <button class="sidebar-backup-btn" id="btnLogout">↪ Cerrar sesión</button>
+    <div class="sidebar-mas-estado" id="backupStatus"></div>
+  </div>
 
   <main class="content-area">
 
@@ -3945,9 +4053,12 @@
     /* ===== Navegación por sidebar (colapsable) + carga de módulos embebidos ===== */
     (function () {
       const sidebar = document.getElementById('sidebar');
+      const appShellEl = document.getElementById('appShell');
       const collapseBtn = document.getElementById('sidebarCollapseBtn');
-      const openBtn = document.getElementById('sidebarOpenBtn');
       const items = document.querySelectorAll('.sidebar-item');
+      // Con el menú achicado solo se ven los íconos: el nombre de cada
+      // sección aparece al pasar el mouse.
+      items.forEach(b => { const l = b.querySelector('.si-label'); if (l && !b.title) b.title = l.textContent; });
       const iframeRefi = document.getElementById('iframeRefi');
       const iframeCalc = document.getElementById('iframeCalc');
       const iframeKanban = document.getElementById('iframeKanban');
@@ -3958,38 +4069,48 @@
       // Se suma como query param a cada iframe para que el navegador siempre
       // pida la version nueva del archivo despues de un deploy, en vez de
       // servir una copia vieja cacheada. Subir este numero en cada cambio a
-      // kanban_clientes.html / refi_buscador.html / calculadora_proximo_credito.html / whatsapp_crm.html.
-      const ASSET_VERSION = 24;
+      // kanban_clientes.html / refi_buscador.html / calculadora_proximo_credito.html / whatsapp_crm.html
+      // / clientes.html / conexion.html (o a los js/css que usan).
+      const ASSET_VERSION = 25;
+
+      // Las pantallas embebidas se cargan recién cuando hay sesión. Si se
+      // cargaban antes (la vista guardada se abre apenas carga el panel),
+      // la pantalla de adentro no encontraba sesión y saltaba a index.html
+      // dentro del propio cuadro. El flag "Loaded" se marca igual en el
+      // momento, así los avisos que esperan el 'load' del iframe no se pierden.
+      function ponerSrc(iframe, url) {
+        window.appReady.then(() => { iframe.src = url; });
+      }
 
       function cargarIframeSiHaceFalta(view) {
         if (view === 'view-refi' && !refiLoaded) {
-          iframeRefi.src = 'refi_buscador.html?v=' + ASSET_VERSION;
+          ponerSrc(iframeRefi, 'refi_buscador.html?v=' + ASSET_VERSION);
           refiLoaded = true;
           // notifyThemeToIframes/currentTheme viven en un <script> mas abajo,
           // pero para cuando el iframe termine de cargar (async) ya van a existir.
           iframeRefi.addEventListener('load', () => notifyThemeToIframes(currentTheme), { once: true });
         }
         if (view === 'view-calc' && !calcLoaded) {
-          iframeCalc.src = 'calculadora_proximo_credito.html?v=' + ASSET_VERSION;
+          ponerSrc(iframeCalc, 'calculadora_proximo_credito.html?v=' + ASSET_VERSION);
           calcLoaded = true;
           iframeCalc.addEventListener('load', () => notifyThemeToIframes(currentTheme), { once: true });
         }
         if (view === 'view-kanban' && !kanbanLoaded) {
-          iframeKanban.src = 'kanban_clientes.html?v=' + ASSET_VERSION;
+          ponerSrc(iframeKanban, 'kanban_clientes.html?v=' + ASSET_VERSION);
           kanbanLoaded = true;
         }
         if (view === 'view-whatsapp' && !whatsappLoaded) {
-          iframeWhatsapp.src = 'whatsapp_crm.html?v=' + ASSET_VERSION;
+          ponerSrc(iframeWhatsapp, 'whatsapp_crm.html?v=' + ASSET_VERSION);
           whatsappLoaded = true;
           iframeWhatsapp.addEventListener('load', () => notifyThemeToIframes(currentTheme), { once: true });
         }
         if (view === 'view-clientes' && !clientesLoaded) {
-          iframeClientes.src = 'clientes.html?v=' + ASSET_VERSION;
+          ponerSrc(iframeClientes, 'clientes.html?v=' + ASSET_VERSION);
           clientesLoaded = true;
           iframeClientes.addEventListener('load', () => notifyThemeToIframes(currentTheme), { once: true });
         }
         if (view === 'view-conexion' && !conexionLoaded) {
-          iframeConexion.src = 'conexion.html?v=' + ASSET_VERSION;
+          ponerSrc(iframeConexion, 'conexion.html?v=' + ASSET_VERSION);
           conexionLoaded = true;
           iframeConexion.addEventListener('load', () => notifyThemeToIframes(currentTheme), { once: true });
         }
@@ -4026,29 +4147,86 @@
           loadState().then(() => render());
         }
         try { localStorage.setItem('appActiveView_v1', view); } catch (e) { }
+        // La vista también queda en la dirección (index.html#view-whatsapp):
+        // así al recargar se vuelve a la misma pantalla y un link guardado
+        // abre directo ahí. replaceState no llena el historial del "atrás".
+        try { history.replaceState(null, '', '#' + view); } catch (e) { }
+        // En pantallas angostas el menú desplegado tapa todo: al elegir
+        // una sección se vuelve a achicar solo.
+        if (menuAbiertoAngosto) { menuAbiertoAngosto = false; aplicarMenu(); }
       }
 
       items.forEach(btn => btn.addEventListener('click', () => setAppView(btn)));
 
-      function collapseSidebar() {
-        sidebar.classList.add('collapsed');
-        openBtn.classList.add('visible');
-        try { localStorage.setItem('sidebarCollapsed_v1', '1'); } catch (e) { }
-      }
-      function expandSidebar() {
-        sidebar.classList.remove('collapsed');
-        openBtn.classList.remove('visible');
-        try { localStorage.setItem('sidebarCollapsed_v1', '0'); } catch (e) { }
-      }
-      collapseBtn.addEventListener('click', collapseSidebar);
-      openBtn.addEventListener('click', expandSidebar);
+      // ── Menú lateral: completo o achicado en franja de íconos ──
+      // La preferencia vieja (sidebarCollapsed_v1) dejaba el menú en ancho
+      // 0 y es la razón de que se viera "sin menú lateral": se usa una
+      // clave nueva para que todos arranquen con el menú completo.
+      const mqAngosto = window.matchMedia('(max-width: 900px)');
+      let menuAchicado = false;
+      let menuAbiertoAngosto = false;
+      try { menuAchicado = localStorage.getItem('sidebarCollapsed_v2') === '1'; } catch (e) { }
 
+      function aplicarMenu() {
+        const angosto = mqAngosto.matches;
+        const mini = angosto ? !menuAbiertoAngosto : menuAchicado;
+        const flotante = angosto && menuAbiertoAngosto;
+        sidebar.classList.toggle('collapsed', mini);
+        sidebar.classList.toggle('flotante', flotante);
+        appShellEl.classList.toggle('menu-flotante', flotante);
+        collapseBtn.textContent = mini ? '⟩' : '⟨';
+        collapseBtn.title = mini ? 'Mostrar el menú completo' : 'Achicar el menú';
+        cerrarMenuMas();
+      }
+
+      collapseBtn.addEventListener('click', () => {
+        if (mqAngosto.matches) {
+          menuAbiertoAngosto = !menuAbiertoAngosto;
+        } else {
+          menuAchicado = !menuAchicado;
+          try { localStorage.setItem('sidebarCollapsed_v2', menuAchicado ? '1' : '0'); } catch (e) { }
+        }
+        aplicarMenu();
+      });
+      // Tocar afuera del menú desplegado (el fondo oscuro) lo cierra.
+      document.addEventListener('click', (e) => {
+        if (menuAbiertoAngosto && !sidebar.contains(e.target)) { menuAbiertoAngosto = false; aplicarMenu(); }
+      });
+      mqAngosto.addEventListener('change', () => { menuAbiertoAngosto = false; aplicarMenu(); });
+
+      // Menú "⋯" (backup, restaurar, salir).
+      const menuMas = document.getElementById('sidebarMas');
+      const btnMas = document.getElementById('btnSidebarMas');
+      function cerrarMenuMas() { menuMas.classList.remove('abierto'); }
+      btnMas.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (menuMas.classList.toggle('abierto')) {
+          menuMas.style.left = (sidebar.getBoundingClientRect().right + 8) + 'px';
+        }
+      });
+      menuMas.addEventListener('click', (e) => e.stopPropagation());
+      document.addEventListener('click', cerrarMenuMas);
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarMenuMas(); });
+
+      aplicarMenu();
+
+      // Vista inicial: primero la de la dirección (#view-...: la que manda
+      // js/embed-guard.js cuando alguien abre una pantalla suelta, o un link
+      // guardado), si no la última que se usó.
+      function botonDeVista(view) {
+        return view ? Array.from(items).find(b => b.dataset.view === view) : null;
+      }
       try {
-        const saved = localStorage.getItem('appActiveView_v1');
-        const savedBtn = saved && Array.from(items).find(b => b.dataset.view === saved);
-        if (savedBtn) setAppView(savedBtn);
-        if (localStorage.getItem('sidebarCollapsed_v1') === '1') collapseSidebar();
-      } catch (e) { }
+        const desdeHash = botonDeVista(decodeURIComponent((location.hash || '').slice(1)));
+        let guardada = null;
+        try { guardada = localStorage.getItem('appActiveView_v1'); } catch (e) { }
+        const inicial = desdeHash || botonDeVista(guardada);
+        if (inicial) setAppView(inicial);
+      } catch (e) { console.error('vista inicial', e); }
+      window.addEventListener('hashchange', () => {
+        const btn = botonDeVista(decodeURIComponent((location.hash || '').slice(1)));
+        if (btn && !btn.classList.contains('active')) setAppView(btn);
+      });
 
       // Navegación cruzada entre pestañas (todas iframes independientes):
       // "Ver ficha completa" del chat -> Clientes, "Abrir chat" de la ficha

@@ -157,7 +157,18 @@ async function subirAdjunto(supabase, bucket, userId, buffer, extension) {
   return nombre;
 }
 
-async function aplicarReglas(supabase, userId, conversacion, mensajeTexto, tipo) {
+// reglas.js (detectarFecha) toma el DÍA en UTC de la fecha que recibe. Un
+// mensaje de las 22:00 de Argentina ya es el día siguiente en UTC, y
+// "mañana" quedaba dos días después. Se le pasa el mediodía UTC del día
+// LOCAL del mensaje: así su día en UTC es siempre el día de acá.
+function fechaParaReglas(fechaISO) {
+  const d = fechaISO ? new Date(fechaISO) : new Date();
+  if (Number.isNaN(d.getTime())) return null;
+  const dia = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return `${dia}T12:00:00.000Z`;
+}
+
+async function aplicarReglas(supabase, userId, conversacion, mensajeTexto, tipo, fechaMensaje) {
   if (!conversacion.cliente_id) return; // sin cliente vinculado no hay tarjeta que mover
 
   const { data: cliente } = await supabase.from('clientes').select('*').eq('id', conversacion.cliente_id).single();
@@ -173,6 +184,10 @@ async function aplicarReglas(supabase, userId, conversacion, mensajeTexto, tipo)
     tieneAdjunto: tipo === 'imagen' || tipo === 'pdf',
     tipoAdjunto: tipo === 'imagen' || tipo === 'pdf' ? tipo : null,
     etapaActualClave: etapaActual?.clave || null,
+    // "mañana" / "el viernes" se cuentan desde el día en que se escribió el
+    // mensaje, no desde que el worker lo procesa (si estuvo caído un rato
+    // y lo recibe tarde, la promesa no se corre un día).
+    fecha: fechaParaReglas(fechaMensaje),
   });
   if (!resultado) return;
 
@@ -211,6 +226,159 @@ async function aplicarReglas(supabase, userId, conversacion, mensajeTexto, tipo)
 
 function previewTexto(texto, tipo) {
   return texto || (tipo === 'imagen' ? '📷 Imagen' : tipo === 'pdf' ? '📄 PDF' : tipo === 'audio' ? '🎙️ Audio' : '...');
+}
+
+// Vista previa de la lista de chats: los salientes van con "Vos: " adelante
+// (como en el render 5.1 y como lo guarda el panel al contestar), para que
+// de un vistazo se vea quién habló último.
+function textoUltimoMensaje(direccion, texto, tipo) {
+  const vista = previewTexto(texto, tipo);
+  return direccion === 'saliente' ? 'Vos: ' + vista : vista;
+}
+
+// ─── Tildes (✓ enviado, ✓✓ entregado, ✓✓ azul leído) ───
+// Baileys 7 informa el estado con proto.WebMessageInfo.Status (verificado
+// en node_modules): ERROR=0, PENDING=1, SERVER_ACK=2, DELIVERY_ACK=3,
+// READ=4, PLAYED=5 (audio escuchado: para el panel es lo mismo que leído).
+// ERROR y PENDING no se traducen: no hay que "bajar" un mensaje que ya
+// figuraba enviado por un aviso suelto.
+const RANGO_ESTADO = { error: 0, pendiente: 0, enviado: 1, entregado: 2, leido: 3 };
+
+function estadoDesdeStatus(status) {
+  const s = Number(status);
+  if (s === 2) return 'enviado';
+  if (s === 3) return 'entregado';
+  if (s === 4 || s === 5) return 'leido';
+  return null;
+}
+
+// Estado con el que se guarda un mensaje nuevo (en vivo o del historial).
+// Los del historial traen su status real: un saliente de hace días que el
+// cliente ya leyó entra directo con el tilde azul.
+function estadoInicial(direccion, status) {
+  const desdeStatus = estadoDesdeStatus(status);
+  if (direccion === 'entrante') return desdeStatus === 'leido' ? 'leido' : 'entregado';
+  return desdeStatus || 'enviado';
+}
+
+// Estados que se pueden "subir" a `destino` (nunca se baja: leído > entregado > enviado > pendiente).
+function estadosInferiores(destino) {
+  return Object.keys(RANGO_ESTADO).filter(e => RANGO_ESTADO[e] < RANGO_ESTADO[destino]);
+}
+
+// actualizaciones: [{ waId, estado }]. Busca las filas por wa_id (solo de
+// conversaciones de este usuario), sube el estado donde corresponde y
+// devuelve los wa_id que todavía no están en la base (para reintentar).
+async function aplicarEstados(supabase, userId, actualizaciones) {
+  // Si para el mismo mensaje llegan varios avisos juntos, vale el más alto.
+  const mejor = new Map();
+  for (const { waId, estado } of actualizaciones) {
+    if (!waId || !estado) continue;
+    const previo = mejor.get(waId);
+    if (!previo || RANGO_ESTADO[estado] > RANGO_ESTADO[previo]) mejor.set(waId, estado);
+  }
+  if (!mejor.size) return [];
+
+  const ids = [...mejor.keys()];
+  const filas = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await supabase.from('mensajes')
+      .select('id, wa_id, estado, direccion, conversacion_id, creado_at, conversaciones!inner(user_id)')
+      .in('wa_id', ids.slice(i, i + 200)).eq('conversaciones.user_id', userId);
+    if (error) { logger.error({ err: error }, 'No se pudieron buscar los mensajes para actualizar los tildes'); return []; }
+    filas.push(...(data || []));
+  }
+
+  const encontrados = new Set(filas.map(f => f.wa_id));
+  const porDestino = {};
+  // conversacion_id -> creado_at del entrante leído más nuevo.
+  const leidoHasta = new Map();
+  for (const f of filas) {
+    const destino = mejor.get(f.wa_id);
+    if (RANGO_ESTADO[destino] <= (RANGO_ESTADO[f.estado] ?? 0)) continue;
+    (porDestino[destino] = porDestino[destino] || []).push(f.id);
+    // Un ENTRANTE pasa a leído cuando lo abrí en el celular (aviso
+    // "read-self" de WhatsApp).
+    if (destino === 'leido' && f.direccion === 'entrante') {
+      const previo = leidoHasta.get(f.conversacion_id);
+      if (!previo || f.creado_at > previo) leidoHasta.set(f.conversacion_id, f.creado_at);
+    }
+  }
+  for (const [destino, idsFila] of Object.entries(porDestino)) {
+    // El filtro por estado repite la regla de "nunca bajar" en la propia
+    // base, por si entre la lectura y esto el mensaje ya subió por otro lado.
+    const { error } = await supabase.from('mensajes').update({ estado: destino })
+      .in('id', idsFila).in('estado', estadosInferiores(destino));
+    if (error) logger.error({ err: error, destino }, 'No se pudo actualizar el tilde de los mensajes');
+  }
+  // Lo que queda sin leer en ese chat son los entrantes POSTERIORES al
+  // último que leí (si justo entró otro mensaje después, no se borra su
+  // globo). Nunca se sube el contador desde acá, solo se baja.
+  for (const [conversacionId, hasta] of leidoHasta) {
+    try {
+      const { count, error } = await supabase.from('mensajes').select('id', { count: 'exact', head: true })
+        .eq('conversacion_id', conversacionId).eq('direccion', 'entrante').gt('creado_at', hasta);
+      if (error) throw error;
+      const { data: conv } = await supabase.from('conversaciones').select('no_leidos')
+        .eq('id', conversacionId).eq('user_id', userId).maybeSingle();
+      if (conv && (count || 0) < (conv.no_leidos || 0)) {
+        await supabase.from('conversaciones').update({ no_leidos: count || 0 }).eq('id', conversacionId);
+      }
+    } catch (e) {
+      logger.error({ err: e }, 'No se pudo actualizar los no leídos tras leer en el celular');
+    }
+  }
+  return ids.filter(id => !encontrados.has(id));
+}
+
+// Algunos avisos llegan antes de que el mensaje esté guardado (el
+// "enviado" de WhatsApp puede ganarle a la escritura en la base, o el
+// mensaje del celular todavía se está procesando en messages.upsert). Los
+// que no se encuentran se reintentan una sola vez, unos segundos después.
+async function actualizarTildes(supabase, userId, actualizaciones) {
+  const faltan = await aplicarEstados(supabase, userId, actualizaciones);
+  if (!faltan.length) return;
+  const pendientes = actualizaciones.filter(a => faltan.includes(a.waId));
+  setTimeout(() => {
+    aplicarEstados(supabase, userId, pendientes)
+      .catch(e => logger.error({ err: e }, 'Error reintentando los tildes'));
+  }, 5000);
+}
+
+// chats.update de Baileys NO trae el total de no leídos sino avisos: +N por
+// cada mensaje entrante (eso ya lo cuenta guardarMensaje, sumarlo de nuevo
+// lo duplicaría), 0 = el chat se leyó en el celular, -1 = se marcó como
+// no leído a mano, null = sin cambio. Solo se usan el 0 y el -1.
+async function buscarConversacionPorJid(sock, supabase, userId, jid) {
+  const { data: porJid } = await supabase.from('conversaciones').select('id, no_leidos')
+    .eq('user_id', userId).eq('jid', jid).maybeSingle();
+  if (porJid) return porJid;
+  if (jid.endsWith('@g.us')) return null;
+  // El chat puede estar guardado con el otro jid (@lid vs. el de toda la
+  // vida): se prueba por teléfono.
+  const telefono = jidATelefono(jid, pnPorLidGlobal[jid] || await pnDeLid(sock, jid));
+  if (!telefono) return null;
+  const { data: porTelefono } = await supabase.from('conversaciones').select('id, no_leidos')
+    .eq('user_id', userId).eq('telefono', telefono).maybeSingle();
+  return porTelefono || null;
+}
+
+async function actualizarNoLeidos(sock, supabase, userId, cambios) {
+  for (const c of cambios || []) {
+    if (!c.id || c.id === 'status@broadcast') continue;
+    if (c.unreadCount !== 0 && c.unreadCount !== -1) continue;
+    try {
+      const conv = await buscarConversacionPorJid(sock, supabase, userId, c.id);
+      if (!conv) continue;
+      // Marcado como no leído en el celular: que aparezca al menos el
+      // globo "1" (si ya tenía más, se respeta).
+      const nuevo = c.unreadCount === 0 ? 0 : Math.max(1, conv.no_leidos || 0);
+      if (nuevo === (conv.no_leidos || 0)) continue;
+      await supabase.from('conversaciones').update({ no_leidos: nuevo }).eq('id', conv.id);
+    } catch (e) {
+      logger.error({ err: e, jid: c.id }, 'Error actualizando no leídos de un chat');
+    }
+  }
 }
 
 // Guarda un mensaje (en vivo o del historial) en conversaciones/mensajes.
@@ -305,20 +473,28 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
     tipo,
     texto: texto || null,
     media_path: mediaPath,
-    estado: direccion === 'entrante' ? 'entregado' : 'enviado',
+    estado: estadoInicial(direccion, msg.status),
     creado_at: creadoAt,
   });
   if (errorInsert) { logger.error({ err: errorInsert }, 'No se pudo guardar el mensaje'); return; }
 
+  // Solo los ENTRANTES suman no leídos. Un saliente en vivo (contesté desde
+  // el celular) significa que el chat ya se atendió: el globo vuelve a 0,
+  // igual que cuando se contesta desde la Bandeja (crmEnviarMensaje). En el
+  // historial no se toca: ahí el contador real lo pone sincronizarHistorial.
   const esMasNuevo = !conversacion.ultimo_at || creadoAt >= conversacion.ultimo_at;
+  let noLeidos = {};
+  if (!opciones.noContarNoLeido) {
+    noLeidos = direccion === 'entrante' ? { no_leidos: (conversacion.no_leidos || 0) + 1 } : { no_leidos: 0 };
+  }
   const { error: errorUpdate } = await supabase.from('conversaciones').update({
-    ...(esMasNuevo ? { ultimo_texto: previewTexto(texto, tipo), ultimo_at: creadoAt } : {}),
-    ...(direccion === 'entrante' && !opciones.noContarNoLeido ? { no_leidos: (conversacion.no_leidos || 0) + 1 } : {}),
+    ...(esMasNuevo ? { ultimo_texto: textoUltimoMensaje(direccion, texto, tipo), ultimo_at: creadoAt } : {}),
+    ...noLeidos,
   }).eq('id', conversacion.id);
   if (errorUpdate) logger.error({ err: errorUpdate }, 'No se pudo actualizar la conversación');
 
   if (aplicarAutomatizacion && direccion === 'entrante') {
-    await aplicarReglas(supabase, userId, conversacion, texto, tipo).catch(e => logger.error({ err: e }, 'Error aplicando reglas'));
+    await aplicarReglas(supabase, userId, conversacion, texto, tipo, creadoAt).catch(e => logger.error({ err: e }, 'Error aplicando reglas'));
   }
 }
 
@@ -601,6 +777,38 @@ async function iniciarWhatsApp({ supabase, userId, config, onReady }) {
       }
     }
   });
+
+  // Tildes de chats 1 a 1: WhatsApp avisa cada cambio de estado de un
+  // mensaje (enviado al servidor, entregado al celular, leído).
+  sock.ev.on('messages.update', async (cambios) => {
+    const actualizaciones = (cambios || [])
+      .filter(c => c.key?.id && c.key.remoteJid !== 'status@broadcast' && c.update && c.update.status != null)
+      .map(c => ({ waId: c.key.id, estado: estadoDesdeStatus(c.update.status) }))
+      .filter(a => a.estado);
+    if (!actualizaciones.length) return;
+    await actualizarTildes(supabase, userId, actualizaciones)
+      .catch(e => logger.error({ err: e }, 'Error actualizando los tildes'));
+  });
+
+  // En grupos el aviso llega por participante (Baileys no lo manda por
+  // messages.update): alcanza con que uno lo reciba / lo lea para mostrar
+  // el tilde, como hace WhatsApp con "entregado".
+  sock.ev.on('message-receipt.update', async (recibos) => {
+    const actualizaciones = (recibos || [])
+      .filter(r => r.key?.id && r.key.fromMe && r.key.remoteJid !== 'status@broadcast' && r.receipt)
+      .map(r => ({
+        waId: r.key.id,
+        estado: (r.receipt.readTimestamp || r.receipt.playedTimestamp) ? 'leido' : r.receipt.receiptTimestamp ? 'entregado' : null,
+      }))
+      .filter(a => a.estado);
+    if (!actualizaciones.length) return;
+    await actualizarTildes(supabase, userId, actualizaciones)
+      .catch(e => logger.error({ err: e }, 'Error actualizando los tildes de grupo'));
+  });
+
+  // Chat leído (o marcado como no leído) desde el celular.
+  sock.ev.on('chats.update', (cambios) => actualizarNoLeidos(sock, supabase, userId, cambios)
+    .catch(e => logger.error({ err: e }, 'Error actualizando no leídos')));
 
   return sock;
 }

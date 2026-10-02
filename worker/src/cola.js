@@ -5,6 +5,7 @@
 // las va mandando de a una, nunca en ráfaga.
 
 const pino = require('pino');
+const { generateMessageIDV2 } = require('@whiskeysockets/baileys');
 const logger = pino({ level: process.env.LOG_LEVEL || 'warn' });
 
 const POLL_MS = 4000;
@@ -46,9 +47,33 @@ async function enviarUno(sock, supabase, userId, sesion) {
 
   if (!pendiente) return false;
 
+  // El id de WhatsApp (wa_id) se elige ACÁ y se guarda en la fila ANTES de
+  // mandar. Por dos motivos:
+  //   - los tildes (entregado / leído) llegan por messages.update con ese
+  //     id: si la fila no lo tiene, nunca se encuentran (ver wa.js);
+  //   - si WhatsApp devuelve el mismo mensaje por messages.upsert antes de
+  //     que termine el envío, guardarMensaje lo reconoce por wa_id y no lo
+  //     duplica. Guardarlo recién después dejaba una ventana donde podía
+  //     entrar como fila nueva y el UPDATE de acá chocaba contra el índice
+  //     único de wa_id (la fila quedaba 'pendiente' y se volvía a mandar).
+  // El .eq('estado', 'pendiente') es la reserva: si desde el panel se
+  // canceló o ya lo tomó otro ciclo, no se manda.
+  const waId = generateMessageIDV2(sock.user?.id);
+  const { data: reservado, error: errorReserva } = await supabase.from('mensajes')
+    .update({ wa_id: waId }).eq('id', pendiente.id).eq('estado', 'pendiente').select('id');
+  if (errorReserva) {
+    logger.error({ err: errorReserva }, 'No se pudo preparar el mensaje para enviar, se reintenta en el próximo ciclo');
+    return false;
+  }
+  if (!reservado || !reservado.length) return false;
+
   try {
-    await sock.sendMessage(pendiente.conversaciones.jid, { text: pendiente.texto || '' });
-    await supabase.from('mensajes').update({ estado: 'enviado' }).eq('id', pendiente.id);
+    const resultado = await sock.sendMessage(pendiente.conversaciones.jid, { text: pendiente.texto || '' }, { messageId: waId });
+    const idFinal = resultado?.key?.id || waId;
+    // Solo pasa de 'pendiente' a 'enviado': si en el medio ya llegó el
+    // tilde de entregado/leído (WhatsApp es rápido), no se lo pisa.
+    await supabase.from('mensajes').update({ estado: 'enviado', ...(idFinal !== waId ? { wa_id: idFinal } : {}) })
+      .eq('id', pendiente.id).eq('estado', 'pendiente');
     await supabase.from('wa_sesion').update({ enviados_hoy: (sesion.enviados_hoy || 0) + 1 }).eq('user_id', userId);
     logger.info({ a: pendiente.conversaciones.jid }, 'Mensaje enviado');
   } catch (e) {
