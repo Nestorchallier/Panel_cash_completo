@@ -519,6 +519,16 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
   }
   if (errorInsert) { logger.error({ err: errorInsert }, 'No se pudo guardar el mensaje'); return; }
 
+  // WhatsApp solo avisa "entregado / leído" al aparato que mandó el mensaje:
+  // lo que se escribe desde el celular casi nunca trae el aviso acá. Si el
+  // cliente contesta, es seguro que vio lo anterior: se marca como leído.
+  if (direccion === 'entrante' && !esGrupo) {
+    const { error: eLeido } = await supabase.from('mensajes').update({ estado: 'leido' })
+      .eq('conversacion_id', conversacion.id).eq('direccion', 'saliente')
+      .in('estado', ['enviado', 'entregado']).lte('creado_at', creadoAt);
+    if (eLeido) logger.error({ err: eLeido }, 'No se pudieron marcar como leídos los mensajes anteriores');
+  }
+
   // Solo los ENTRANTES suman no leídos. Un saliente en vivo (contesté desde
   // el celular) significa que el chat ya se atendió: el globo vuelve a 0,
   // igual que cuando se contesta desde la Bandeja (crmEnviarMensaje). En el

@@ -149,6 +149,8 @@
   :root[data-theme="dark"] .bubble .meta{color:#8696a0;}
   .bubble .autor{font-size:11px;color:var(--blue);font-weight:700;margin-bottom:3px;}
   /* Tildes como los de WhatsApp: gris = enviado/entregado, celeste = leído. */
+  .btn-refi-apto{display:block;width:100%;margin-top:12px;padding:9px 10px;border-radius:8px;border:1px solid #67e8f9;background:#ecfeff;color:#0e7490;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;}
+  .btn-refi-apto:hover{background:#cffafe;}
   .tilde{display:inline-flex;align-items:center;color:var(--tilde);}
   .tilde.leido{color:var(--tilde-leido);}
   .tilde.error{color:var(--red);font-weight:700;}
@@ -1133,6 +1135,38 @@ async function enviarMensajeActual(){
   }
 }
 
+// ¿El cliente está en el archivo que se subió en Refinanciaciones? (lo
+// guarda esa pantalla en este mismo navegador). Se compara por DNI (o el DNI
+// dentro del CUIL) y por número de préstamo.
+let _refiIdx = null;
+function indiceRefi(){
+  let raw = null;
+  try{ raw = localStorage.getItem('refi_dashboard_rows_v1'); }catch(e){}
+  if(_refiIdx && _refiIdx.raw === raw) return _refiIdx;
+  _refiIdx = { raw, dnis: new Set(), prestamos: new Set() };
+  if(!raw) return _refiIdx;
+  try{
+    const rows = JSON.parse(raw);
+    const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+    const head = (rows[0] || []).map(norm);
+    const iDni = ['dni cuil','dni','cuil'].map(h => head.indexOf(h)).find(i => i >= 0);
+    const iPre = head.indexOf('prestamo');
+    rows.slice(1).forEach(r => {
+      const d = String(iDni !== undefined ? r[iDni] : '').replace(/\D/g,'');
+      if(d.length === 11) _refiIdx.dnis.add(String(Number(d.slice(2,10))));
+      else if(d) _refiIdx.dnis.add(String(Number(d)));
+      const n = String(iPre >= 0 ? r[iPre] : '').replace(/\D/g,'');
+      if(n) _refiIdx.prestamos.add(String(Number(n)));
+    });
+  }catch(e){ console.warn('archivo de refinanciaciones', e); }
+  return _refiIdx;
+}
+function enArchivoRefi(cliente, p){
+  const idx = indiceRefi();
+  const dni = String(cliente.dni || '').replace(/\D/g,'');
+  const nro = String((p && p.nro) || '').replace(/\D/g,'');
+  return (dni && idx.dnis.has(String(Number(dni)))) || (nro && idx.prestamos.has(String(Number(nro))));
+}
 function irAVista(view){ window.top.postMessage({ type:'cm-ir-a-vista', view }, '*'); }
 
 /* ===== Modales ===== */
@@ -1426,6 +1460,7 @@ function renderFicha(){
       <div class="campo-label">Promesa de pago</div>
       <label class="campo-caja" id="cajaPromesa"><span class="fecha-txt ${promesa ? '' : 'vacia'}">📅 ${promesa ? `${fmtFecha(promesa)} · ${promesaRel}` : 'Sin promesa'}</span><span class="lapiz">✏️</span><input type="date" id="fichaPromesa" value="${escapeHtml(promesa||'')}"></label>
       <div class="guardado-ok" id="fichaGuardadoOk"></div>
+      ${enArchivoRefi(cliente, p) ? `<button class="btn-refi-apto" id="fichaRefiApto" title="Está en el archivo de Refinanciaciones: ver planes y mensaje">🔁 Apto para refinanciación · ver planes</button>` : ''}
     </div>
     <div class="ficha-acciones">
       <button class="primary" id="fichaConfirmarPago">✅ Confirmar pago</button>
@@ -1486,6 +1521,12 @@ function renderFicha(){
       renderFicha();
       irAVista('view-refi');
     }catch(err){ toast('No se pudo mover a Refinanciado.', 'error'); }
+  });
+  const btnApto = document.getElementById('fichaRefiApto');
+  if(btnApto) btnApto.addEventListener('click', ()=>{
+    // Refinanciaciones lee este pedido y abre la ficha de este cliente.
+    try{ localStorage.setItem('refi_abrir', JSON.stringify({ dni: cliente.dni || '', prestamo: (p && p.nro) || '', t: Date.now() })); }catch(e){}
+    irAVista('view-refi');
   });
   document.getElementById('fichaProxCredito').addEventListener('click', ()=> irAVista('view-calc'));
   document.getElementById('fichaNota').addEventListener('click', agregarNotaInterna);

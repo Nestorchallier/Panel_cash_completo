@@ -854,6 +854,29 @@
 
   initFromStorage();
 
+  // Pedido de la Bandeja ("Apto para refinanciación"): abre directo la
+  // ficha de ese cliente (por DNI / CUIL o número de préstamo).
+  function abrirPendiente(){
+    let pedido = null;
+    try{ pedido = JSON.parse(localStorage.getItem('refi_abrir') || 'null'); }catch(e){}
+    if (!pedido || Date.now() - (pedido.t || 0) > 60000) return;
+    try{ localStorage.removeItem('refi_abrir'); }catch(e){}
+    if (!records.length){
+      const saved = loadFromStorage();
+      if (!saved) return;
+      buildRecords(saved.rows);
+      showApp((saved.meta && saved.meta.fileName) || 'archivo guardado', records.length);
+    }
+    const num = v => { const d = String(v || '').replace(/\D/g, ''); return d ? String(Number(d.length === 11 ? d.slice(2, 10) : d)) : ''; };
+    const dni = num(pedido.dni);
+    const nro = String(pedido.prestamo || '').replace(/\D/g, '');
+    const r = records.find(x => dni && num(x.dni) === dni)
+      || records.find(x => nro && String(x.prestamo || '').replace(/\D/g, '') === nro);
+    if (r){ searchBox.value = r.nombre; renderResults(r.nombre); selectRecord(r); }
+  }
+  setTimeout(abrirPendiente, 0); // después de que se termine de cargar el resto del script
+  window.addEventListener('storage', e => { if (e.key === 'refi_abrir' && e.newValue) abrirPendiente(); });
+
   /* ===== Envío por WhatsApp ===== */
   let activeRecord = null;
   const WA_TPL_KEY = 'refi_wa_template_v1';
