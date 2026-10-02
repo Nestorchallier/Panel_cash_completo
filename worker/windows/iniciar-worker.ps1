@@ -13,13 +13,20 @@ New-Item -ItemType Directory -Force -Path $LogsDir | Out-Null
 
 function Escribir-Log([string]$texto) {
   $linea = '[{0}] [arranque] {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $texto
-  Add-Content -Path $LogFile -Value $linea -Encoding UTF8
+  # Mientras node corre, cmd.exe tiene worker.log abierto sin dejar que
+  # otro escriba: en ese caso va a arranque.log. Un error al escribir el
+  # log nunca tiene que cortar al vigilante.
+  foreach ($archivo in @($LogFile, (Join-Path $LogsDir 'arranque.log'))) {
+    try { Add-Content -Path $archivo -Value $linea -Encoding UTF8 -ErrorAction Stop; return } catch { }
+  }
 }
 
 # Dos workers con la misma carpeta auth\ conectados a la vez se pelean la
 # sesion de WhatsApp: si ya hay uno corriendo para esta carpeta, salir.
 $mutex = New-Object System.Threading.Mutex($false, $MutexName)
-if (-not $mutex.WaitOne(0)) {
+try { $libre = $mutex.WaitOne(0) }
+catch [System.Threading.AbandonedMutexException] { $libre = $true }  # el vigilante anterior murio sin soltarlo
+if (-not $libre) {
   Escribir-Log 'Ya hay un worker corriendo para esta carpeta; no se lanza otro.'
   exit 0
 }
@@ -38,7 +45,7 @@ try {
   while ($true) {
     # Rotacion simple para que el log no crezca sin limite.
     if ((Test-Path $LogFile) -and (Get-Item $LogFile).Length -gt 20MB) {
-      Move-Item -Force $LogFile "$LogFile.1"
+      Move-Item -Force $LogFile "$LogFile.1" -ErrorAction SilentlyContinue
     }
 
     Escribir-Log "Lanzando worker ($node)"

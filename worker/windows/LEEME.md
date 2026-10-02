@@ -34,7 +34,9 @@ panel, como siempre.
   espera cada vez más, hasta 1 minuto). También lo relanza después de
   "Desvincular" desde el panel, así aparece el QR nuevo sin tocar nada.
 - Toda la salida va a `worker\logs\worker.log` (al pasar los 20 MB se
-  renombra a `worker.log.1`).
+  renombra a `worker.log.1`). Los avisos del arranque que se escriben
+  mientras el worker corre (por ejemplo "Ya hay un worker corriendo") van a
+  `worker\logs\arranque.log`, porque en ese momento `worker.log` está tomado.
 - No deja correr dos workers a la vez sobre la misma carpeta. Mientras esté
   instalado, no correr también `npm start` a mano: usar `detener.cmd` antes.
 
