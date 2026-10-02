@@ -5,3 +5,4 @@ worker/auth/
 worker/auth*/
 worker/*.log
 respaldos/
+worker/logs/
