@@ -157,6 +157,7 @@
   .tilde{display:inline-flex;align-items:center;color:var(--tilde);}
   .tilde.leido{color:var(--tilde-leido);}
   .tilde.error{color:var(--red);font-weight:700;}
+  .reintentar{border:0;background:none;color:var(--red);font:inherit;font-weight:700;cursor:pointer;padding:0;text-decoration:underline;}
   .tilde svg{display:block;}
   /* Adjuntos dentro del globo (render 5.1: tarjeta celeste con 🧾 nombre). */
   .adj-card{display:block;width:240px;max-width:100%;background:var(--adj-bg);border:1px solid var(--adj-line);border-radius:8px;padding:9px 10px 10px;margin:2px 0 6px;color:var(--text-2);font-size:12.5px;text-align:center;}
@@ -340,6 +341,11 @@
 let conversaciones = [];
 let conversacionActual = null;
 let mensajesActuales = [];
+// Mensajes que no se pudieron dejar en la cola (sin internet, sesión
+// vencida): quedan en el chat con "Reintentar" en vez de desaparecer en la
+// próxima recarga. Por conversación, solo en esta pestaña.
+const noGuardados = new Map();
+function conNoGuardados(convId, lista){ return [...lista, ...(noGuardados.get(convId) || [])]; }
 let eventosActuales = [];
 let fichaActual = null;
 let etapasCache = [];
@@ -683,7 +689,7 @@ async function abrirConversacion(id){
   ]);
   if (miCarga !== cargaActual) return;
 
-  mensajesActuales = mensajes;
+  mensajesActuales = conNoGuardados(id, mensajes);
   eventosActuales = eventos;
   await renderMensajes(true);
 
@@ -710,7 +716,7 @@ async function abrirConversacion(id){
     recargaPendiente = setTimeout(async ()=>{
       const lista = await crmListMensajes(id);
       if (miCarga !== cargaActual) return;
-      mensajesActuales = lista;
+      mensajesActuales = conNoGuardados(id, lista);
       renderMensajes();
     }, 250);
   });
@@ -819,10 +825,11 @@ const SVG_DOBLE = '<svg width="16" height="11" viewBox="0 0 16 11" aria-hidden="
 function tildeHtml(m){
   if(m.direccion !== 'saliente') return '';
   switch(m.estado){
+    case 'noguardado': return `<span class="tilde error" title="No llegó a la cola de envío">⚠️ No se envió · <button class="reintentar" data-reintentar="${escapeHtml(m.id)}">Reintentar</button></span>`;
     case 'leido':     return `<span class="tilde leido" title="Leído">${SVG_DOBLE}</span>`;
     case 'entregado': return `<span class="tilde" title="Entregado">${SVG_DOBLE}</span>`;
     case 'enviado':   return `<span class="tilde" title="Enviado">${SVG_TILDE}</span>`;
-    case 'error':     return `<span class="tilde error" title="No se pudo enviar">⚠️</span>`;
+    case 'error':     return `<span class="tilde error" title="WhatsApp no lo aceptó">⚠️ No se envió · <button class="reintentar" data-reintentar="${escapeHtml(m.id)}">Reintentar</button></span>`;
     default:          return `<span class="tilde" title="En cola de envío">${SVG_RELOJ}</span>`;
   }
 }
@@ -944,6 +951,8 @@ function renderConversacionShell(){
   msgs.addEventListener('click', e=>{
     const b = e.target.closest('.adj-thumb');
     if(b) abrirVisor(b.dataset.ver, b.dataset.nombre);
+    const r = e.target.closest('[data-reintentar]');
+    if(r) reintentarMensaje(r.dataset.reintentar);
   });
   msgs.addEventListener('error', e=>{
     const img = e.target;
@@ -1128,14 +1137,47 @@ async function enviarMensajeActual(){
   if(!texto || !conversacionActual) return;
   textarea.value = '';
   textarea.style.height = '';
-  mensajesActuales.push({ id:'tmp_'+Date.now(), direccion:'saliente', tipo:'texto', texto, estado:'pendiente', creado_at:new Date().toISOString() });
+  const temp = { id:'tmp_'+Date.now(), direccion:'saliente', tipo:'texto', texto, estado:'pendiente', creado_at:new Date().toISOString() };
+  mensajesActuales.push(temp);
   renderMensajes(true);
+  await guardarEnCola(conversacionActual.id, temp);
+}
+
+// Deja el mensaje en la cola (lo manda el worker). Si falla, el globo queda
+// con "No se envió · Reintentar" y no se pierde el texto.
+async function guardarEnCola(convId, temp){
   try{
-    await crmEnviarMensaje(conversacionActual.id, texto);
+    await crmEnviarMensaje(convId, temp.texto);
+    const lista = (noGuardados.get(convId) || []).filter(x => x !== temp);
+    if(lista.length) noGuardados.set(convId, lista); else noGuardados.delete(convId);
     await cargarConversaciones();
   }catch(e){
-    toast('No se pudo dejar el mensaje en la cola de envío.', 'error');
+    temp.estado = 'noguardado';
+    const lista = noGuardados.get(convId) || [];
+    if(!lista.includes(temp)) noGuardados.set(convId, [...lista, temp]);
+    if(conversacionActual && conversacionActual.id === convId) renderMensajes();
+    toast(navigator.onLine === false ? 'Sin internet: el mensaje no se envió. Tocá "Reintentar" cuando vuelva la conexión.'
+      : 'El mensaje no se pudo dejar en la cola de envío. Tocá "Reintentar".', 'error');
   }
+}
+
+async function reintentarMensaje(id){
+  if(!conversacionActual) return;
+  const convId = conversacionActual.id;
+  const temp = (noGuardados.get(convId) || []).find(x => x.id === id);
+  if(temp){
+    temp.estado = 'pendiente';
+    renderMensajes();
+    await guardarEnCola(convId, temp);
+    return;
+  }
+  // Rechazado por WhatsApp (estado 'error'): vuelve a la cola.
+  const m = mensajesActuales.find(x => x.id === id);
+  if(!m) return;
+  const { error } = await window.sb.from('mensajes').update({ estado: 'pendiente' }).eq('id', id).eq('estado', 'error');
+  if(error){ toast('No se pudo reintentar el mensaje.', 'error'); return; }
+  m.estado = 'pendiente';
+  renderMensajes();
 }
 
 // ¿El cliente está en el archivo que se subió en Refinanciaciones? (lo

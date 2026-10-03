@@ -6,7 +6,9 @@
 
 const pino = require('pino');
 const { generateMessageIDV2 } = require('@whiskeysockets/baileys');
-const logger = pino({ level: process.env.LOG_LEVEL || 'warn' });
+// En 'info' queda en el log cada envío ("Mensaje enviado"), para poder
+// auditar si un mensaje salió o no.
+const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
 const POLL_MS = 4000;
 
