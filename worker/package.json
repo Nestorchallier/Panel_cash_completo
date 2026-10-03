@@ -2,7 +2,7 @@
   "name": "cash-market-wa-worker",
   "version": "1.0.0",
   "private": true,
-  "description": "Worker Node.js 24/7 que conecta WhatsApp (Baileys) y lo sincroniza con Supabase para el CRM de Cash Market.",
+  "description": "Worker Node.js 24/7 que conecta WhatsApp (Baileys) y lo sincroniza con Supabase para el CRM Panel Unificado.",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

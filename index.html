@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Panel Cash Market — Comisiones, Cobros & Envíos</title>
+  <title>CRM Panel Unificado — Comisiones, Cobros & Envíos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script>
     // El panel nunca debería quedar adentro de sí mismo. Pasa si una pantalla
@@ -1798,7 +1798,7 @@
       background: linear-gradient(135deg, #2563eb 0%, #16a34a 100%);
       color: #fff;
       font-weight: 800;
-      font-size: 14px;
+      font-size: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -2096,6 +2096,7 @@
     }
 
     .sidebar.collapsed .sidebar-brand-txt,
+    .sidebar.collapsed .sidebar-credito,
     .sidebar.collapsed .si-label,
     .sidebar.collapsed .si-nuevo,
     .sidebar.collapsed .sidebar-user-txt,
@@ -2262,6 +2263,8 @@
     }
     .auth-box button:disabled { opacity: .6; cursor: default; }
     .auth-error { color: var(--coral); font-size: 12.5px; min-height: 16px; }
+    .sidebar-credito { color: #64748b; font-size: 10.5px; line-height: 1.45; text-align: center; padding: 8px 4px 0; }
+    .auth-credito { color: var(--text-dim); font-size: 11px; line-height: 1.5; text-align: center; margin-top: 6px; opacity: .8; }
   </style>
 </head>
 
@@ -2269,12 +2272,13 @@
 
 <div id="authGate" class="auth-gate">
   <form id="authForm" class="auth-box">
-    <div class="auth-brand"><span class="dot"></span>PANEL CASH MARKET</div>
+    <div class="auth-brand"><span class="dot"></span>CRM PANEL UNIFICADO</div>
     <p class="auth-sub">Iniciá sesión para continuar</p>
     <input type="email" id="authEmail" placeholder="Email" autocomplete="username" required>
     <input type="password" id="authPassword" placeholder="Contraseña" autocomplete="current-password" required>
     <button type="submit" id="authSubmit">Entrar</button>
     <div id="authError" class="auth-error"></div>
+    <div class="auth-credito">Creado por Nestor Challier<br>© 2026 Nestor Challier. Todos los derechos reservados.</div>
   </form>
 </div>
 
@@ -2282,8 +2286,8 @@
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-head">
       <div class="sidebar-brand">
-        <div class="sidebar-logo">CM</div>
-        <div class="sidebar-brand-txt"><b>Cash Market</b><span>Panel Unificado</span></div>
+        <div class="sidebar-logo">CRM</div>
+        <div class="sidebar-brand-txt"><b>CRM</b><span>Panel Unificado</span></div>
       </div>
       <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Ocultar menú">⟨</button>
     </div>
@@ -2310,6 +2314,7 @@
         <button class="sidebar-icon-btn" id="btnSidebarMas" title="Más opciones: backup, restaurar, salir">⋯</button>
       </div>
       <input type="file" id="fileInputBackup" accept=".json" style="display:none">
+      <div class="sidebar-credito">Creado por Nestor Challier<br>© 2026 Nestor Challier. Todos los derechos reservados.</div>
     </div>
   </aside>
 
@@ -3686,9 +3691,9 @@
   <script>
         let clientes = [];
         let plantillasBase = {
-            "Vencimiento": "Hola, Buen dia {cliente}\nSoy {ejecutivo} de Cash Market.\n\nTe informamos que tu fecha de vencimiento es {fecha}, por un monto de ${monto}\n\nQuedo atento para coordinar el pago en efectivo Por favor, o por transferencia\n\nGracias!",
+            "Vencimiento": "Hola, Buen dia {cliente}\nSoy {ejecutivo}.\n\nTe informamos que tu fecha de vencimiento es {fecha}, por un monto de ${monto}\n\nQuedo atento para coordinar el pago en efectivo Por favor, o por transferencia\n\nGracias!",
             "Cuota Vencida": "⚠️ TU CUOTA ESTA VENCIDA\n\nBuenos dias, soy {ejecutivo} de cobranzas. tu cuota esta vencida y todavia no tenemos una confirmacion del pago de tu cuota.\n\nIMPORTE ATRASADO : ${monto}.-\n\nRECORDA QUE TENES RECARGO MORATORIO DIARIO.",
-            "Refinanciación": "Hola {cliente}, ¿cómo estás?\nTe contactamos desde Cash Market por tu préstamo atrasado.\n👉 Hoy tenés la posibilidad de refinanciar tu deuda.\nRespondé este mensaje para ver opciones.\nSaludos, Equipo Cash Market."
+            "Refinanciación": "Hola {cliente}, ¿cómo estás?\nTe contactamos por tu préstamo atrasado.\n👉 Hoy tenés la posibilidad de refinanciar tu deuda.\nRespondé este mensaje para ver opciones.\nSaludos."
         };
 
         // Plantillas y clientes se cargan de forma async más abajo (ver INIT),
@@ -4365,7 +4370,7 @@
       const a = document.createElement('a');
       const fecha = new Date().toISOString().slice(0, 10);
       a.href = url;
-      a.download = `backup_panel_cash_market_${fecha}.json`;
+      a.download = `backup_crm_panel_unificado_${fecha}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

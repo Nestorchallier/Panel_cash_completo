@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kanban de Cartera — Cash Market</title>
+<title>Kanban de Cartera — CRM Panel Unificado</title>
 <!-- Inter auto-alojada (misma fuente en todo el panel, sin depender de Google Fonts). -->
 <link rel="stylesheet" href="css/fuentes.css">
 <!-- Si alguien abre esta página suelta (fuera del panel), la manda a index.html. -->
@@ -1763,9 +1763,9 @@ document.getElementById('btnConfirmImport').addEventListener('click', ()=>{
 
 // --- Plantillas de WhatsApp (compartidas con "Envío de Mensajes") ---
 const FALLBACK_TEMPLATES = {
-  'Vencimiento': 'Hola, Buen dia {cliente}\nSoy {ejecutivo} de Cash Market.\n\nTe informamos que tu fecha de vencimiento es {fecha}, por un monto de ${monto}\n\nQuedo atento para coordinar el pago en efectivo Por favor, o por transferencia\n\nGracias!',
+  'Vencimiento': 'Hola, Buen dia {cliente}\nSoy {ejecutivo}.\n\nTe informamos que tu fecha de vencimiento es {fecha}, por un monto de ${monto}\n\nQuedo atento para coordinar el pago en efectivo Por favor, o por transferencia\n\nGracias!',
   'Cuota Vencida': '⚠️ TU CUOTA ESTA VENCIDA\n\nBuenos dias, soy {ejecutivo} de cobranzas. tu cuota esta vencida y todavia no tenemos una confirmacion del pago de tu cuota.\n\nIMPORTE ATRASADO : ${monto}.-\n\nRECORDA QUE TENES RECARGO MORATORIO DIARIO.',
-  'Refinanciación': 'Hola {cliente}, ¿cómo estás?\nTe contactamos desde Cash Market por tu préstamo atrasado.\n👉 Hoy tenés la posibilidad de refinanciar tu deuda.\nRespondé este mensaje para ver opciones.\nSaludos, Equipo Cash Market.',
+  'Refinanciación': 'Hola {cliente}, ¿cómo estás?\nTe contactamos por tu préstamo atrasado.\n👉 Hoy tenés la posibilidad de refinanciar tu deuda.\nRespondé este mensaje para ver opciones.\nSaludos.',
 };
 // Mapeo de etapa -> plantilla sugerida por defecto
 const STAGE_TEMPLATE_MAP = {

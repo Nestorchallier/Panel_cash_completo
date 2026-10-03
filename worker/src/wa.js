@@ -726,7 +726,7 @@ async function iniciarWhatsApp({ supabase, userId, config, onReady }) {
   const sock = makeWASocket({
     auth: state,
     logger: loggerBaileys,
-    browser: ['Cash Market CRM', 'Chrome', '1.0'],
+    browser: ['CRM Panel Unificado', 'Chrome', '1.0'],
     syncFullHistory: true, // trae todos los chats/mensajes previos, no solo los recientes
   });
 
