@@ -41,6 +41,10 @@ const APLICAR = process.argv.includes('--aplicar');
 const argDias = process.argv.find(a => a.startsWith('--dias='));
 const DIAS = argDias ? Math.max(1, parseInt(argDias.split('=')[1], 10) || 30) : 30;
 const VENTANA_DUPLICADO_MS = 2 * 60 * 1000;
+// --cliente=TEXTO: muestra el detalle de los clientes cuyo nombre lo contiene
+// (en vez de los 15 ejemplos).
+const argCliente = process.argv.find(a => a.startsWith('--cliente='));
+const FILTRO_CLIENTE = argCliente ? argCliente.split('=').slice(1).join('=').toLowerCase() : null;
 
 const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, { auth: { persistSession: false } });
 const uid = process.env.WORKER_USER_ID;
@@ -202,6 +206,8 @@ const corto = (t, n = 60) => { const s = String(t || '').replace(/\s+/g, ' ').tr
     if (etiquetasNuevas.length) cambios.etiquetas = Array.from(etiquetas);
     const recordatorio = cambios.promesa_fecha && promesaRegla && promesaRegla.accion && promesaRegla.accion.crea_recordatorio
       && !recordatorioYa.has(`${clienteId}|${cambios.promesa_fecha}`)
+      // Una promesa que ya venció no necesita recordatorio a futuro.
+      && cambios.promesa_fecha >= fechaAR(Date.now())
       ? { user_id: uid, cliente_id: clienteId, fecha: cambios.promesa_fecha, tipo: 'promesa', texto: `Promesa detectada por WhatsApp: "${promesaTexto}"` }
       : null;
     if (Object.keys(cambios).length || eventosNuevos.length) {
@@ -256,8 +262,13 @@ const corto = (t, n = 60) => { const s = String(t || '').replace(/\s+/g, ' ').tr
   const ejemplos = [...resultados].sort((a, b) => {
     const peso = r => (r.cambios.etapa_id && r.etapa.clave === 'verificar_pago' ? 4 : 0) + (r.cambios.promesa_fecha ? 3 : 0) + (r.cambios.etapa_id ? 1 : 0);
     return peso(b) - peso(a);
-  }).slice(0, 15);
-  console.log('\n15 ejemplos:');
+  }).filter(r => !FILTRO_CLIENTE || String(r.cliente.nombre || '').toLowerCase().includes(FILTRO_CLIENTE))
+    .slice(0, FILTRO_CLIENTE ? 1000 : 15);
+  if (FILTRO_CLIENTE) {
+    const sinCambios = clientes.filter(c => String(c.nombre || '').toLowerCase().includes(FILTRO_CLIENTE) && !resultados.some(r => r.cliente.id === c.id));
+    sinCambios.forEach(c => console.log(`${c.nombre}: sin cambios (promesa actual ${fecha(c.promesa_fecha)})`));
+  }
+  console.log(FILTRO_CLIENTE ? `\nClientes con "${FILTRO_CLIENTE}":` : '\n15 ejemplos:');
   ejemplos.forEach((r, i) => {
     const partes = [];
     if (r.cambios.etapa_id) partes.push(`etapa ${r.etapaInicial ? r.etapaInicial.nombre : '(sin etapa)'} -> ${r.etapa.nombre}`);
