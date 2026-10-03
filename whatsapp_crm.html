@@ -191,6 +191,9 @@
   .regla-aviso{align-self:stretch;font-size:12px;font-weight:500;color:var(--aviso-text);background:var(--aviso-bg);border:1px solid var(--aviso-line);border-radius:6px;padding:5px 12px;line-height:16px;}
   .regla-aviso b{font-weight:700;}
   .dia-divisor{align-self:center;margin:0 0 1px;}
+  .ver-anteriores{align-self:center;margin:2px 0 6px;}
+  .ver-anteriores button{background:var(--panel,#fff);border:1px solid var(--line,#e2e8f0);color:var(--text-2,#334155);border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:600;box-shadow:0 1px 2px rgba(15,23,42,.08);cursor:pointer;}
+  .ver-anteriores button:disabled{opacity:.6;cursor:default;}
   .dia-divisor span{display:inline-block;font-size:12.5px;font-weight:500;color:var(--chip-text);background:var(--chip-bg);border-radius:6px;padding:4px 12px;line-height:16px;box-shadow:var(--shadow-sm);}
   .wa-compose{border-top:1px solid var(--line);padding:10px 16px 10px;display:flex;flex-direction:column;gap:8px;position:relative;background:var(--panel);}
   .plantilla-chips{display:flex;gap:6px;flex-wrap:wrap;}
@@ -364,6 +367,11 @@
 let conversaciones = [];
 let conversacionActual = null;
 let mensajesActuales = [];
+// Los chats se abren con los últimos mensajes; los anteriores se piden de a
+// tandas con el botón "Ver mensajes anteriores".
+const MENSAJES_POR_TANDA = 300;
+let hayMensajesAnteriores = false;
+let cargandoAnteriores = false;
 // Agenda de no clientes (equipo, gerencia): por teléfono normalizado.
 let contactosPorTel = {};
 const GRUPOS_AGENDA = { equipo: '👔 Equipo', gerencia: '🏢 Gerencia', otro: '📇 Agenda' };
@@ -737,6 +745,7 @@ async function abrirConversacion(id){
   ]);
   if (miCarga !== cargaActual) return;
 
+  hayMensajesAnteriores = mensajes.length >= MENSAJES_POR_TANDA;
   mensajesActuales = conNoGuardados(id, mensajes);
   eventosActuales = eventos;
   await renderMensajes(true);
@@ -764,7 +773,11 @@ async function abrirConversacion(id){
     recargaPendiente = setTimeout(async ()=>{
       const lista = await crmListMensajes(id);
       if (miCarga !== cargaActual) return;
-      mensajesActuales = conNoGuardados(id, lista);
+      // Se conservan los mensajes anteriores que el usuario ya había cargado
+      // con "Ver mensajes anteriores".
+      const desde = lista.length ? lista[0].creado_at : null;
+      const anteriores = desde ? mensajesActuales.filter(m => !String(m.id).startsWith('tmp_') && m.creado_at < desde) : [];
+      mensajesActuales = conNoGuardados(id, [...anteriores, ...lista]);
       renderMensajes();
     }, 250);
   });
@@ -1006,6 +1019,7 @@ function renderConversacionShell(){
     if(b) abrirVisor(b.dataset.ver, b.dataset.nombre);
     const r = e.target.closest('[data-reintentar]');
     if(r) reintentarMensaje(r.dataset.reintentar);
+    if(e.target.closest('[data-ver-anteriores]')) cargarMensajesAnteriores();
   });
   msgs.addEventListener('error', e=>{
     const img = e.target;
@@ -1058,6 +1072,9 @@ async function renderMensajes(forzarAbajo){
   }
   const estabaAbajo = forzarAbajo || msgs.__abajo !== false;
   const piezas = [];
+  if(hayMensajesAnteriores){
+    piezas.push({ key: 'anteriores', html: `<div class="ver-anteriores"><button type="button" data-ver-anteriores ${cargandoAnteriores ? 'disabled' : ''}>${cargandoAnteriores ? 'Cargando…' : '↑ Ver mensajes anteriores'}</button></div>` });
+  }
   let diaAnterior = null;
   items.forEach(it=>{
     const dia = new Date(it.fecha).toDateString();
@@ -1093,6 +1110,27 @@ async function renderMensajes(forzarAbajo){
   });
   msgs.replaceChildren(frag);
   if(estabaAbajo){ msgs.scrollTop = msgs.scrollHeight; msgs.__abajo = true; }
+}
+
+// Suma la tanda anterior arriba del chat sin mover lo que se está mirando.
+async function cargarMensajesAnteriores(){
+  if(!conversacionActual || cargandoAnteriores) return;
+  const id = conversacionActual.id;
+  const miCarga = cargaActual;
+  const primero = mensajesActuales.find(m => !String(m.id).startsWith('tmp_'));
+  if(!primero){ hayMensajesAnteriores = false; return renderMensajes(); }
+  cargandoAnteriores = true;
+  await renderMensajes();
+  const lista = await crmListMensajes(id, { antesDe: primero.creado_at });
+  cargandoAnteriores = false;
+  if(miCarga !== cargaActual) return;
+  hayMensajesAnteriores = lista.length >= MENSAJES_POR_TANDA;
+  mensajesActuales = [...lista, ...mensajesActuales];
+  const msgs = document.getElementById('convMessages');
+  const altoAntes = msgs ? msgs.scrollHeight : 0;
+  const scrollAntes = msgs ? msgs.scrollTop : 0;
+  await renderMensajes();
+  if(msgs) msgs.scrollTop = scrollAntes + (msgs.scrollHeight - altoAntes);
 }
 
 function textoPlantillaConDatos(nombrePlantilla){
