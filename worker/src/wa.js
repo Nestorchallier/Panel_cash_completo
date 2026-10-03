@@ -829,12 +829,28 @@ async function iniciarWhatsApp({ supabase, userId, config, onReady }) {
   // Baileys 7: cada vez que aprende una equivalencia lid -> número.
   sock.ev.on('lid-mapping.update', ({ lid, pn }) => alActualizarContactos([{ lid, jid: pn }]));
 
+  // 'notify' son los mensajes en vivo. 'append' trae, entre otros, los que
+  // llegaron mientras el worker estaba desconectado (reinicio, corte de
+  // internet): antes se descartaban y quedaban mensajes en el celular que
+  // nunca aparecían en el CRM. guardarMensaje ya deduplica por wa_id, así
+  // que los que ya estaban (por ejemplo los que mandó la cola) no se repiten.
+  // A los atrasados no se les aplican las reglas automáticas si tienen más
+  // de 30 minutos, igual que con el historial.
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
-    if (type !== 'notify') return;
+    if (type !== 'notify' && type !== 'append') return;
     for (const msg of messages) {
-      if (!msg.message) continue;
+      if (!msg.message) {
+        // WhatsApp no lo pudo descifrar todavía (lo reintenta solo y, si
+        // sale, vuelve a llegar por acá). Se deja constancia en el log.
+        if (msg.messageStubType && msg.key?.remoteJid !== 'status@broadcast') {
+          logger.warn({ jid: msg.key?.remoteJid, id: msg.key?.id, stub: msg.messageStubType, type }, 'Mensaje sin contenido (no se pudo descifrar todavía)');
+        }
+        continue;
+      }
       try {
-        await guardarMensaje(sock, supabase, userId, config, msg);
+        const ts = Number(msg.messageTimestamp || 0) * 1000;
+        const atrasado = type === 'append' && ts && (Date.now() - ts) > 30 * 60000;
+        await guardarMensaje(sock, supabase, userId, config, msg, atrasado ? { aplicarAutomatizacion: false } : {});
       } catch (e) {
         logger.error({ err: e }, 'Error procesando mensaje entrante');
       }
