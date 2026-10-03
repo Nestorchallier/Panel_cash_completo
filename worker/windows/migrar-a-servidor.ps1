@@ -45,7 +45,9 @@ Write-Host 'Cortando el worker de esta PC (dos workers con la misma sesion se pi
 $paquete = Join-Path $env:TEMP 'worker-cash-market.tgz'
 try {
   Write-Host 'Empaquetando el worker con .env y auth...'
-  & tar.exe -czf $paquete --exclude=node_modules --exclude=logs -C $WorkerDir .
+  # Sin los .log sueltos ni las copias viejas de auth\: en la PC pueden
+  # pesar cientos de MB y el servidor no los usa.
+  & tar.exe -czf $paquete --exclude=node_modules --exclude=logs --exclude=*.log --exclude=auth_respaldo* -C $WorkerDir .
   if ($LASTEXITCODE -ne 0) { throw 'No se pudo empaquetar el worker.' }
 
   Write-Host 'Subiendo al servidor...'
