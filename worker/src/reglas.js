@@ -52,7 +52,9 @@ function detectarFecha(textoOriginal, ahora = new Date()) {
   if (m) {
     const dia = parseInt(m[1], 10), mes = parseInt(m[2], 10) - 1;
     let d = new Date(Date.UTC(hoy.getUTCFullYear(), mes, dia));
-    if (d < hoy) d = new Date(Date.UTC(hoy.getUTCFullYear() + 1, mes, dia));
+    // Una fecha con mes que ya pasó hace poco ("pago el 05/9" escrito el
+    // 24/9) es de este año, no del que viene: queda como promesa vencida.
+    if (d < addDias(hoy, -180)) d = new Date(Date.UTC(hoy.getUTCFullYear() + 1, mes, dia));
     return toISO(d);
   }
   m = /\bel\s+(\d{1,2})\b(?!\/)/.exec(texto);
@@ -99,6 +101,9 @@ function contienePalabra(texto, palabra) {
 function anunciaPago(texto, fechaDetectada) {
   const verboPago = /\b(pag(o|ar|arte|arle|arles|aria|are|amos)|transf(iero|erir|erirte|erirle|erirles|eriria|erire|iera)|deposit(o|ar|arte|arle|arles|aria|are)|abon(o|ar|arte|arle|arles|aria|are)|cancel(o|ar|aria|are)|te (mando|paso|giro) (la plata|el dinero|la guita)|regulariz(o|ar))\b/;
   if (!verboPago.test(texto)) return false;
+  // "si pago, ¿cuánto puedo sacar?" es una pregunta, no una promesa; y lo
+  // que habla del comprobante es para la regla de comprobantes.
+  if (/\bsi (te |les )?(pago|transfiero|deposito|abono|cancelo)\b|comprobante/.test(texto)) return false;
   if (/\b(ya|ahi|recien) (te )?(pague|transferi|deposite|abone|pase|cancele)\b|\b(transferi|deposite|abone|cancele)\b/.test(texto)) return false;
   return !!fechaDetectada || hablaEnFuturo(texto);
 }
@@ -120,8 +125,21 @@ function promesaConfirmada(textoSaliente, fechaSaliente, entrantes) {
   return null;
 }
 
+// hora: ISO del momento real del mensaje. Argentina es UTC-3 todo el año.
+function fueraDeHorario(hora, desde, hasta) {
+  const d = hora ? new Date(hora) : null;
+  if (!d || Number.isNaN(d.getTime())) return false;
+  const local = new Date(d.getTime() - 3 * 3600000);
+  const min = local.getUTCHours() * 60 + local.getUTCMinutes();
+  const aMin = t => { const [h, m] = String(t).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+  const dia = local.getUTCDay();
+  if (dia === 0) return true; // domingo
+  return min < aMin(desde) || min >= aMin(hasta);
+}
+
 // reglas: filas de la tabla `reglas` (ya ordenadas por prioridad asc).
-// contexto: { texto, tieneAdjunto, tipoAdjunto: 'imagen'|'pdf'|null, etapaActualClave, fecha? }
+// contexto: { texto, tieneAdjunto, tipoAdjunto: 'imagen'|'pdf'|null, etapaActualClave, fecha?, hora? }
+// hora (opcional): ISO real del mensaje, para "Fuera de horario".
 // fecha (opcional): cuándo se mandó el mensaje. Las fechas de promesa
 // ("mañana", "el viernes") se calculan desde ese día — importa al releer
 // mensajes viejos del historial; si no viene, se usa hoy.
@@ -153,6 +171,14 @@ function clasificarMensaje(reglas, contexto) {
     }
     // Solo adjunto: tiene que venir el adjunto.
     if (regla.tipo_adjunto && !matchAdjunto) continue;
+
+    // "Fuera de horario": solo para mensajes escritos fuera del horario
+    // (hora de Argentina). Antes no se miraba la hora y saltaba con todo
+    // mensaje que no tomara otra regla. Sin la hora del mensaje no aplica.
+    if (accion.horario_desde || accion.horario_hasta) {
+      if (!fueraDeHorario(contexto.hora, accion.horario_desde || '00:00', accion.horario_hasta || '23:59')) continue;
+      return { regla, fechaDetectada: null };
+    }
 
     // Regla catch-all ("Respondió"): sin palabras clave, solo aplica si el
     // chat está en la etapa de la que se supone que tiene que salir.
