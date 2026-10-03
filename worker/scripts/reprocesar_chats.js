@@ -44,6 +44,9 @@ const VENTANA_DUPLICADO_MS = 2 * 60 * 1000;
 // --cliente=TEXTO: muestra el detalle de los clientes cuyo nombre lo contiene
 // (en vez de los 15 ejemplos).
 const argCliente = process.argv.find(a => a.startsWith('--cliente='));
+// --solo-futuras: solo toma promesas con fecha de hoy en adelante (las
+// vencidas dejarían al cliente en "Promesa" con una fecha pasada).
+const SOLO_FUTURAS = process.argv.includes('--solo-futuras');
 const FILTRO_CLIENTE = argCliente ? argCliente.split('=').slice(1).join('=').toLowerCase() : null;
 
 const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, { auth: { persistSession: false } });
@@ -175,6 +178,7 @@ const corto = (t, n = 60) => { const s = String(t || '').replace(/\s+/g, ' ').tr
       // Una promesa escrita antes de un pago ya registrado está cumplida: no
       // vuelve a poner al cliente en "Promesa" con una fecha vieja.
       if (res.regla.accion && res.regla.accion.detecta_fecha && comprobanteYaAcreditado(clienteId, m)) continue;
+      if (SOLO_FUTURAS && res.regla.accion && res.regla.accion.detecta_fecha && (!res.fechaDetectada || res.fechaDetectada < fechaAR(Date.now()))) continue;
       const { regla, fechaDetectada } = res;
       const accion = regla.accion || {};
       const ts = new Date(m.creado_at).getTime();
