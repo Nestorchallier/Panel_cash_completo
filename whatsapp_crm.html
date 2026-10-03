@@ -1332,7 +1332,7 @@ function abrirModalPago(soloMoverEtapa){
         <label class="opcion"><input type="radio" name="pagoTipo" value="cuotas" checked><div><b>Pagó cuota(s)</b><span>Se imputa a las cuotas impagas más viejas.</span></div></label>
         <label class="opcion"><input type="radio" name="pagoTipo" value="total"><div><b>Canceló el préstamo completo</b><span>Se saldan todas las cuotas y queda con la etiqueta “Cancelado”.</span></div></label>
       </div>
-      <div class="m-ayuda">El pago se suma en Sueldo & Cobros y el cliente pasa a “Cerrado (Cobrado)”.</div>
+      <div class="m-ayuda">El pago se suma en Pagos & Objetivo y el cliente pasa a “Cerrado (Cobrado)”.</div>
     </div>
     <div class="modal-pie"><span class="error" id="pagoError"></span>
       ${soloMoverEtapa ? `<button class="btn" id="pagoSoloMover" title="Mover a Cerrado sin registrar un pago">Solo mover</button>` : `<button class="btn" data-cerrar>Cancelar</button>`}

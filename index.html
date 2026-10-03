@@ -1006,6 +1006,64 @@
       margin-top: 4px;
     }
 
+    /* Resumen del objetivo en Sueldo & Comisiones (solo lectura) */
+    .obj-resumen {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+    }
+
+    .obj-resumen-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    @media(max-width:700px) {
+      .obj-resumen-metrics {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .obj-resumen-metric .lbl {
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 6px;
+    }
+
+    .obj-resumen-metric .val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      overflow-wrap: anywhere;
+    }
+
+    .obj-resumen-foot {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+      font-size: 12.5px;
+      color: var(--text-dim);
+    }
+
+    .link-vista {
+      color: var(--teal);
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .link-vista:hover {
+      text-decoration: underline;
+    }
+
     .legend {
       display: flex;
       flex-wrap: wrap;
@@ -2289,7 +2347,8 @@
     </div>
     <nav class="sidebar-menu" id="sidebarMenu">
       <div class="sidebar-seccion">GESTIÓN</div>
-      <button class="sidebar-item active" data-view="view-comisiones"><span class="si-icon">📊</span><span class="si-label">Sueldo & Cobros</span></button>
+      <button class="sidebar-item active" data-view="view-comisiones"><span class="si-icon">💵</span><span class="si-label">Pagos & Objetivo</span></button>
+      <button class="sidebar-item" data-view="view-sueldo"><span class="si-icon">💼</span><span class="si-label">Sueldo & Comisiones</span></button>
       <button class="sidebar-item" data-view="view-whatsapp"><span class="si-icon">💬</span><span class="si-label">WhatsApp CRM</span><span class="si-badge" id="sidebarBadgeWa"></span></button>
       <button class="sidebar-item" data-view="view-kanban" data-mode="kanban"><span class="si-icon">🗂️</span><span class="si-label">Kanban de Cartera</span></button>
       <button class="sidebar-item" data-view="view-clientes"><span class="si-icon">👥</span><span class="si-label">Clientes</span><span class="si-nuevo">NUEVO</span></button>
@@ -2328,8 +2387,9 @@
     <div class="header-top">
       <div>
         <div class="eyebrow"><span class="dot"></span>PANEL EN VIVO · LOS HALCONES</div>
-        <h1>Comisiones & Cobros — Cobrador Telefónico</h1>
-        <div class="sub">Marcá las escalas alcanzadas, gestioná los pagos e importá el Excel actualizado cuando quieras.
+        <h1>Pagos & Objetivo — Cobrador Telefónico</h1>
+        <div class="sub">Cargá y marcá los pagos, seguí cuánto falta para el objetivo e importá el Excel actualizado cuando quieras.
+          El sueldo y las comisiones están en <a href="#view-sueldo" class="link-vista">💼 Sueldo & Comisiones</a>.
         </div>
       </div>
       <div class="header-meta">
@@ -2373,54 +2433,6 @@
 
   <div class="dup-section" id="dupSection" style="display:none"></div>
 
-
-  <div class="hero-grid">
-    <div class="gauge-card">
-      <div class="tag">Comisión del mes</div>
-      <div class="gauge-wrap">
-        <svg viewBox="0 0 150 150" width="150" height="150">
-          <circle class="gauge-track" cx="75" cy="75" r="62" />
-          <circle class="gauge-fill" cx="75" cy="75" r="62" stroke="var(--gold)" stroke-dasharray="389.6"
-            stroke-dashoffset="389.6" id="g1" />
-        </svg>
-        <div class="gauge-center">
-          <div class="pct num" id="g1pct" style="color:var(--gold)">0%</div>
-          <div class="lbl">ALCANZADO</div>
-        </div>
-      </div>
-      <div class="gauge-foot" id="g1foot"></div>
-    </div>
-
-    <div class="gauge-card">
-      <div class="tag">Objetivo de pagos</div>
-      <div class="gauge-wrap">
-        <svg viewBox="0 0 150 150" width="150" height="150">
-          <circle class="gauge-track" cx="75" cy="75" r="62" />
-          <circle class="gauge-fill" cx="75" cy="75" r="62" stroke="var(--teal)" stroke-dasharray="389.6"
-            stroke-dashoffset="389.6" id="g2" />
-        </svg>
-        <div class="gauge-center">
-          <div class="pct num" id="g2pct" style="color:var(--teal)">0%</div>
-          <div class="lbl">ALCANZADO</div>
-        </div>
-      </div>
-      <div class="gauge-foot" id="g2foot"></div>
-    </div>
-
-    <div class="stat-card">
-      <div class="tag">Sueldo Fijo + Comisión</div>
-      <div class="value num" id="statSueldo">$0</div>
-      <div class="note" id="statSueldoNote">—</div>
-      <div class="accent-bar"><i id="statSueldoBar" style="width:0%;background:var(--gold)"></i></div>
-    </div>
-
-    <div class="stat-card">
-      <div class="tag">Total Cobrado</div>
-      <div class="value num" id="statCobrado">$0</div>
-      <div class="note" id="statCobradoNote">—</div>
-      <div class="accent-bar"><i id="statCobradoBar" style="width:0%;background:var(--teal)"></i></div>
-    </div>
-  </div>
   <!-- PAGOS -->
   <div class="section-title">
     <h2>Seguimiento de campaña de pagos</h2><span>Registro editable & escala de objetivos</span>
@@ -2480,13 +2492,6 @@
   </div>
   <div id="scaleEditRoot"></div>
 
-  <!-- COMISIONES -->
-  <div class="section-title">
-    <h2>Comisiones por categoría</h2><span>Tocá una escala para marcarla como alcanzada (o dejarla sin marcar)</span>
-  </div>
-  <div class="comm-grid" id="commGrid"></div>
-  <div id="catEditRoot"></div>
-
   <!-- RECORRIDO -->
   <div class="section-title">
     <h2>Cobros por recorrido</h2>
@@ -2502,6 +2507,117 @@
     <span>Fuente: Sueldo_Obej.xlsx — hojas "Sueldo", "cobros SB", "Dashboard Objetivos"</span>
     <span id="footNote">Datos de ejemplo — importá tu Excel para actualizar</span>
   </footer>
+
+  </div>
+
+  <!-- SUELDO & COMISIONES: misma data que Pagos & Objetivo (state), lo
+       pinta el mismo render(), así que cada pago cargado/editado/borrado o
+       importado actualiza las dos pantallas a la vez. -->
+  <div id="view-sueldo" class="app-view">
+
+  <header>
+    <div class="header-top">
+      <div>
+        <div class="eyebrow"><span class="dot"></span>PANEL EN VIVO · LOS HALCONES</div>
+        <h1>Sueldo & Comisiones — Cobrador Telefónico</h1>
+        <div class="sub">Tu sueldo del mes, las comisiones por categoría y cuánto vas del objetivo de pagos.
+          Los pagos se cargan en <a href="#view-comisiones" class="link-vista">💵 Pagos & Objetivo</a>.
+        </div>
+      </div>
+      <div class="header-meta">
+        <div class="date-chip" id="dateChipSueldo">Corte: —</div>
+      </div>
+    </div>
+  </header>
+
+
+  <div class="hero-grid">
+    <div class="gauge-card">
+      <div class="tag">Comisión del mes</div>
+      <div class="gauge-wrap">
+        <svg viewBox="0 0 150 150" width="150" height="150">
+          <circle class="gauge-track" cx="75" cy="75" r="62" />
+          <circle class="gauge-fill" cx="75" cy="75" r="62" stroke="var(--gold)" stroke-dasharray="389.6"
+            stroke-dashoffset="389.6" id="g1" />
+        </svg>
+        <div class="gauge-center">
+          <div class="pct num" id="g1pct" style="color:var(--gold)">0%</div>
+          <div class="lbl">ALCANZADO</div>
+        </div>
+      </div>
+      <div class="gauge-foot" id="g1foot"></div>
+    </div>
+
+    <div class="gauge-card">
+      <div class="tag">Objetivo de pagos</div>
+      <div class="gauge-wrap">
+        <svg viewBox="0 0 150 150" width="150" height="150">
+          <circle class="gauge-track" cx="75" cy="75" r="62" />
+          <circle class="gauge-fill" cx="75" cy="75" r="62" stroke="var(--teal)" stroke-dasharray="389.6"
+            stroke-dashoffset="389.6" id="g2" />
+        </svg>
+        <div class="gauge-center">
+          <div class="pct num" id="g2pct" style="color:var(--teal)">0%</div>
+          <div class="lbl">ALCANZADO</div>
+        </div>
+      </div>
+      <div class="gauge-foot" id="g2foot"></div>
+    </div>
+
+    <div class="stat-card">
+      <div class="tag">Sueldo Fijo + Comisión</div>
+      <div class="value num" id="statSueldo">$0</div>
+      <div class="note" id="statSueldoNote">—</div>
+      <div class="accent-bar"><i id="statSueldoBar" style="width:0%;background:var(--gold)"></i></div>
+    </div>
+
+    <div class="stat-card">
+      <div class="tag">Total Cobrado</div>
+      <div class="value num" id="statCobrado">$0</div>
+      <div class="note" id="statCobradoNote">—</div>
+      <div class="accent-bar"><i id="statCobradoBar" style="width:0%;background:var(--teal)"></i></div>
+    </div>
+  </div>
+
+  <!-- RESUMEN DEL OBJETIVO (solo lectura; se edita en Pagos & Objetivo) -->
+  <div class="section-title">
+    <h2>Avance del objetivo</h2><span>Se actualiza solo con cada pago</span>
+  </div>
+  <div class="obj-resumen">
+    <div class="obj-resumen-metrics">
+      <div class="obj-resumen-metric">
+        <div class="lbl">Objetivo total</div>
+        <div class="val num" id="resObjetivo">$0</div>
+      </div>
+      <div class="obj-resumen-metric">
+        <div class="lbl">Cobrado</div>
+        <div class="val num" id="resCobrado" style="color:var(--teal)">$0</div>
+      </div>
+      <div class="obj-resumen-metric">
+        <div class="lbl">Falta</div>
+        <div class="val num" id="resFalta" style="color:var(--coral)">$0</div>
+      </div>
+      <div class="obj-resumen-metric">
+        <div class="lbl">% cobrado</div>
+        <div class="val num" id="resPct">0%</div>
+      </div>
+    </div>
+    <div class="stack-track">
+      <div class="stack-seg" id="resBarCobrado" style="width:0%;background:var(--teal)"></div>
+      <div class="stack-seg" id="resBarReg" style="width:0%;background:var(--blue)"></div>
+    </div>
+    <div class="obj-resumen-foot">
+      <span id="resNota">—</span>
+      <a href="#view-comisiones" class="link-vista">Ver registro de pagos →</a>
+    </div>
+  </div>
+
+  <!-- COMISIONES -->
+  <div class="section-title">
+    <h2>Comisiones por categoría</h2><span>Tocá una escala para marcarla como alcanzada (o dejarla sin marcar)</span>
+  </div>
+  <div class="comm-grid" id="commGrid"></div>
+  <div id="catEditRoot"></div>
 
   </div>
 
@@ -2948,8 +3064,13 @@
     }
 
     /* ================= RENDER ================= */
+    // render() es el único camino que repinta después de cualquier cambio de
+    // pagos (agregar, marcar cobrado, borrar, duplicados, importar, objetivo):
+    // actualiza a la vez "Pagos & Objetivo" y "Sueldo & Comisiones", porque
+    // las dos pantallas leen el mismo state y sus nodos viven siempre en el DOM.
     function render() {
       document.getElementById('dateChip').textContent = 'Corte: ' + state.cutoffDate;
+      document.getElementById('dateChipSueldo').textContent = 'Corte: ' + state.cutoffDate;
 
       // --- comisiones totals ---
       let totalComision = 0, maxComision = 0;
@@ -3073,12 +3194,29 @@
       const pctCobradoObj = state.objetivoTotal > 0 ? (totalCobrado / state.objetivoTotal * 100) : 0;
       document.getElementById('faltaVal').textContent = fmt(faltaObjetivo);
       document.getElementById('faltaPct').textContent = pctCobradoObj.toFixed(1) + '% cobrado hasta ahora';
-      if (faltaObjetivo <= 0) {
+      const objAlcanzado = state.objetivoTotal > 0 && faltaObjetivo <= 0;
+      if (objAlcanzado) {
         document.getElementById('faltaCallout').style.background = 'linear-gradient(135deg,var(--teal-dim),transparent)';
         document.getElementById('faltaCallout').style.borderColor = '#33D6C04d';
         document.getElementById('faltaVal').style.color = 'var(--teal)';
         document.getElementById('faltaVal').textContent = '¡Objetivo alcanzado! +' + fmt(Math.abs(state.objetivoTotal - totalCobrado));
+      } else {
+        // Si se borra o desmarca un pago y se vuelve a estar abajo del
+        // objetivo, el recuadro vuelve a su color normal.
+        document.getElementById('faltaCallout').style.background = '';
+        document.getElementById('faltaCallout').style.borderColor = '';
+        document.getElementById('faltaVal').style.color = '';
       }
+
+      // --- resumen del objetivo en Sueldo & Comisiones (solo lectura) ---
+      document.getElementById('resObjetivo').textContent = fmt(state.objetivoTotal);
+      document.getElementById('resCobrado').textContent = fmt(totalCobrado);
+      document.getElementById('resFalta').textContent = objAlcanzado ? '¡Alcanzado!' : fmt(faltaObjetivo);
+      document.getElementById('resFalta').style.color = objAlcanzado ? 'var(--teal)' : 'var(--coral)';
+      document.getElementById('resPct').textContent = pctCobradoObj.toFixed(1) + '%';
+      document.getElementById('resBarCobrado').style.width = (state.objetivoTotal > 0 ? Math.min(totalCobrado / state.objetivoTotal * 100, 100) : 0) + '%';
+      document.getElementById('resBarReg').style.width = (state.objetivoTotal > 0 ? Math.min(pendienteSinCobrar / state.objetivoTotal * 100, 100) : 0) + '%';
+      document.getElementById('resNota').textContent = state.payments.length + ' pagos registrados · ' + fmt(totalRegistrado) + ' registrado (' + fmt(pendienteSinCobrar) + ' sin cobrar)';
       document.getElementById('legCobrado').textContent = fmt(totalCobrado);
       document.getElementById('legReg').textContent = fmt(pendienteSinCobrar);
       document.getElementById('legFalta').textContent = fmt(faltaRegistrar);
@@ -4128,7 +4266,7 @@
         const wasLoaded = kanbanLoaded;
         cargarIframeSiHaceFalta(target);
         if (target === 'view-kanban') {
-          // El Kanban y Sueldo & Cobros comparten datos (pagos, clientes
+          // El Kanban y Pagos & Objetivo / Sueldo & Comisiones comparten datos (pagos, clientes
           // movidos a Cerrado) y cada uno los tiene en memoria por separado.
           // Al entrar al Kanban le pedimos que vuelva a traer todo fresco
           // de Supabase, para no laburar con una copia vieja.
@@ -4140,7 +4278,7 @@
             iframeKanban.addEventListener('load', () => { if (mode) sendMessage({ type: 'cm-kanban-mode', mode }); }, { once: true });
           }
         }
-        if (target === 'view-comisiones' && typeof loadState === 'function') {
+        if ((target === 'view-comisiones' || target === 'view-sueldo') && typeof loadState === 'function') {
           // Mismo motivo: si el Kanban agrego un pago mientras esta pestaña
           // ya estaba cargada, sin esto se seguiria viendo la copia vieja
           // (y peor, un guardado desde acá podria pisar el pago nuevo).

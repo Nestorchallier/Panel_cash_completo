@@ -812,7 +812,7 @@
 <div class="modal-overlay" id="importPagosModal">
   <div class="modal import-modal">
     <h2>Importar pagos</h2>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Los clientes que coincidan por DNI (o nombre) pasan automáticamente a "Cerrado (Cobrado)" y el monto se suma al Registro de pagos de Sueldo &amp; Cobros.</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Los clientes que coincidan por DNI (o nombre) pasan automáticamente a "Cerrado (Cobrado)" y el monto se suma al Registro de pagos (Pagos &amp; Objetivo).</div>
     <div class="drop-zone" id="dropZonePagos">
       <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8996ab" stroke-width="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       <div>Arrastrá tu archivo de pagos .xlsx o .csv acá, o hacé clic para elegirlo</div>
@@ -865,7 +865,7 @@
       <label class="pago-opcion" id="optTotal"><input type="radio" name="tipoPago" value="total"> Canceló el préstamo completo</label>
     </div>
     <div class="field"><label>Monto pagado</label><input id="cobradoMonto" type="number" min="0" placeholder="Ej: 150000"></div>
-    <div class="pago-nota">Se imputa a las cuotas impagas más viejas, se recalcula el atraso, queda en el Registro de pagos de Sueldo &amp; Cobros y la tarjeta pasa a "Cerrado (Cobrado)".</div>
+    <div class="pago-nota">Se imputa a las cuotas impagas más viejas, se recalcula el atraso, queda en el Registro de pagos (Pagos &amp; Objetivo) y la tarjeta pasa a "Cerrado (Cobrado)".</div>
     <div class="modal-actions">
       <button class="btn-ghost" id="btnCancelCobrado">Cancelar</button>
       <button class="btn-verde" id="btnConfirmCobrado">✅ Confirmar pago</button>
@@ -1951,9 +1951,9 @@ async function confirmCobrado(){
     const r = await crmConfirmarPago({ clienteId: c.id, monto, cancelaTotal, origen: 'kanban' });
     document.getElementById('cobradoModal').classList.remove('open');
     pendingCobradoId = null;
-    if(r && r.cancelado) toast(`✅ ${c.nombre}: préstamo cancelado — el pago se suma solo en Sueldo & Cobros`);
+    if(r && r.cancelado) toast(`✅ ${c.nombre}: préstamo cancelado — el pago se suma solo en Pagos & Objetivo`);
     else if(r && r.mora && r.prestamo && r.prestamo.cant_cuotas) toast(`✅ Pago imputado: ${r.mora.cuotas_pagas} de ${r.prestamo.cant_cuotas} cuotas pagas`);
-    else toast('✅ Pago registrado — se suma solo en Sueldo & Cobros');
+    else toast('✅ Pago registrado — se suma solo en Pagos & Objetivo');
     await hydrateFromSupabase();
   }catch(e){
     console.error('crmConfirmarPago', e);
@@ -2111,7 +2111,7 @@ document.getElementById('btnConfirmImportPagos').addEventListener('click', async
   let msg = `${matched} clientes movidos a Cerrado`;
   if(unmatched.length) msg += ` · ${unmatched.length} sin coincidencia`;
   if(matched && !result.synced) msg += ' (no se pudieron registrar los pagos — reintentá)';
-  else if(matched) msg += ' · pagos registrados en Sueldo & Cobros';
+  else if(matched) msg += ' · pagos registrados en Pagos & Objetivo';
   toast(msg);
 });
 
