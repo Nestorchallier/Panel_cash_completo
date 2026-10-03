@@ -1,4 +1,4 @@
-# Panel Cash Market Unificado — resumen para migrar a GitHub Pages + Supabase
+# CRM Panel Unificado — resumen para migrar a GitHub Pages + Supabase
 
 ## Contexto
 

@@ -1,4 +1,4 @@
--- Panel Cash Market — esquema Supabase (v2)
+-- CRM Panel Unificado — esquema Supabase (v2)
 -- Migración desde localStorage (ver RESUMEN_MIGRACION_GITPAGES_SUPABASE.md)
 --
 -- v2 reemplaza el esquema normalizado original (11 tablas) por un modelo

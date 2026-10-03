@@ -1,4 +1,4 @@
--- Panel Cash Market — CRM de Cobranzas con WhatsApp (esquema v3)
+-- CRM Panel Unificado — CRM de Cobranzas con WhatsApp (esquema v3)
 -- Reemplaza el modelo kv_store (blobs JSON por clave) por tablas relacionales,
 -- según sección 4 de docs/CRM_WhatsApp_Cash_Market_Plan.pdf.
 --

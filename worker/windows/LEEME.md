@@ -27,7 +27,7 @@ panel, como siempre.
 ## Cómo funciona
 
 - `instalar.ps1` registra la tarea programada
-  *Cash Market - Worker WhatsApp (nombre de la carpeta)* con disparador
+  *CRM Panel Unificado - Worker WhatsApp (nombre de la carpeta)* con disparador
   "al iniciar sesión" de este usuario.
 - La tarea corre `iniciar-worker.ps1`, que lanza `node src\index.js` oculto
   y lo relanza si se cae (5 s después; si se cae enseguida varias veces,
