@@ -12,7 +12,7 @@
 set -euo pipefail
 
 WORKER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SERVICIO="cash-worker"
+SERVICIO="cash-market-worker"
 USUARIO="$(id -un)"
 # Los horarios de envío de la cola (cola.js) usan la hora local: el
 # servidor tiene que estar en hora argentina, no en UTC.
@@ -30,11 +30,23 @@ if [ "$(version_node)" -lt 20 ]; then
   sudo apt-get install -y nodejs
 fi
 
+# Las máquinas chicas (1 GB, como la E2.1.Micro) se quedan sin memoria en
+# npm ci si no tienen swap.
+if [ "$(swapon --show | wc -l)" -eq 0 ] && [ ! -f /swapfile ]; then
+  echo "Creando swap de 2 GB..."
+  sudo fallocate -l 2G /swapfile
+  sudo chmod 600 /swapfile
+  sudo mkswap /swapfile > /dev/null
+  sudo swapon /swapfile
+  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab > /dev/null
+fi
+
+sudo timedatectl set-timezone "$ZONA" || true
+
 echo "Instalando dependencias..."
 cd "$WORKER_DIR"
 npm ci --omit=dev
 
-sudo timedatectl set-timezone "$ZONA" || true
 
 sudo tee "/etc/systemd/system/$SERVICIO.service" > /dev/null <<UNIT
 [Unit]
