@@ -1,4 +1,4 @@
-// Config pública de Supabase para Panel Cash Market.
+// Config pública de Supabase para CRM Panel Unificado.
 // La "publishable key" está diseñada para vivir en el cliente (frontend);
 // el acceso real a los datos lo controla Row Level Security en cada tabla
 // (ver schema.sql), no el secreto de esta key. Nunca pongas acá la
