@@ -1951,9 +1951,9 @@ async function confirmCobrado(){
     const r = await crmConfirmarPago({ clienteId: c.id, monto, cancelaTotal, origen: 'kanban' });
     document.getElementById('cobradoModal').classList.remove('open');
     pendingCobradoId = null;
-    if(r && r.cancelado) toast(`✅ ${c.nombre}: préstamo cancelado — el pago se suma solo en Pagos & Objetivo`);
+    if(r && r.cancelado) toast(`✅ ${c.nombre}: préstamo cancelado — el pago se suma solo en Registro de pagos`);
     else if(r && r.mora && r.prestamo && r.prestamo.cant_cuotas) toast(`✅ Pago imputado: ${r.mora.cuotas_pagas} de ${r.prestamo.cant_cuotas} cuotas pagas`);
-    else toast('✅ Pago registrado — se suma solo en Pagos & Objetivo');
+    else toast('✅ Pago registrado — se suma solo en Registro de pagos');
     await hydrateFromSupabase();
   }catch(e){
     console.error('crmConfirmarPago', e);
@@ -2111,7 +2111,7 @@ document.getElementById('btnConfirmImportPagos').addEventListener('click', async
   let msg = `${matched} clientes movidos a Cerrado`;
   if(unmatched.length) msg += ` · ${unmatched.length} sin coincidencia`;
   if(matched && !result.synced) msg += ' (no se pudieron registrar los pagos — reintentá)';
-  else if(matched) msg += ' · pagos registrados en Pagos & Objetivo';
+  else if(matched) msg += ' · pagos registrados en Registro de pagos';
   toast(msg);
 });
 
