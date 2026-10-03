@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WhatsApp CRM — Cash Market</title>
+<title>WhatsApp CRM — CRM Panel Unificado</title>
 <script src="js/embed-guard.js"></script>
 <link rel="stylesheet" href="css/fuentes.css">
 <!-- Emojis a color como los del render del plan (los de Windows se ven
@@ -23,7 +23,9 @@
     --bg:#f8fafc; --panel:#ffffff; --panel-2:#f8fafc; --line:#e2e8f0; --line-2:#f1f5f9;
     --text:#0f172a; --text-2:#334155; --muted:#64748b; --faint:#94a3b8;
     --blue:#2563eb; --blue-50:#eff6ff; --green:#16a34a; --green-hover:#15803d; --red:#dc2626; --red-strong:#b91c1c;
-    --chat-bg:#efeae2; --chat-dot:#ddd6cb; --bubble-in:#ffffff; --bubble-out:#d9fdd3;
+    --chat-bg:#efeae2; --chat-dot:#ddd6cb;
+    /* Fondo con dibujitos al estilo del chat de WhatsApp (dibujo propio, no la imagen de WhatsApp). */
+    --chat-fondo:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%23d9d1c4' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath transform='translate%2811 8%29 rotate%2815 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3Cpath transform='translate%2854 7%29 rotate%2825 10 10%29 scale%280.9%29' d='M5 2h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 4a2 2 0 0 1 2-2z'/%3E%3Cpath transform='translate%28107 15%29 rotate%28-25 10 10%29 scale%281.1%29' d='M10 17S2 12 2 7a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 5-8 10-8 10z'/%3E%3Cpath transform='translate%28153 6%29 rotate%28-25 10 10%29 scale%281%29' d='M10 1l2.6 5.6 6 .7-4.5 4.1 1.2 6L10 14.4 4.7 17.4l1.2-6L1.4 7.3l6-.7z'/%3E%3Cpath transform='translate%28204 7%29 rotate%28-15 10 10%29 scale%280.9%29' d='M2 6h4l2-3h4l2 3h4v11H2zM10 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'/%3E%3Cpath transform='translate%2824 60%29 rotate%28-25 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM10 5v5l3 2'/%3E%3Cpath transform='translate%2865 57%29 rotate%2835 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM7 8h.01M13 8h.01M6.5 12a4 4 0 0 0 7 0'/%3E%3Cpath transform='translate%28121 54%29 rotate%2825 10 10%29 scale%281.1%29' d='M2 4h16v12H2zM2 4l8 7 8-7'/%3E%3Cpath transform='translate%28166 54%29 rotate%28-15 10 10%29 scale%280.9%29' d='M8 15V3l9-2v12M8 15a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM17 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'/%3E%3Cpath transform='translate%28216 56%29 rotate%280 10 10%29 scale%281%29' d='M5 15a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1A4 4 0 0 1 15 15z'/%3E%3Cpath transform='translate%288 110%29 rotate%28-25 10 10%29 scale%281.1%29' d='M1 9l18-7-6 16-3-7zM10 11l9-9'/%3E%3Cpath transform='translate%2858 110%29 rotate%2835 10 10%29 scale%280.9%29' d='M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM12.5 12.5L18 18'/%3E%3Cpath transform='translate%28103 111%29 rotate%2825 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3Cpath transform='translate%28153 107%29 rotate%28-25 10 10%29 scale%281.1%29' d='M5 2h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 4a2 2 0 0 1 2-2z'/%3E%3Cpath transform='translate%28209 103%29 rotate%2825 10 10%29 scale%280.9%29' d='M10 17S2 12 2 7a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 5-8 10-8 10z'/%3E%3Cpath transform='translate%2825 153%29 rotate%2815 10 10%29 scale%281.1%29' d='M10 1l2.6 5.6 6 .7-4.5 4.1 1.2 6L10 14.4 4.7 17.4l1.2-6L1.4 7.3l6-.7z'/%3E%3Cpath transform='translate%2872 156%29 rotate%280 10 10%29 scale%281%29' d='M2 6h4l2-3h4l2 3h4v11H2zM10 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'/%3E%3Cpath transform='translate%28121 157%29 rotate%280 10 10%29 scale%281%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM10 5v5l3 2'/%3E%3Cpath transform='translate%28163 162%29 rotate%28-15 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM7 8h.01M13 8h.01M6.5 12a4 4 0 0 0 7 0'/%3E%3Cpath transform='translate%28220 153%29 rotate%28-25 10 10%29 scale%281.1%29' d='M2 4h16v12H2zM2 4l8 7 8-7'/%3E%3Cpath transform='translate%2810 206%29 rotate%2815 10 10%29 scale%281%29' d='M8 15V3l9-2v12M8 15a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM17 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'/%3E%3Cpath transform='translate%2865 205%29 rotate%280 10 10%29 scale%281.1%29' d='M5 15a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1A4 4 0 0 1 15 15z'/%3E%3Cpath transform='translate%28103 199%29 rotate%2825 10 10%29 scale%281%29' d='M1 9l18-7-6 16-3-7zM10 11l9-9'/%3E%3Cpath transform='translate%28152 210%29 rotate%280 10 10%29 scale%280.9%29' d='M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM12.5 12.5L18 18'/%3E%3Cpath transform='translate%28205 204%29 rotate%28-25 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3C/g%3E%3C/svg%3E"); --bubble-in:#ffffff; --bubble-out:#d9fdd3;
     --aviso-bg:#fef9c3; --aviso-line:#fde68a; --aviso-text:#854d0e;
     --chip-bg:#fef3c7; --chip-text:#92400e;
     --adj-bg:linear-gradient(180deg,#eff6ff 0%,#e0f2fe 100%); --adj-line:#dbeafe;
@@ -36,7 +38,8 @@
     --bg:#0b1220; --panel:#0f172a; --panel-2:#111c33; --line:#1e293b; --line-2:#162036;
     --text:#e2e8f0; --text-2:#cbd5e1; --muted:#94a3b8; --faint:#64748b;
     --blue:#60a5fa; --blue-50:#132443; --green:#22c55e; --green-hover:#16a34a; --red:#f87171; --red-strong:#f87171;
-    --chat-bg:#0b141a; --chat-dot:#111c22; --bubble-in:#1f2c34; --bubble-out:#005c4b;
+    --chat-bg:#0b141a; --chat-dot:#111c22;
+    --chat-fondo:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%231a262d' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath transform='translate%2811 8%29 rotate%2815 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3Cpath transform='translate%2854 7%29 rotate%2825 10 10%29 scale%280.9%29' d='M5 2h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 4a2 2 0 0 1 2-2z'/%3E%3Cpath transform='translate%28107 15%29 rotate%28-25 10 10%29 scale%281.1%29' d='M10 17S2 12 2 7a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 5-8 10-8 10z'/%3E%3Cpath transform='translate%28153 6%29 rotate%28-25 10 10%29 scale%281%29' d='M10 1l2.6 5.6 6 .7-4.5 4.1 1.2 6L10 14.4 4.7 17.4l1.2-6L1.4 7.3l6-.7z'/%3E%3Cpath transform='translate%28204 7%29 rotate%28-15 10 10%29 scale%280.9%29' d='M2 6h4l2-3h4l2 3h4v11H2zM10 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'/%3E%3Cpath transform='translate%2824 60%29 rotate%28-25 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM10 5v5l3 2'/%3E%3Cpath transform='translate%2865 57%29 rotate%2835 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM7 8h.01M13 8h.01M6.5 12a4 4 0 0 0 7 0'/%3E%3Cpath transform='translate%28121 54%29 rotate%2825 10 10%29 scale%281.1%29' d='M2 4h16v12H2zM2 4l8 7 8-7'/%3E%3Cpath transform='translate%28166 54%29 rotate%28-15 10 10%29 scale%280.9%29' d='M8 15V3l9-2v12M8 15a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM17 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'/%3E%3Cpath transform='translate%28216 56%29 rotate%280 10 10%29 scale%281%29' d='M5 15a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1A4 4 0 0 1 15 15z'/%3E%3Cpath transform='translate%288 110%29 rotate%28-25 10 10%29 scale%281.1%29' d='M1 9l18-7-6 16-3-7zM10 11l9-9'/%3E%3Cpath transform='translate%2858 110%29 rotate%2835 10 10%29 scale%280.9%29' d='M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM12.5 12.5L18 18'/%3E%3Cpath transform='translate%28103 111%29 rotate%2825 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3Cpath transform='translate%28153 107%29 rotate%28-25 10 10%29 scale%281.1%29' d='M5 2h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 4a2 2 0 0 1 2-2z'/%3E%3Cpath transform='translate%28209 103%29 rotate%2825 10 10%29 scale%280.9%29' d='M10 17S2 12 2 7a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 5-8 10-8 10z'/%3E%3Cpath transform='translate%2825 153%29 rotate%2815 10 10%29 scale%281.1%29' d='M10 1l2.6 5.6 6 .7-4.5 4.1 1.2 6L10 14.4 4.7 17.4l1.2-6L1.4 7.3l6-.7z'/%3E%3Cpath transform='translate%2872 156%29 rotate%280 10 10%29 scale%281%29' d='M2 6h4l2-3h4l2 3h4v11H2zM10 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'/%3E%3Cpath transform='translate%28121 157%29 rotate%280 10 10%29 scale%281%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM10 5v5l3 2'/%3E%3Cpath transform='translate%28163 162%29 rotate%28-15 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM7 8h.01M13 8h.01M6.5 12a4 4 0 0 0 7 0'/%3E%3Cpath transform='translate%28220 153%29 rotate%28-25 10 10%29 scale%281.1%29' d='M2 4h16v12H2zM2 4l8 7 8-7'/%3E%3Cpath transform='translate%2810 206%29 rotate%2815 10 10%29 scale%281%29' d='M8 15V3l9-2v12M8 15a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM17 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'/%3E%3Cpath transform='translate%2865 205%29 rotate%280 10 10%29 scale%281.1%29' d='M5 15a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1A4 4 0 0 1 15 15z'/%3E%3Cpath transform='translate%28103 199%29 rotate%2825 10 10%29 scale%281%29' d='M1 9l18-7-6 16-3-7zM10 11l9-9'/%3E%3Cpath transform='translate%28152 210%29 rotate%280 10 10%29 scale%280.9%29' d='M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM12.5 12.5L18 18'/%3E%3Cpath transform='translate%28205 204%29 rotate%28-25 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3C/g%3E%3C/svg%3E"); --bubble-in:#1f2c34; --bubble-out:#005c4b;
     --aviso-bg:#3a2f0b; --aviso-line:#5c4a12; --aviso-text:#fde68a;
     --chip-bg:#3a2f0b; --chip-text:#fde68a;
     --adj-bg:linear-gradient(180deg,#132443 0%,#10263a 100%); --adj-line:#1e3a5f;
@@ -138,8 +141,8 @@
   .btn-cuadrado{width:38px;padding:0 !important;font-size:15px;letter-spacing:1px;}
   #convMessages{flex:1;overflow-y:auto;padding:12px 30px 16px;display:flex;flex-direction:column;gap:7px;
     background-color:var(--chat-bg);
-    background-image:radial-gradient(var(--chat-dot) 1px, transparent 1.2px);
-    background-size:18px 18px;}
+    background-image:var(--chat-fondo);
+    background-size:240px 240px;}
   .bubble{max-width:62%;padding:8px 10px 6px;border-radius:8px;font-size:14px;line-height:1.3;position:relative;box-shadow:0 1px .5px rgba(11,20,26,.10);overflow-wrap:anywhere;color:var(--text);}
   .bubble.entrante{align-self:flex-start;background:var(--bubble-in);}
   .bubble.saliente{align-self:flex-end;background:var(--bubble-out);}
@@ -338,6 +341,16 @@
 let conversaciones = [];
 let conversacionActual = null;
 let mensajesActuales = [];
+// Agenda de no clientes (equipo, gerencia): por teléfono normalizado.
+let contactosPorTel = {};
+const GRUPOS_AGENDA = { equipo: '👔 Equipo', gerencia: '🏢 Gerencia', otro: '📇 Agenda' };
+function contactoDe(c){ return (!c.es_grupo && !c.cliente_id && c.telefono && contactosPorTel[c.telefono]) || null; }
+function sinVincularReal(c){ return !c.cliente_id && !c.es_grupo && !contactoDe(c); }
+async function cargarContactos(){
+  const lista = await crmListContactos();
+  contactosPorTel = {};
+  lista.forEach(x => { if(x.telefono) contactosPorTel[x.telefono] = x; });
+}
 // Mensajes que no se pudieron dejar en la cola (sin internet, sesión
 // vencida): quedan en el chat con "Reintentar" en vez de desaparecer en la
 // próxima recarga. Por conversación, solo en esta pestaña.
@@ -475,6 +488,8 @@ function estaCancelado(c){
 }
 function tagsDeChat(c){
   if(c.es_grupo) return `<span class="tag gris">👥 Grupo</span>`;
+  const contacto = contactoDe(c);
+  if(contacto) return `<span class="tag azul">${GRUPOS_AGENDA[contacto.grupo] || GRUPOS_AGENDA.otro}${contacto.cargo ? ' · ' + escapeHtml(contacto.cargo) : ''}</span>`;
   if(!c.cliente_id) return `<span class="tag gris">❓ Sin cliente vinculado</span>`;
   if(estaCancelado(c)) return `<span class="tag verde">✅ Cancelado</span>`;
   const out = [];
@@ -504,6 +519,8 @@ function tagsDeChat(c){
 function nombreConversacion(c){
   if(c.es_grupo) return c.nombre || 'Grupo';
   if(c.clientes && c.clientes.nombre) return c.clientes.nombre;
+  const contacto = contactoDe(c);
+  if(contacto) return contacto.nombre;
   return (c.telefono && telefonoLindo(c.telefono)) || c.nombre || 'Contacto sin agendar';
 }
 
@@ -529,18 +546,18 @@ function pasaFiltroBase(c){
 }
 function pasaFiltro(c){
   if(filtroActivo === 'sinleer' && !(c.no_leidos > 0)) return false;
-  if(filtroActivo === 'sinvincular' && (c.cliente_id || c.es_grupo)) return false;
+  if(filtroActivo === 'sinvincular' && !sinVincularReal(c)) return false;
   return pasaFiltroBase(c);
 }
 
 function actualizarContadores(){
   const sinLeer = conversaciones.filter(c => c.no_leidos > 0).length;
-  const sinVincular = conversaciones.filter(c => !c.cliente_id && !c.es_grupo).length;
+  const sinVincular = conversaciones.filter(sinVincularReal).length;
   document.getElementById('headerSub').textContent = `${sinLeer} chats sin leer · ${sinVincular} sin vincular`;
   const base = conversaciones.filter(pasaFiltroBase);
   document.getElementById('nTodos').textContent = base.length;
   document.getElementById('nSinLeer').textContent = base.filter(c => c.no_leidos > 0).length;
-  document.getElementById('nSinVincular').textContent = base.filter(c => !c.cliente_id && !c.es_grupo).length;
+  document.getElementById('nSinVincular').textContent = base.filter(sinVincularReal).length;
 }
 
 function renderChatList(){
@@ -882,10 +899,12 @@ function renderConversacionShell(){
   const c = conversacionActual;
   const nombre = nombreConversacion(c);
   const dni = c.clientes && c.clientes.dni;
-  const sinAgendar = !c.cliente_id && !c.es_grupo;
+  const contacto = contactoDe(c);
+  const sinAgendar = !c.cliente_id && !c.es_grupo && !contacto;
   const telFmt = c.telefono ? telefonoLindo(c.telefono) : (c.es_grupo ? '' : 'Número todavía no disponible');
   let subLinea;
   if(c.es_grupo) subLinea = 'Grupo de WhatsApp';
+  else if(contacto) subLinea = escapeHtml(telFmt) + ' · ' + (GRUPOS_AGENDA[contacto.grupo] || GRUPOS_AGENDA.otro) + (contacto.cargo ? ' · ' + escapeHtml(contacto.cargo) : '');
   else if(sinAgendar) subLinea = escapeHtml(telFmt) + (c.nombre && !c.telefono ? '' : '') + ' · Sin agendar';
   else subLinea = escapeHtml(telFmt) + (dni ? ' · DNI ' + escapeHtml(fmtDni(dni)) : '');
   wrap.innerHTML = `
@@ -898,8 +917,9 @@ function renderConversacionShell(){
         </div>
       </div>
       <div class="conv-head-tools">
+        ${(sinAgendar || contacto) && c.telefono ? `<button class="btn" id="btnAgendaHead" title="Guardarlo en la agenda del equipo (no es cliente)">📇 ${contacto ? 'Editar agenda' : 'Guardar en agenda'}</button>` : ''}
         ${sinAgendar ? `<button class="btn btn-verde" id="btnAgendarHead" title="Crear el cliente o vincular este chat a uno existente">👤 Agendar</button>`
-          : !c.es_grupo ? `<button class="btn" id="btnAgendarHead" title="Cambiar el nombre o DNI, o vincular este chat a otro cliente">✏️ Editar contacto</button>` : ''}
+          : contacto ? '' : !c.es_grupo ? `<button class="btn" id="btnAgendarHead" title="Cambiar el nombre o DNI, o vincular este chat a otro cliente">✏️ Editar contacto</button>` : ''}
         ${sinAgendar ? '' : (nombreUsuarioCache ? `<span class="btn pill-usuario" title="Estás atendiendo como ${escapeHtml(nombreUsuarioCache)}">👤 ${escapeHtml(nombreUsuarioCache)}</span>` : '')}
         <button class="btn" id="btnFijar" title="Fijar este chat arriba de todo (también: clic derecho en la lista)">📌 ${chatsFijados.includes(c.id) ? 'Desfijar' : 'Fijar'}</button>
         <button id="btnToggleFicha" class="btn btn-cuadrado" title="Mostrar / ocultar la ficha">···</button>
@@ -922,6 +942,8 @@ function renderConversacionShell(){
 
   const btnAg = document.getElementById('btnAgendarHead');
   if(btnAg) btnAg.addEventListener('click', abrirModalAgendar);
+  const btnAgenda = document.getElementById('btnAgendaHead');
+  if(btnAgenda) btnAgenda.addEventListener('click', abrirModalAgenda);
   document.getElementById('btnFijar').addEventListener('click', ()=> alternarFijado(c.id));
   document.getElementById('btnToggleFicha').addEventListener('click', ()=>{
     document.getElementById('fichaLateral').classList.toggle('open');
@@ -1225,6 +1247,39 @@ function abrirModal(html, ancho){
   return { el: fondo, cerrar };
 }
 
+// "📇 Guardar en agenda": para compañeros, gerencia y otros que no son
+// clientes. El chat pasa a mostrar el nombre y sale de "Sin vincular".
+function abrirModalAgenda(){
+  const conv = conversacionActual;
+  if(!conv || conv.es_grupo || !conv.telefono) return;
+  const actual = contactoDe(conv) || {};
+  const opciones = Object.entries(GRUPOS_AGENDA).map(([k, v]) => `<option value="${k}" ${(actual.grupo || 'equipo') === k ? 'selected' : ''}>${v}</option>`).join('');
+  const m = abrirModal(`
+    <div class="modal-head"><div><h2>📇 ${actual.id ? 'Editar en la agenda' : 'Guardar en agenda'}</h2><div class="sub">${escapeHtml(telefonoLindo(conv.telefono))} · no es cliente</div></div><button class="modal-x" data-cerrar>✕</button></div>
+    <div class="modal-body">
+      <label class="m-label" for="agNombre">Nombre</label><input class="m-input" id="agNombre" value="${escapeHtml(actual.nombre || conv.nombre || '')}" placeholder="Ej: Laura Gómez">
+      <label class="m-label" for="agGrupo">Grupo</label><select class="m-input" id="agGrupo">${opciones}</select>
+      <label class="m-label" for="agCargo">Cargo (opcional)</label><input class="m-input" id="agCargo" value="${escapeHtml(actual.cargo || '')}" placeholder="Ej: Supervisora">
+    </div>
+    <div class="modal-pie"><span class="error" id="agError"></span><button class="btn" data-cerrar>Cancelar</button><button class="btn btn-verde" id="agGuardar">Guardar</button></div>`, 420);
+  const nombre = m.el.querySelector('#agNombre');
+  nombre.focus();
+  m.el.querySelector('#agGuardar').addEventListener('click', async ()=>{
+    if(!nombre.value.trim()){ m.el.querySelector('#agError').textContent = 'Poné el nombre.'; return; }
+    try{
+      await crmGuardarContacto({ id: actual.id, nombre: nombre.value, telefono: conv.telefono, grupo: m.el.querySelector('#agGrupo').value, cargo: m.el.querySelector('#agCargo').value.trim() });
+      m.cerrar();
+      await cargarContactos();
+      renderChatList();
+      renderConversacionShell();
+      renderMensajes(true);
+      toast('📇 Guardado en la agenda');
+    }catch(e){
+      m.el.querySelector('#agError').textContent = crmListContactos.faltaTabla ? 'Falta crear la agenda en Supabase (009_agenda_contactos.sql).' : (e.message || 'No se pudo guardar.');
+    }
+  });
+}
+
 // "👤 Agendar": crea el cliente o vincula el chat a uno que ya existe. Al
 // guardar, se recarga la lista y se reabre el chat ya con su ficha.
 function abrirModalAgendar(){
@@ -1439,6 +1494,20 @@ function renderFicha(){
     el.innerHTML = `<div class="empty-state" style="height:200px;">Este es un chat grupal — no tiene ficha de cliente.</div>`;
     return;
   }
+  const contacto = contactoDe(conv);
+  if(contacto){
+    el.innerHTML = `<div class="card">
+      <div class="card-head"><span class="card-titulo">📇 ${escapeHtml(contacto.nombre)}</span></div>
+      <div class="sin-agendar-tel">📱 ${escapeHtml(telefonoLindo(conv.telefono))}</div>
+      <div class="fila"><span class="k">Grupo</span><span class="v">${GRUPOS_AGENDA[contacto.grupo] || GRUPOS_AGENDA.otro}</span></div>
+      ${contacto.cargo ? `<div class="fila"><span class="k">Cargo</span><span class="v">${escapeHtml(contacto.cargo)}</span></div>` : ''}
+      ${contacto.notas ? `<div class="sin-agendar-txt">${escapeHtml(contacto.notas)}</div>` : ''}
+      <div class="sin-agendar-txt">Está en la agenda del equipo: no es cliente, así que no tiene préstamo ni pasa por las reglas automáticas.</div>
+      <button class="btn btn-ancho" id="fichaAgenda">📇 Editar en la agenda</button>
+    </div>`;
+    el.querySelector('#fichaAgenda').addEventListener('click', abrirModalAgenda);
+    return;
+  }
   if(!conv.cliente_id){
     el.innerHTML = `<div class="card">
       <div class="card-head"><span class="card-titulo">Contacto sin agendar</span></div>
@@ -1446,8 +1515,11 @@ function renderFicha(){
       ${conv.nombre && !conv.telefono ? `<div class="fila"><span class="k">Nombre en WhatsApp</span><span class="v">${escapeHtml(String(conv.nombre).replace(/^~\s*/, ''))}</span></div>` : ''}
       <div class="sin-agendar-txt">Este chat no está vinculado a ningún cliente de tu cartera. Agendalo para ver su préstamo, moverlo en el Kanban y que las reglas automáticas lo sigan.${conv.telefono ? '' : '<br><br>WhatsApp todavía no informó el número de este contacto: igual lo podés vincular a mano.'}</div>
       <button class="btn btn-verde btn-ancho" id="fichaAgendar">👤 Agendar contacto</button>
+      ${conv.telefono ? `<button class="btn btn-ancho" id="fichaAgenda" style="margin-top:8px">📇 No es cliente: guardar en agenda</button>` : ''}
     </div>`;
     el.querySelector('#fichaAgendar').addEventListener('click', abrirModalAgendar);
+    const fa = el.querySelector('#fichaAgenda');
+    if(fa) fa.addEventListener('click', abrirModalAgenda);
     return;
   }
   if(!fichaActual){
@@ -1613,6 +1685,18 @@ window.addEventListener('message', async e=>{
   if(e.data && e.data.type==='cm-abrir-chat-cliente' && e.data.clienteId){
     await abrirChatDeCliente(e.data.clienteId);
   }
+  if(e.data && e.data.type==='cm-agenda-cambio'){
+    await cargarContactos().catch(() => {});
+    renderChatList();
+  }
+  if(e.data && e.data.type==='cm-abrir-chat-telefono' && e.data.telefono){
+    try{
+      await cargarContactos();
+      const conv = await crmCrearConversacion(e.data.telefono);
+      await cargarConversaciones();
+      abrirConversacion(conv.id);
+    }catch(err){ toast('No se pudo abrir el chat de ese número.', 'error'); }
+  }
 });
 
 // Viene del botón "Abrir chat" de la ficha de Clientes. Si ese cliente ya
@@ -1651,6 +1735,7 @@ window.appReady.then(async ()=>{
   plantillasCache = plantillas;
   nombreUsuarioCache = nombreCorto(nombre);
   reglasCache = reglas || [];
+  await cargarContactos().catch(e => console.warn('contactos', e));
   await cargarConversaciones();
   cargarResumenPrestamos();
 
@@ -1663,6 +1748,7 @@ window.appReady.then(async ()=>{
     pendienteRecarga = setTimeout(cargarConversaciones, 1200);
   });
   setInterval(cargarResumenPrestamos, 60000);
+  setInterval(() => cargarContactos().then(renderChatList).catch(() => {}), 60000);
 });
 </script>
 </body>

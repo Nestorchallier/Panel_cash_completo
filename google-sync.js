@@ -4,7 +4,7 @@
 // Fase 1 (esta): un solo sentido, Kanban -> Google. Cuando se guarda un
 // cliente con fecha de promesa, se crea/actualiza un evento en el
 // calendario principal de Google (Calendar) y una tarea en una lista de
-// tareas dedicada ("Panel Cash Market — Promesas") en Google Tasks. Si se
+// tareas dedicada ("CRM Panel Unificado — Promesas") en Google Tasks. Si se
 // borra la fecha o el cliente, se borra tambien del lado de Google.
 //
 // No hay backend propio, asi que el login usa el flujo de "token client" de
@@ -108,7 +108,7 @@ async function ensureGoogleTaskList() {
   if (listId) return listId;
   const created = await googleFetch('https://tasks.googleapis.com/tasks/v1/users/@me/lists', {
     method: 'POST',
-    body: JSON.stringify({ title: 'Panel Cash Market — Promesas' }),
+    body: JSON.stringify({ title: 'CRM Panel Unificado — Promesas' }),
   });
   listId = created.id;
   await kvSet(GOOGLE_TASKLIST_ID_KEY, listId);

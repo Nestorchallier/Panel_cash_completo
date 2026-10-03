@@ -33,6 +33,7 @@
     'whatsapp_crm.html': 'view-whatsapp',
     'kanban_clientes.html': 'view-kanban',
     'clientes.html': 'view-clientes',
+    'agenda.html': 'view-agenda',
     'conexion.html': 'view-conexion',
     'refi_buscador.html': 'view-refi',
     'calculadora_proximo_credito.html': 'view-calc',

@@ -50,7 +50,7 @@ npm ci --omit=dev
 
 sudo tee "/etc/systemd/system/$SERVICIO.service" > /dev/null <<UNIT
 [Unit]
-Description=Cash Market - Worker WhatsApp
+Description=CRM Panel Unificado - Worker WhatsApp
 After=network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=0
