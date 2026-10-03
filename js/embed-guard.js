@@ -1,5 +1,5 @@
 // Guardia de las pantallas embebidas (Bandeja, Kanban, Clientes, Conexión,
-// Refinanciaciones, Calculadora).
+// Refinanciaciones, Calculadora, Informes).
 //
 // Cada una de esas pantallas es un archivo .html aparte que index.html
 // muestra adentro de un iframe, al lado del menú lateral. Si alguien abre
@@ -35,6 +35,7 @@
     'clientes.html': 'view-clientes',
     'agenda.html': 'view-agenda',
     'conexion.html': 'view-conexion',
+    'informes.html': 'view-informes',
     'refi_buscador.html': 'view-refi',
     'calculadora_proximo_credito.html': 'view-calc',
   };

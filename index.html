@@ -2368,6 +2368,7 @@
       <button class="sidebar-item" data-view="view-mensajes"><span class="si-icon">📨</span><span class="si-label">Envío de Mensajes</span></button>
       <button class="sidebar-item" data-view="view-refi"><span class="si-icon">🔎</span><span class="si-label">Refinanciaciones</span></button>
       <button class="sidebar-item" data-view="view-calc"><span class="si-icon">🧮</span><span class="si-label">Calculadora</span></button>
+      <button class="sidebar-item" data-view="view-informes"><span class="si-icon">📈</span><span class="si-label">Informes</span><span class="si-nuevo">NUEVO</span></button>
       <div class="sidebar-seccion">CONFIGURACIÓN</div>
       <button class="sidebar-item" data-view="view-conexion"><span class="si-icon">⚙️</span><span class="si-label">Conexión WhatsApp</span><span class="si-nuevo">NUEVO</span></button>
     </nav>
@@ -2793,6 +2794,12 @@
   <div id="view-agenda" class="app-view">
     <div class="view-iframe-wrap">
       <iframe id="iframeAgenda" title="Agenda"></iframe>
+    </div>
+  </div>
+
+  <div id="view-informes" class="app-view">
+    <div class="view-iframe-wrap">
+      <iframe id="iframeInformes" title="Informes"></iframe>
     </div>
   </div>
 
@@ -4233,13 +4240,14 @@
       const iframeClientes = document.getElementById('iframeClientes');
       const iframeConexion = document.getElementById('iframeConexion');
       const iframeAgenda = document.getElementById('iframeAgenda');
-      let refiLoaded = false, calcLoaded = false, kanbanLoaded = false, whatsappLoaded = false, clientesLoaded = false, conexionLoaded = false, agendaLoaded = false;
+      const iframeInformes = document.getElementById('iframeInformes');
+      let refiLoaded = false, calcLoaded = false, kanbanLoaded = false, whatsappLoaded = false, clientesLoaded = false, conexionLoaded = false, agendaLoaded = false, informesLoaded = false;
       // Se suma como query param a cada iframe para que el navegador siempre
       // pida la version nueva del archivo despues de un deploy, en vez de
       // servir una copia vieja cacheada. Subir este numero en cada cambio a
       // kanban_clientes.html / refi_buscador.html / calculadora_proximo_credito.html / whatsapp_crm.html
-      // / clientes.html / conexion.html / agenda.html (o a los js/css que usan).
-      const ASSET_VERSION = 28;
+      // / clientes.html / conexion.html / agenda.html / informes.html (o a los js/css que usan).
+      const ASSET_VERSION = 29;
 
       // Las pantallas embebidas se cargan recién cuando hay sesión. Si se
       // cargaban antes (la vista guardada se abre apenas carga el panel),
@@ -4281,6 +4289,11 @@
           ponerSrc(iframeAgenda, 'agenda.html?v=' + ASSET_VERSION);
           agendaLoaded = true;
           iframeAgenda.addEventListener('load', () => notifyThemeToIframes(currentTheme), { once: true });
+        }
+        if (view === 'view-informes' && !informesLoaded) {
+          ponerSrc(iframeInformes, 'informes.html?v=' + ASSET_VERSION);
+          informesLoaded = true;
+          iframeInformes.addEventListener('load', () => notifyThemeToIframes(currentTheme), { once: true });
         }
         if (view === 'view-conexion' && !conexionLoaded) {
           ponerSrc(iframeConexion, 'conexion.html?v=' + ASSET_VERSION);
@@ -4486,7 +4499,7 @@
     // (la preferencia vieja, cm_theme_v1, era del diseño anterior).
     const THEME_KEY = 'cm_theme_v2';
     function notifyThemeToIframes(theme){
-      ['iframeKanban', 'iframeRefi', 'iframeCalc', 'iframeWhatsapp', 'iframeClientes', 'iframeConexion', 'iframeAgenda'].forEach(id => {
+      ['iframeKanban', 'iframeRefi', 'iframeCalc', 'iframeWhatsapp', 'iframeClientes', 'iframeConexion', 'iframeAgenda', 'iframeInformes'].forEach(id => {
         const el = document.getElementById(id);
         if (el && el.contentWindow) {
           try { el.contentWindow.postMessage({ type: 'cm-theme', theme }, '*'); } catch (e) { }
