@@ -80,6 +80,46 @@ function hablaEnFuturo(texto) {
   return /\b(voy a|vamos a|va a|iba a|pienso|quiero|puedo|podria|cuando|apenas|si puedo|ni bien|despues|te aviso|el dia|manana|pasado|la semana|el (lunes|martes|miercoles|jueves|viernes|sabado|domingo)|no pude|no puedo|todavia no|aun no)\b|transferire|pagare|depositare|abonare|transfiera|pagaria/.test(texto);
 }
 
+// Palabra o frase clave como palabra entera: "saldo" no tiene que saltar
+// con "saldos" escrito dentro de otra palabra, ni "acoso" dentro de
+// "acosomado". Antes se buscaba como pedazo de texto y una regla (la de
+// reclamo, sobre todo) saltaba con mensajes que no la decían.
+function contienePalabra(texto, palabra) {
+  const p = normalizar(palabra).trim();
+  if (!p) return false;
+  const esc = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+  return new RegExp(`(?:^|[^a-z0-9])${esc}(?=$|[^a-z0-9])`).test(texto);
+}
+
+// Mensaje que anuncia un pago a futuro aunque no use las palabras de la
+// regla: "te puedo transferir el 5", "el lunes te deposito", "voy a pagar
+// el viernes", "mañana te abono". Hace falta un verbo de pago y, además,
+// una fecha o un tiempo futuro. Lo que está en pasado ("ya te transferí")
+// es un comprobante, no una promesa.
+function anunciaPago(texto, fechaDetectada) {
+  const verboPago = /\b(pag(o|ar|arte|arle|arles|aria|are|amos)|transf(iero|erir|erirte|erirle|erirles|eriria|erire|iera)|deposit(o|ar|arte|arle|arles|aria|are)|abon(o|ar|arte|arle|arles|aria|are)|cancel(o|ar|aria|are)|te (mando|paso|giro) (la plata|el dinero|la guita)|regulariz(o|ar))\b/;
+  if (!verboPago.test(texto)) return false;
+  if (/\b(ya|ahi|recien) (te )?(pague|transferi|deposite|abone|pase|cancele)\b|\b(transferi|deposite|abone|cancele)\b/.test(texto)) return false;
+  return !!fechaDetectada || hablaEnFuturo(texto);
+}
+
+// Un mensaje NUESTRO que confirma la fecha que propuso el cliente: el
+// cliente escribe "puedo transferirles el 5?" y contestamos "sisi el 5 si".
+// Devuelve la fecha de la promesa si el saliente nombra una fecha y algún
+// entrante reciente del cliente anuncia un pago para ese mismo día (o sin
+// día, ej. "te pago la semana que viene" + "dale, el lunes").
+// entrantes: [{ texto, fecha }] de las últimas horas, del más nuevo al más viejo.
+function promesaConfirmada(textoSaliente, fechaSaliente, entrantes) {
+  const fecha = detectarFecha(textoSaliente, fechaSaliente ? new Date(fechaSaliente) : new Date());
+  if (!fecha) return null;
+  for (const m of entrantes || []) {
+    const texto = normalizar(m.texto || '');
+    const suya = detectarFecha(m.texto || '', m.fecha ? new Date(m.fecha) : new Date());
+    if ((suya === fecha || !suya) && anunciaPago(texto, suya)) return fecha;
+  }
+  return null;
+}
+
 // reglas: filas de la tabla `reglas` (ya ordenadas por prioridad asc).
 // contexto: { texto, tieneAdjunto, tipoAdjunto: 'imagen'|'pdf'|null, etapaActualClave, fecha? }
 // fecha (opcional): cuándo se mandó el mensaje. Las fechas de promesa
@@ -93,7 +133,7 @@ function clasificarMensaje(reglas, contexto) {
 
     const accion = regla.accion || {};
     const palabras = regla.palabras || [];
-    const matchPalabra = palabras.some(p => texto.includes(normalizar(p)));
+    const matchPalabra = palabras.some(p => contienePalabra(texto, p));
     const matchAdjunto = !!regla.tipo_adjunto && !!contexto.tieneAdjunto
       && (regla.tipo_adjunto === 'imagen_o_pdf' || regla.tipo_adjunto === contexto.tipoAdjunto);
 
@@ -121,9 +161,12 @@ function clasificarMensaje(reglas, contexto) {
       return { regla, fechaDetectada: null };
     }
 
-    if (!matchPalabra && !regla.tipo_adjunto) continue;
-
     const fechaDetectada = accion.detecta_fecha ? detectarFecha(contexto.texto, fechaMensaje) : null;
+    // La regla de promesa también toma los anuncios de pago con fecha o en
+    // futuro, aunque no usen ninguna de sus palabras ("te puedo transferir
+    // el 5" no decía "te pago" ni "el 10" y quedaba sin tomar).
+    if (!matchPalabra && !regla.tipo_adjunto && !(accion.detecta_fecha && anunciaPago(texto, fechaDetectada))) continue;
+
     return { regla, fechaDetectada };
   }
   return null;
@@ -133,7 +176,7 @@ function clasificarMensaje(reglas, contexto) {
 // de la sección 5.4): mismo archivo, un solo lugar donde corregir esta
 // lógica si cambia.
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { clasificarMensaje, detectarFecha, normalizar };
+  module.exports = { clasificarMensaje, detectarFecha, normalizar, contienePalabra, anunciaPago, promesaConfirmada };
 }
 if (typeof window !== 'undefined') {
   window.clasificarMensaje = clasificarMensaje;

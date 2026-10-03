@@ -6,6 +6,7 @@
 
 const pino = require('pino');
 const { generateMessageIDV2 } = require('@whiskeysockets/baileys');
+const { aplicarPromesaConfirmada } = require('./aplicar-reglas');
 // En 'info' queda en el log cada envío ("Mensaje enviado"), para poder
 // auditar si un mensaje salió o no.
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
@@ -39,7 +40,7 @@ async function resetearContadorSiCambioDeDia(supabase, userId, sesion) {
 async function enviarUno(sock, supabase, userId, sesion) {
   const { data: pendiente } = await supabase
     .from('mensajes')
-    .select('*, conversaciones!inner(id, jid, user_id)')
+    .select('*, conversaciones!inner(id, jid, user_id, cliente_id)')
     .eq('direccion', 'saliente')
     .eq('estado', 'pendiente')
     .eq('conversaciones.user_id', userId)
@@ -78,6 +79,9 @@ async function enviarUno(sock, supabase, userId, sesion) {
       .eq('id', pendiente.id).eq('estado', 'pendiente');
     await supabase.from('wa_sesion').update({ enviados_hoy: (sesion.enviados_hoy || 0) + 1 }).eq('user_id', userId);
     logger.info({ a: pendiente.conversaciones.jid }, 'Mensaje enviado');
+    // "Dale, el 5" contestando a "¿te puedo pagar el 5?": queda la promesa.
+    await aplicarPromesaConfirmada(supabase, userId, pendiente.conversaciones, pendiente.texto, new Date().toISOString())
+      .catch(e => logger.error({ err: e }, 'Error aplicando promesa confirmada'));
   } catch (e) {
     logger.error({ err: e }, 'Error enviando mensaje, se reintenta en el próximo ciclo');
     await supabase.from('mensajes').update({ estado: 'error' }).eq('id', pendiente.id);

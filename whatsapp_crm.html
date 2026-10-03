@@ -191,6 +191,10 @@
   .regla-aviso{align-self:stretch;font-size:12px;font-weight:500;color:var(--aviso-text);background:var(--aviso-bg);border:1px solid var(--aviso-line);border-radius:6px;padding:5px 12px;line-height:16px;}
   .regla-aviso b{font-weight:700;}
   .dia-divisor{align-self:center;margin:0 0 1px;}
+  .etiquetas-ficha{display:flex;flex-wrap:wrap;gap:6px;}
+  .tag-quitable{display:inline-flex;align-items:center;gap:2px;}
+  .quitar-etiqueta{border:none;background:transparent;color:var(--muted,#64748b);font-size:15px;line-height:1;padding:0 3px;cursor:pointer;border-radius:4px;}
+  .quitar-etiqueta:hover{color:#dc2626;background:rgba(220,38,38,.08);}
   .ver-anteriores{align-self:center;margin:2px 0 6px;}
   .ver-anteriores button{background:var(--panel,#fff);border:1px solid var(--line,#e2e8f0);color:var(--text-2,#334155);border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:600;box-shadow:0 1px 2px rgba(15,23,42,.08);cursor:pointer;}
   .ver-anteriores button:disabled{opacity:.6;cursor:default;}
@@ -1645,6 +1649,8 @@ function renderFicha(){
       <select class="campo-caja" id="fichaEtapa">${etapaSel ? '' : '<option value="" selected>— Sin etapa —</option>'}${etapasCache.map(e=>`<option value="${escapeHtml(e._rowId)}" ${cliente.etapa_id===e._rowId?'selected':''}>${(ESTILO_ETAPA[e.id]||{emoji:'⚫'}).emoji} ${escapeHtml(e.name)}</option>`).join('')}</select>
       <div class="campo-label">Promesa de pago</div>
       <label class="campo-caja" id="cajaPromesa"><span class="fecha-txt ${promesa ? '' : 'vacia'}">📅 ${promesa ? `${fmtFecha(promesa)} · ${promesaRel}` : 'Sin promesa'}</span><span class="lapiz">✏️</span><input type="date" id="fichaPromesa" value="${escapeHtml(promesa||'')}"></label>
+      ${(cliente.etiquetas || []).length ? `<div class="campo-label">Etiquetas</div>
+      <div class="etiquetas-ficha">${cliente.etiquetas.map(e => `<span class="tag-quitable">${tagEtiqueta(e)}<button type="button" class="quitar-etiqueta" data-etiqueta="${escapeHtml(e)}" title="Quitar la etiqueta ${escapeHtml(e)}">×</button></span>`).join('')}</div>` : ''}
       <div class="guardado-ok" id="fichaGuardadoOk"></div>
       ${enArchivoRefi(cliente, p) ? `<button class="btn-refi-apto" id="fichaRefiApto" title="Está en el archivo de Refinanciaciones: ver planes y mensaje">🔁 Apto para refinanciación · ver planes</button>` : ''}
     </div>
@@ -1694,6 +1700,16 @@ function renderFicha(){
       avisarGuardado(fecha ? '✓ Promesa guardada' : '✓ Promesa borrada');
     }catch(err){ toast('No se pudo guardar la promesa.', 'error'); }
   });
+  // Las etiquetas que ponen las reglas (Reclamo, Consulta...) quedan hasta
+  // que alguien las saca: con la × se quitan cuando ya no corresponden.
+  el.querySelectorAll('.quitar-etiqueta').forEach(b => b.addEventListener('click', async ()=>{
+    const etiquetas = (cliente.etiquetas || []).filter(x => x !== b.dataset.etiqueta);
+    const { error } = await window.sb.from('clientes').update({ etiquetas }).eq('id', cliente.id);
+    if(error){ toast('No se pudo quitar la etiqueta.', 'error'); return; }
+    reflejarEnLista({ etiquetas });
+    renderFicha();
+    avisarGuardado('✓ Etiqueta quitada');
+  }));
   document.getElementById('fichaVerCompleta').addEventListener('click', ()=>{
     window.top.postMessage({type:'cm-ir-a-clientes', id: cliente.id}, '*');
   });
