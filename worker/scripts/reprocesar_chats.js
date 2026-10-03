@@ -35,6 +35,7 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const { createClient } = require('@supabase/supabase-js');
 const { clasificarMensaje } = require('../src/reglas.js');
+const { fechaParaReglas } = require('../src/aplicar-reglas.js');
 
 const APLICAR = process.argv.includes('--aplicar');
 const argDias = process.argv.find(a => a.startsWith('--dias='));
@@ -159,7 +160,7 @@ const corto = (t, n = 60) => { const s = String(t || '').replace(/\s+/g, ' ').tr
       const esAdjunto = m.tipo === 'imagen' || m.tipo === 'pdf';
       const contexto = {
         texto: m.texto || '', tieneAdjunto: esAdjunto, tipoAdjunto: esAdjunto ? m.tipo : null,
-        etapaActualClave: etapa ? etapa.clave : null, fecha: m.creado_at,
+        etapaActualClave: etapa ? etapa.clave : null, fecha: fechaParaReglas(m.creado_at), hora: m.creado_at,
       };
       let res = clasificarMensaje(reglas, contexto);
       if (res && res.regla.accion && res.regla.accion.mueve_a === 'verificar_pago' && comprobanteYaAcreditado(clienteId, m)) {

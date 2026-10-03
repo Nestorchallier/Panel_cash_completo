@@ -49,6 +49,7 @@ async function aplicarReglas(supabase, userId, conversacion, mensajeTexto, tipo,
     // mensaje, no desde que el worker lo procesa (si estuvo caído un rato
     // y lo recibe tarde, la promesa no se corre un día).
     fecha: fechaParaReglas(fechaMensaje),
+    hora: fechaMensaje || new Date().toISOString(),
   });
   if (!resultado) return;
 
