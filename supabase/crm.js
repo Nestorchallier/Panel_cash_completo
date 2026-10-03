@@ -225,11 +225,19 @@ async function crmListConversaciones() {
   return data || [];
 }
 
-async function crmListMensajes(conversacionId) {
-  const { data, error } = await window.sb
-    .from('mensajes').select('*').eq('conversacion_id', conversacionId).order('creado_at', { ascending: true });
+// Trae los últimos `limite` mensajes del chat (o los anteriores a `antesDe`)
+// en orden cronológico. Se piden de más nuevo a más viejo porque Supabase
+// corta cada consulta en 1000 filas: pidiéndolos al revés, en un chat largo
+// (grupos con historial) llegaban los 1000 más viejos y faltaban los de hoy.
+async function crmListMensajes(conversacionId, opciones) {
+  const { limite = 300, antesDe = null } = opciones || {};
+  let q = window.sb
+    .from('mensajes').select('*').eq('conversacion_id', conversacionId)
+    .order('creado_at', { ascending: false }).limit(limite);
+  if (antesDe) q = q.lt('creado_at', antesDe);
+  const { data, error } = await q;
   if (error) { console.error('crmListMensajes', error); return []; }
-  return data || [];
+  return (data || []).reverse();
 }
 
 async function crmMarcarConversacionLeida(conversacionId) {
