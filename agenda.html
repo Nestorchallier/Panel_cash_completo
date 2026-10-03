@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda — CRM Panel Unificado</title>
+<script src="js/embed-guard.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase/config.js"></script>
+<script src="supabase/kv.js"></script>
+<script src="js/telefonos.js"></script>
+<script src="supabase/crm.js"></script>
+<style>
+  /* Misma paleta que Conexión: claro por defecto, oscuro opcional. */
+  :root{
+    --bg:#f8fafc; --panel:#ffffff; --panel-2:#f8fafc; --line:#e2e8f0; --line-2:#f1f5f9;
+    --text:#0f172a; --text-2:#334155; --muted:#64748b; --faint:#94a3b8;
+    --blue:#2563eb; --green:#16a34a; --red:#dc2626; --chip:#f1f5f9;
+    --fondo-modal:rgba(15,23,42,.45);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0b1220; --panel:#0f172a; --panel-2:#111c33; --line:#1e293b; --line-2:#162036;
+    --text:#e2e8f0; --text-2:#cbd5e1; --muted:#94a3b8; --faint:#64748b;
+    --blue:#60a5fa; --green:#22c55e; --red:#f87171; --chip:#1e293b;
+    --fondo-modal:rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:13px;min-height:100vh;-webkit-font-smoothing:antialiased;}
+  button,input,select,textarea{font-family:inherit;}
+  button{cursor:pointer;}
+  header{padding:14px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line);background:var(--panel);}
+  .head-izq{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;}
+  header h1{font-size:19px;font-weight:800;margin:0;letter-spacing:-.01em;}
+  .header-sub{font-size:13px;color:var(--muted);}
+  main{padding:18px 22px;max-width:1100px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;}
+  .barra{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;}
+  .buscar{flex:1;min-width:200px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13.5px;}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;}
+  .chip{background:var(--panel);border:1px solid var(--line);color:var(--text-2);border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:600;}
+  .chip.on{background:var(--text);border-color:var(--text);color:var(--bg);}
+  .chip .n{opacity:.7;margin-left:4px;}
+  .btn{background:var(--panel);border:1px solid var(--line);color:var(--text-2);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;white-space:nowrap;}
+  .btn:hover{border-color:var(--faint);}
+  .btn-verde{background:var(--green);border-color:var(--green);color:#fff;}
+  .btn-verde:hover{filter:brightness(.95);}
+  table{width:100%;border-collapse:collapse;}
+  th{text-align:left;font-size:12.5px;font-weight:500;color:var(--muted);padding:9px 10px;background:var(--panel-2);border-bottom:1px solid var(--line);}
+  td{padding:10px;border-bottom:1px solid var(--line-2);font-size:13.5px;vertical-align:middle;}
+  td.nombre{font-weight:700;}
+  td.tel{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px;color:var(--text-2);white-space:nowrap;}
+  td.notas{color:var(--muted);max-width:280px;}
+  .tag{font-size:12px;font-weight:600;padding:3px 8px;border-radius:5px;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;}
+  .tag.equipo{background:#dbeafe;color:#1d4ed8;} .tag.gerencia{background:#ede9fe;color:#6d28d9;} .tag.otro{background:#f1f5f9;color:#475569;}
+  .acciones{white-space:nowrap;text-align:right;}
+  .icon-btn{background:none;border:none;color:var(--faint);font-size:15px;padding:3px 5px;}
+  .icon-btn:hover{color:var(--text);}
+  .vacio{color:var(--muted);font-size:13px;line-height:1.6;background:var(--panel-2);border:1px dashed var(--line);border-radius:10px;padding:16px;text-align:center;}
+  .aviso{background:#fef3c7;color:#854d0e;border:1px solid #fde68a;border-radius:10px;padding:14px 16px;line-height:1.55;margin-bottom:14px;}
+  :root[data-theme="dark"] .aviso{background:#3a2f0b;color:#fde68a;border-color:#5c4a12;}
+  .aviso code{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;}
+
+  .modal-fondo{position:fixed;inset:0;background:var(--fondo-modal);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px;}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:440px;max-width:100%;box-shadow:0 10px 30px rgba(15,23,42,.2);}
+  .modal-head{display:flex;justify-content:space-between;align-items:flex-start;padding:16px 18px 6px;}
+  .modal-head h2{font-size:16px;margin:0;}
+  .modal-x{background:none;border:none;color:var(--faint);font-size:16px;}
+  .modal-body{padding:6px 18px 4px;display:flex;flex-direction:column;gap:4px;}
+  .m-label{font-size:12.5px;color:var(--muted);margin-top:8px;}
+  .m-input{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13.5px;width:100%;}
+  textarea.m-input{min-height:64px;resize:vertical;}
+  .modal-pie{display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:14px 18px 16px;}
+  .modal-pie .error{color:var(--red);font-size:12.5px;margin-right:auto;}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;border-radius:8px;padding:9px 14px;font-size:13px;z-index:60;}
+  .toast.error{background:#b91c1c;}
+  @media (max-width:700px){ th.col-notas, td.notas, th.col-cargo, td.cargo{display:none;} main,header{padding-left:16px;padding-right:16px;} }
+</style>
+</head>
+<body>
+<header>
+  <div class="head-izq">
+    <h1>📇 Agenda</h1>
+    <span class="header-sub">Equipo, gerencia y otros contactos que no son clientes</span>
+  </div>
+  <button class="btn btn-verde" id="btnNuevo">+ Nuevo contacto</button>
+</header>
+<main>
+  <div id="avisoTabla"></div>
+  <div class="barra">
+    <input class="buscar" id="buscar" placeholder="Buscar por nombre, teléfono o cargo...">
+    <div class="chips" id="chips"></div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div id="tabla"></div>
+  </div>
+</main>
+
+<script>
+const GRUPOS = { equipo: '👔 Equipo', gerencia: '🏢 Gerencia', otro: '📇 Otros' };
+let contactos = [];
+let filtroGrupo = '';
+
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Mismo formato que la Bandeja del WhatsApp CRM.
+function telLindo(tel){
+  if(!tel) return '—';
+  const d = String(tel).replace(/\D/g,'');
+  if(/^549\d{10}$/.test(d)){
+    const r = d.slice(3);
+    if(r.startsWith('11')) return `+54 9 11 ${r.slice(2,6)}-${r.slice(6)}`;
+    return `+54 9 ${r.slice(0,3)} ${r.slice(3,6)}-${r.slice(6)}`;
+  }
+  return (window.formatearTelefonoAR && window.formatearTelefonoAR(d)) || ('+' + d);
+}
+function toast(texto, tipo){
+  const t = document.createElement('div');
+  t.className = 'toast' + (tipo === 'error' ? ' error' : '');
+  t.textContent = texto;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+// Avisa al panel (y de ahí al WhatsApp CRM) que la agenda cambió, así los
+// chats muestran el nombre nuevo sin recargar.
+function avisarCambio(){ try{ window.top.postMessage({ type: 'cm-agenda-cambio' }, '*'); }catch(e){} }
+
+async function cargar(){
+  contactos = await crmListContactos();
+  document.getElementById('avisoTabla').innerHTML = crmListContactos.faltaTabla
+    ? `<div class="aviso"><b>Falta crear la agenda en la base.</b> Una sola vez: en Supabase entrá a <b>SQL Editor → New query</b>, pegá el contenido de <code>supabase/009_agenda_contactos.sql</code> y tocá <b>Run</b>. Después recargá esta pantalla.</div>`
+    : '';
+  render();
+}
+
+function render(){
+  const q = document.getElementById('buscar').value.trim().toLowerCase();
+  const qDig = q.replace(/\D/g, '');
+  const cuenta = { '': contactos.length, equipo: 0, gerencia: 0, otro: 0 };
+  contactos.forEach(c => { cuenta[c.grupo] = (cuenta[c.grupo] || 0) + 1; });
+  document.getElementById('chips').innerHTML = [['', 'Todos'], ...Object.entries(GRUPOS)].map(([k, v]) =>
+    `<button class="chip ${filtroGrupo === k ? 'on' : ''}" data-g="${k}">${v}<span class="n">${cuenta[k] || 0}</span></button>`).join('');
+
+  const lista = contactos.filter(c => {
+    if(filtroGrupo && c.grupo !== filtroGrupo) return false;
+    if(!q) return true;
+    return (c.nombre || '').toLowerCase().includes(q) || (c.cargo || '').toLowerCase().includes(q)
+      || (c.notas || '').toLowerCase().includes(q) || (qDig.length >= 3 && (c.telefono || '').includes(qDig));
+  });
+  const el = document.getElementById('tabla');
+  if(!lista.length){
+    el.innerHTML = `<div class="vacio" style="border:0;border-radius:0;">${contactos.length ? 'No hay contactos con ese filtro.' : 'Todavía no hay nadie en la agenda. Cargá a tus compañeros y a la gerencia con <b>+ Nuevo contacto</b>, o desde un chat con <b>📇 Guardar en agenda</b>.'}</div>`;
+    return;
+  }
+  el.innerHTML = `<table><thead><tr><th>Nombre</th><th>Teléfono</th><th>Grupo</th><th class="col-cargo">Cargo</th><th class="col-notas">Notas</th><th></th></tr></thead><tbody>
+    ${lista.map(c => `<tr>
+      <td class="nombre">${escapeHtml(c.nombre)}</td>
+      <td class="tel">${escapeHtml(telLindo(c.telefono))}</td>
+      <td><span class="tag ${escapeHtml(c.grupo)}">${GRUPOS[c.grupo] || GRUPOS.otro}</span></td>
+      <td class="cargo">${escapeHtml(c.cargo || '')}</td>
+      <td class="notas">${escapeHtml(c.notas || '')}</td>
+      <td class="acciones">
+        ${c.telefono ? `<button class="icon-btn" data-chat="${escapeHtml(c.telefono)}" title="Abrir el chat de WhatsApp">💬</button>` : ''}
+        <button class="icon-btn" data-editar="${c.id}" title="Editar">✏️</button>
+        <button class="icon-btn" data-borrar="${c.id}" title="Borrar de la agenda">🗑️</button>
+      </td></tr>`).join('')}
+  </tbody></table>`;
+}
+
+function abrirModal(html){
+  const fondo = document.createElement('div');
+  fondo.className = 'modal-fondo';
+  fondo.innerHTML = `<div class="modal" role="dialog" aria-modal="true">${html}</div>`;
+  document.body.appendChild(fondo);
+  const cerrar = () => { fondo.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if(e.key === 'Escape') cerrar(); };
+  document.addEventListener('keydown', onKey);
+  fondo.addEventListener('mousedown', e => { if(e.target === fondo) cerrar(); });
+  fondo.querySelectorAll('[data-cerrar]').forEach(b => b.addEventListener('click', cerrar));
+  return { el: fondo, cerrar };
+}
+
+function abrirFormulario(c){
+  c = c || { grupo: filtroGrupo || 'equipo' };
+  const opciones = Object.entries(GRUPOS).map(([k, v]) => `<option value="${k}" ${c.grupo === k ? 'selected' : ''}>${v}</option>`).join('');
+  const m = abrirModal(`
+    <div class="modal-head"><h2>${c.id ? '✏️ Editar contacto' : '+ Nuevo contacto'}</h2><button class="modal-x" data-cerrar>✕</button></div>
+    <div class="modal-body">
+      <label class="m-label" for="fNombre">Nombre</label><input class="m-input" id="fNombre" value="${escapeHtml(c.nombre || '')}" placeholder="Ej: Laura Gómez">
+      <label class="m-label" for="fTel">WhatsApp (con código de área)</label><input class="m-input" id="fTel" inputmode="tel" value="${escapeHtml(c.telefono ? telLindo(c.telefono) : '')}" placeholder="Ej: 11 4532-7781">
+      <label class="m-label" for="fGrupo">Grupo</label><select class="m-input" id="fGrupo">${opciones}</select>
+      <label class="m-label" for="fCargo">Cargo (opcional)</label><input class="m-input" id="fCargo" value="${escapeHtml(c.cargo || '')}" placeholder="Ej: Supervisora">
+      <label class="m-label" for="fNotas">Notas (opcional)</label><textarea class="m-input" id="fNotas">${escapeHtml(c.notas || '')}</textarea>
+    </div>
+    <div class="modal-pie"><span class="error" id="fError"></span><button class="btn" data-cerrar>Cancelar</button><button class="btn btn-verde" id="fGuardar">Guardar</button></div>`);
+  const $ = id => m.el.querySelector('#' + id);
+  $('fNombre').focus();
+  $('fGuardar').addEventListener('click', async () => {
+    if(!$('fNombre').value.trim()){ $('fError').textContent = 'Poné el nombre.'; return; }
+    try{
+      await crmGuardarContacto({ id: c.id, nombre: $('fNombre').value, telefono: $('fTel').value.trim(), grupo: $('fGrupo').value, cargo: $('fCargo').value.trim(), notas: $('fNotas').value.trim() });
+      m.cerrar();
+      await cargar();
+      avisarCambio();
+      toast('📇 Contacto guardado');
+    }catch(e){
+      $('fError').textContent = e.message === 'Teléfono inválido' ? 'Teléfono inválido: revisá el código de área.' : (e.message || 'No se pudo guardar.');
+    }
+  });
+}
+
+document.getElementById('btnNuevo').addEventListener('click', () => abrirFormulario());
+document.getElementById('buscar').addEventListener('input', render);
+document.getElementById('chips').addEventListener('click', e => {
+  const b = e.target.closest('[data-g]');
+  if(!b) return;
+  filtroGrupo = b.dataset.g;
+  render();
+});
+document.getElementById('tabla').addEventListener('click', async e => {
+  const ed = e.target.closest('[data-editar]');
+  if(ed){ abrirFormulario(contactos.find(c => c.id === ed.dataset.editar)); return; }
+  const bo = e.target.closest('[data-borrar]');
+  if(bo){
+    const c = contactos.find(x => x.id === bo.dataset.borrar);
+    if(!c || !confirm(`¿Borrar a ${c.nombre} de la agenda? El chat no se borra.`)) return;
+    try{ await crmEliminarContacto(c.id); await cargar(); avisarCambio(); toast('Contacto borrado'); }
+    catch(err){ toast('No se pudo borrar.', 'error'); }
+    return;
+  }
+  const ch = e.target.closest('[data-chat]');
+  if(ch) window.top.postMessage({ type: 'cm-abrir-chat-telefono', telefono: ch.dataset.chat }, '*');
+});
+
+/* ===== Tema (lo manda el panel principal) ===== */
+const THEME_KEY = 'cm_theme_v2';
+function applyTheme(theme){ document.documentElement.setAttribute('data-theme', theme==='dark'?'dark':'light'); }
+window.addEventListener('message', e=>{ if(e.data && e.data.type==='cm-theme') applyTheme(e.data.theme); });
+
+/* ===== Auth + carga inicial ===== */
+sb.auth.getSession().then(async ({ data: { session } }) => {
+  if (!session) { location.href = 'index.html'; return; }
+  await crmBootstrap();
+  window._markAppReady();
+});
+sb.auth.onAuthStateChange((_event, session) => { if (!session) location.href = 'index.html'; });
+
+window.appReady.then(async ()=>{
+  const saved = await kvGet(THEME_KEY);
+  if (saved) applyTheme(saved);
+  try { await cargar(); } catch (e) { console.error('agenda', e); }
+});
+</script>
+</body>
+</html>
