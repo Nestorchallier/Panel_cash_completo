@@ -46,10 +46,16 @@ async function crmSaveEtapas(stages) {
 
   const rows = stages.map((s, i) => {
     const esProtegida = !!s.protected;
-    const rowId = esProtegida ? (porClave.get(s.id) || s.id) : (porId.has(s.id) || /^[0-9a-f-]{36}$/i.test(s.id) ? s.id : undefined);
+    // Las columnas con clave fija que NO son protegidas (contactado, promesa,
+    // verificar_pago, refinanciado, pago_parcial) llegan con id = su clave:
+    // hay que conservarla y reusar su fila. Antes se guardaban con clave null
+    // y fila nueva, y se borraba la original (los clientes quedaban sin etapa
+    // y las reglas del worker, que buscan por clave, dejaban de encontrarla).
+    const tieneClave = esProtegida || porClave.has(s.id);
+    const rowId = tieneClave ? (porClave.get(s.id) || s.id) : (porId.has(s.id) || /^[0-9a-f-]{36}$/i.test(s.id) ? s.id : undefined);
     const row = {
       user_id: uid,
-      clave: esProtegida ? s.id : null,
+      clave: tieneClave ? s.id : null,
       nombre: s.name,
       color: s.color,
       orden: i,
@@ -377,6 +383,60 @@ async function crmGuardarPromesa(clienteId, fechaISO) {
 // - mueve al cliente a "Cerrado (Cobrado)" y saca la etiqueta "Comprobante"
 //   (ya se verificó).
 // Devuelve { prestamo, mora, cancelado }.
+// Columna "Pagos parciales" del Kanban (clave 'pago_parcial'). No está en
+// las columnas default del bootstrap: se crea sola, sin correr SQL, la
+// primera vez que se confirma un pago parcial, justo antes de "Cerrado
+// (Cobrado)" (así las reglas del worker, que solo mueven "hacia adelante",
+// no la sacan de ahí por un comprobante nuevo). Si el cobrador ya tenía una
+// columna propia con "parcial" en el nombre, se usa esa.
+async function _etapaPagoParcial(uid, etapas) {
+  const existente = (etapas || []).find(e => e.clave === 'pago_parcial')
+    || (etapas || []).find(e => !e.clave && /parcial/i.test(e.nombre || ''));
+  if (existente) return existente;
+  const { data: todas } = await window.sb.from('etapas').select('id, clave, orden').eq('user_id', uid);
+  const cerrado = (todas || []).find(e => e.clave === 'cerrado');
+  const maxOrden = Math.max(0, ...(todas || []).map(e => Number(e.orden) || 0));
+  const orden = cerrado ? Number(cerrado.orden) || 0 : maxOrden + 1;
+  // Corre un lugar las columnas de Cerrado en adelante.
+  if (cerrado) {
+    await Promise.all((todas || []).filter(e => (Number(e.orden) || 0) >= orden)
+      .map(e => window.sb.from('etapas').update({ orden: (Number(e.orden) || 0) + 1 }).eq('id', e.id)));
+  }
+  const { data: creada, error } = await window.sb.from('etapas').insert({
+    user_id: uid, clave: 'pago_parcial', nombre: 'Pagos parciales', color: '#f97316', orden, protegida: false,
+  }).select('id, clave, nombre').maybeSingle();
+  if (error || !creada) {
+    // Otra pestaña la pudo haber creado recién (índice único user_id+clave).
+    const { data: otra } = await window.sb.from('etapas').select('id, clave, nombre').eq('user_id', uid).eq('clave', 'pago_parcial').maybeSingle();
+    if (otra) return otra;
+    console.error('No se pudo crear la columna Pagos parciales', error);
+    return null;
+  }
+  return creada;
+}
+
+// ¿El pago dejó algo pendiente? Es parcial si después de imputarlo el
+// cliente sigue con saldo vencido (importe_atraso > 0) o si el pago no
+// completó una cuota (alguna quedó pagada a medias: como se imputa de la
+// más vieja a la más nueva, eso solo pasa cuando la plata no alcanzó para
+// terminarla). Sin cuotas cargadas se compara contra lo que había vencido
+// y contra el valor de la cuota.
+function _esPagoParcial({ mora, prestamo, monto, cancelado }) {
+  if (cancelado) return false;
+  if (mora) {
+    if ((Number(mora.importe_atraso) || 0) > 0) return true;
+    return mora.cuotas.some(c => {
+      const m = Number(c.monto) || 0, pagado = Number(c.monto_pagado) || 0;
+      return pagado > 0 && pagado < m - 1;
+    });
+  }
+  if (!prestamo) return false;
+  const atraso = Number(prestamo.importe_atraso) || 0;
+  const cuota = Number(prestamo.cuota_monto) || 0;
+  if (atraso > 0) return monto < atraso - 1;
+  return cuota > 0 && monto < cuota - 1;
+}
+
 async function crmConfirmarPago(opciones) {
   const { clienteId, cancelaTotal, origen } = opciones;
   let monto = Math.max(0, Number(opciones.monto) || 0);
@@ -420,21 +480,27 @@ async function crmConfirmarPago(opciones) {
     nombre: cliente.nombre, monto, fecha: hoy, estado: 'Cobrado', origen: origen || 'manual',
   });
 
-  const etapaCerrado = (etapas || []).find(e => e.clave === 'cerrado');
+  // Destino de la tarjeta: si el pago no cubrió una cuota completa o le
+  // sigue quedando saldo vencido -> "Pagos parciales"; si cubrió todo lo
+  // vencido (o canceló el préstamo) -> "Cerrado (Cobrado)", como siempre.
+  const parcial = _esPagoParcial({ mora, prestamo, monto, cancelado });
+  const etapaDestino = parcial
+    ? (await _etapaPagoParcial(uid, etapas)) || (etapas || []).find(e => e.clave === 'cerrado')
+    : (etapas || []).find(e => e.clave === 'cerrado');
   let etiquetas = (cliente.etiquetas || []).filter(e => String(e).toLowerCase() !== 'comprobante');
   if (cancelado && !etiquetas.some(e => String(e).toLowerCase() === 'cancelado')) etiquetas = [...etiquetas, 'Cancelado'];
   const cambios = { etiquetas };
-  if (etapaCerrado) cambios.etapa_id = etapaCerrado.id;
+  if (etapaDestino) cambios.etapa_id = etapaDestino.id;
   await crmActualizarCliente(clienteId, cambios);
 
   await _registrarEvento(clienteId, 'pago', {
     monto, origen: origen || 'manual', prestamo: prestamo ? prestamo.nro : null,
-    cancelado, cuotas_pagas: mora ? mora.cuotas_pagas_decimal : null, cant_cuotas: prestamo ? prestamo.cant_cuotas : null,
+    cancelado, parcial, cuotas_pagas: mora ? mora.cuotas_pagas_decimal : null, cant_cuotas: prestamo ? prestamo.cant_cuotas : null,
   });
-  if (etapaCerrado && cliente.etapa_id !== etapaCerrado.id) {
-    await _registrarEvento(clienteId, 'etapa', { de: cliente.etapas ? cliente.etapas.clave : null, a: 'cerrado', a_nombre: etapaCerrado.nombre, manual: true });
+  if (etapaDestino && cliente.etapa_id !== etapaDestino.id) {
+    await _registrarEvento(clienteId, 'etapa', { de: cliente.etapas ? cliente.etapas.clave : null, a: etapaDestino.clave || null, a_nombre: etapaDestino.nombre, manual: true });
   }
-  return { prestamo, mora, cancelado };
+  return { prestamo, mora, cancelado, parcial, etapa: etapaDestino || null };
 }
 
 // Buscador para "Agendar" (vincular un chat a un cliente existente).
