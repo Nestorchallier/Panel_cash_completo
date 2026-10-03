@@ -33,6 +33,7 @@
     --shadow-sm:0 1px 2px rgba(15,23,42,.06); --shadow:0 10px 30px rgba(15,23,42,.12);
     --tab-active-bg:#0f172a; --tab-active-text:#ffffff;
     --fondo-modal:rgba(15,23,42,.45);
+    --marco:#eef2f7; --ficha-bg:#f5f8fd;
   }
   :root[data-theme="dark"]{
     --bg:#0b1220; --panel:#0f172a; --panel-2:#111c33; --line:#1e293b; --line-2:#162036;
@@ -47,6 +48,7 @@
     --shadow-sm:none; --shadow:0 10px 30px rgba(0,0,0,.5);
     --tab-active-bg:#e2e8f0; --tab-active-text:#0f172a;
     --fondo-modal:rgba(0,0,0,.6);
+    --marco:#080e1a; --ficha-bg:#101a2c;
   }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}
@@ -82,7 +84,11 @@
   .btn-verde{background:var(--green);border-color:var(--green);color:#fff;font-weight:700;}
   .btn-verde:hover{background:var(--green-hover);border-color:var(--green-hover);}
 
-  .wa-crm{flex:1;display:flex;min-height:0;}
+  /* Las tres columnas van como tarjetas redondeadas sobre un fondo apenas
+     más oscuro (como Whaticket), y la ficha de la derecha con un tono muy
+     suave para que no se confunda con el chat. */
+  .wa-crm{flex:1;display:flex;min-height:0;gap:10px;padding:10px;background:var(--marco);}
+  .wa-chats,.wa-conv,.wa-ficha{border:1px solid var(--line) !important;border-radius:14px;overflow:hidden;}
 
   /* ── Lista de chats ── */
   .wa-chats{width:340px;flex-shrink:0;border-right:1px solid var(--line);display:flex;flex-direction:column;background:var(--panel);}
@@ -143,7 +149,7 @@
     background-color:var(--chat-bg);
     background-image:var(--chat-fondo);
     background-size:240px 240px;}
-  .bubble{max-width:62%;padding:8px 10px 6px;border-radius:8px;font-size:14px;line-height:1.3;position:relative;box-shadow:0 1px .5px rgba(11,20,26,.10);overflow-wrap:anywhere;color:var(--text);}
+  .bubble{max-width:62%;padding:8px 10px 6px;border-radius:10px;font-size:14px;line-height:1.3;position:relative;box-shadow:0 1px .5px rgba(11,20,26,.10);overflow-wrap:anywhere;color:var(--text);}
   .bubble.entrante{align-self:flex-start;background:var(--bubble-in);}
   .bubble.saliente{align-self:flex-end;background:var(--bubble-out);}
   .bubble .txt{white-space:pre-wrap;}
@@ -193,9 +199,9 @@
   .btn-enviar:hover{background:var(--green-hover);}
 
   /* ── Ficha lateral ── */
-  .wa-ficha{width:330px;flex-shrink:0;border-left:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:16px 17px;display:none;flex-direction:column;gap:12px;}
+  .wa-ficha{width:330px;flex-shrink:0;background:var(--ficha-bg);overflow-y:auto;padding:16px 17px;display:none;flex-direction:column;gap:12px;}
   .wa-ficha.open{display:flex;}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 12px 13px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 12px 13px;}
   .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;gap:8px;}
   .card-titulo{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
   .card-link{font-size:12px;font-weight:700;color:var(--blue);background:none;border:none;cursor:pointer;padding:0;}
@@ -803,7 +809,7 @@ function burbujaAdjunto(m){
     return `<div class="adj-card"><div class="adj-nombre">📎 Adjunto${url ? ` · <a href="${escapeHtml(url)}" target="_blank" rel="noopener">Abrir</a>` : ''}</div></div>`;
   }
   if(m.tipo === 'audio') return `<div class="adjunto-nota">🎙️ Audio (del historial, no se descargó)</div>`;
-  if(m.tipo === 'imagen') return `<div class="adjunto-nota">📷 Imagen (no se pudo descargar)</div>`;
+  if(m.tipo === 'imagen') return `<div class="adjunto-nota">📷 Imagen (del historial, no se descargó)</div>`;
   if(m.tipo === 'pdf') return `<div class="adjunto-nota">📄 PDF (no se pudo descargar)</div>`;
   return '';
 }
