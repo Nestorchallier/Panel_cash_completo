@@ -1482,7 +1482,8 @@ function parseMonto(txt){
 }
 
 // "✅ Confirmar pago": imputa el pago a las cuotas (crmConfirmarPago), lo
-// suma en Sueldo & Cobros y pasa al cliente a "Cerrado (Cobrado)".
+// suma en Sueldo & Cobros y pasa al cliente a "Cerrado (Cobrado)", o a
+// "Pagos parciales" si no completó la cuota o le sigue quedando vencido.
 // soloMoverEtapa: viene de elegir "Cerrado" en el select de etapa; deja
 // la opción de mover sin registrar pago (ej. lo registró otra persona).
 function abrirModalPago(soloMoverEtapa){
@@ -1551,8 +1552,8 @@ function abrirModalPago(soloMoverEtapa){
       m.cerrar();
       const cant = (p && p.cant_cuotas) || (r.mora && r.mora.cuotas && r.mora.cuotas.length) || 0;
       if(r.cancelado) toast(`✅ Préstamo cancelado${monto ? ' · pago de ' + fmtPesos(monto) : ''} · cliente movido a Cerrado (Cobrado)`);
-      else if(r.mora) toast(`✅ Pago de ${fmtPesos(monto)} registrado · Cuotas: ${fmtDecimal(Math.min(r.mora.cuotas_pagas_decimal, cant || Infinity))}${cant ? ' de ' + cant : ''} · Saldo vencido: ${fmtPesos(r.mora.importe_atraso)}`);
-      else toast(`✅ Pago de ${fmtPesos(monto)} registrado · cliente movido a Cerrado (Cobrado)`);
+      else if(r.mora) toast(`✅ Pago de ${fmtPesos(monto)} registrado · Cuotas: ${fmtDecimal(Math.min(r.mora.cuotas_pagas_decimal, cant || Infinity))}${cant ? ' de ' + cant : ''} · Saldo vencido: ${fmtPesos(r.mora.importe_atraso)}${r.parcial && r.etapa ? ' · pasa a ' + r.etapa.nombre : ''}`);
+      else toast(`✅ Pago de ${fmtPesos(monto)} registrado · cliente movido a ${(r.etapa && r.etapa.nombre) || 'Cerrado (Cobrado)'}`);
       await refrescar();
     }catch(err){
       console.error(err);

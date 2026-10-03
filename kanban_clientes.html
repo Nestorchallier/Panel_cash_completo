@@ -415,6 +415,7 @@
   .card-sub{font-size:12.5px;color:var(--muted);margin-top:2px;}
   .card-nl{background:#16a34a;color:#fff;font-size:11px;font-weight:700;border-radius:10px;min-width:20px;height:20px;padding:0 6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .card-amount{display:block;font-size:18px;font-weight:800;margin-top:8px;letter-spacing:-.01em;}
+  .card-amount-cuotas{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0;}
   .card-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;}
   .tag{font-size:12px;font-weight:600;padding:2px 8px;border-radius:5px;white-space:nowrap;background:#f1f5f9;color:#475569;display:inline-flex;align-items:center;line-height:1.5;}
   .tag.rojo{background:#fee2e2;color:#b91c1c;}
@@ -897,7 +898,7 @@
       <label class="pago-opcion" id="optTotal"><input type="radio" name="tipoPago" value="total"> Canceló el préstamo completo</label>
     </div>
     <div class="field"><label>Monto pagado</label><input id="cobradoMonto" type="number" min="0" placeholder="Ej: 150000"></div>
-    <div class="pago-nota">Se imputa a las cuotas impagas más viejas, se recalcula el atraso, queda en el Registro de pagos (Pagos &amp; Objetivo) y la tarjeta pasa a "Cerrado (Cobrado)".</div>
+    <div class="pago-nota">Se imputa a las cuotas impagas más viejas, se recalcula el atraso, queda en el Registro de pagos (Pagos &amp; Objetivo) y la tarjeta pasa a "Cerrado (Cobrado)" si cubrió todo lo vencido, o a "Pagos parciales" si no completó la cuota o le sigue quedando saldo vencido.</div>
     <div class="modal-actions">
       <button class="btn-ghost" id="btnCancelCobrado">Cancelar</button>
       <button class="btn-verde" id="btnConfirmCobrado">✅ Confirmar pago</button>
@@ -960,7 +961,7 @@
   <button id="cmEliminar" class="danger">🗑️ Eliminar de la cartera</button>
 </div>
 
-<!-- Modal: detalle de un dia del calendario (todos los clientes con promesa ese dia) -->
+<!-- Modal: detalle de un dia del calendario (todos los clientes de ese dia: promesas, vencimientos y cobrados) -->
 <div class="modal-overlay" id="dayDetailModal">
   <div class="modal day-modal">
     <div class="day-modal-head">
@@ -1010,7 +1011,21 @@ const STAGE_SUBTITLES = {
   verificar_pago: 'Mandó comprobante',
   refinanciado: 'Plan nuevo acordado',
   cerrado: 'Pago imputado',
+  pago_parcial: 'Pagó parte · queda saldo vencido',
 };
+// Columna "Pagos parciales": la crea crmConfirmarPago (crm.js) con clave
+// 'pago_parcial' la primera vez que un pago no cubre una cuota completa o
+// deja saldo vencido. Si el cobrador ya tenía una propia con "parcial" en
+// el nombre, se usa esa.
+function esEtapaPagoParcial(stageId){
+  if(stageId === 'pago_parcial') return true;
+  const st = STAGES.find(s => s.id === stageId);
+  return !!(st && !st.protected && /parcial/i.test(st.name || ''));
+}
+// Soltar una tarjeta en "Cerrado" o en "Pagos parciales" = registrar un pago:
+// abre el modal y crmConfirmarPago decide a cuál de las dos va según lo
+// que haya quedado vencido.
+function esEtapaDePago(stageId){ return stageId === 'cerrado' || esEtapaPagoParcial(stageId); }
 function loadStages(){
   return JSON.parse(JSON.stringify(DEFAULT_STAGES));
 }
@@ -1046,7 +1061,7 @@ function stageColumnStyle(color){
 const CONFIG_KEY = 'cm_kanban_config_v1';
 const CONFIG_FIELDS = [
   {id:'dni', label:'DNI'},
-  {id:'monto', label:'Préstamo'},
+  {id:'monto', label:'Monto vencido'},
   {id:'montoPagado', label:'Monto pagado'},
   {id:'telefono', label:'Teléfono'},
   {id:'fechaPromesa', label:'Fecha de promesa'},
@@ -1166,9 +1181,10 @@ function renderStats(){
     return;
   }
   const total = state.clients.length;
-  const enGestion = state.clients.filter(c => c.stage !== 'cerrado').reduce((s, c) => s + montoANumero(c.monto), 0);
+  // Suma solo lo vencido (montoVencido), no el saldo total de los préstamos.
+  const enGestion = state.clients.filter(c => c.stage !== 'cerrado').reduce((s, c) => s + montoVencido(c), 0);
   document.getElementById('headerSub').textContent =
-    `${total} clientes · $ ${Math.round(enGestion).toLocaleString('es-AR')} en gestión`;
+    `${total} clientes · $ ${Math.round(enGestion).toLocaleString('es-AR')} vencido en gestión`;
 }
 
 function matchesSearch(c, q){
@@ -1348,6 +1364,22 @@ function fmtMontoCorto(m){
   const n = montoANumero(m);
   return n ? '$' + Math.round(n).toLocaleString('es-AR') : String(m||'');
 }
+// Monto que se muestra en la tarjeta (y con el que se ordena "Mayor monto"
+// y se suma arriba): SOLO lo vencido e impago, sea una cuota o varias. Sale
+// de prestamos.importe_atraso, que es la suma de lo que falta pagar de cada
+// cuota con vencimiento ya pasado (CMMora.calcularMora; el worker lo
+// recalcula todos los días y crmConfirmarPago al imputar un pago). Nunca el
+// saldo total del préstamo: las cuotas que todavía no vencieron no se cobran.
+// Si el préstamo está al día o cancelado da 0 (y la tarjeta no muestra
+// monto). Solo los clientes sin préstamo cargado (alta manual) usan el
+// monto que se escribió a mano en la ficha.
+function montoVencido(c){
+  if(c.prestamo){
+    if(c.prestamo.estado === 'cancelado') return 0;
+    return Math.max(0, Number(c.prestamo.importe_atraso) || 0);
+  }
+  return montoANumero(c.monto);
+}
 function diaCorto(iso){
   const d = new Date(String(iso).slice(0,10) + 'T00:00:00');
   return ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()] + ' ' + String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
@@ -1418,7 +1450,7 @@ function renderBoard(){
     const clients = state.clients.filter(c=>c.stage===stage.id && matchesSearch(c,q) && matchesFilters(c));
     // "Más reciente" = último movido arriba (lo que se acaba de tocar queda a mano).
     const diasDe = c => (c.prestamo && c.prestamo.dias_atraso) || 0;
-    const montoDe = c => montoANumero(c.monto || (c.prestamo && c.prestamo.saldo_total) || 0);
+    const montoDe = c => montoVencido(c);
     if(activeFilters.sort === 'oldest') clients.sort((a,b)=> getStageChangedAt(a) - getStageChangedAt(b));
     else if(activeFilters.sort === 'atraso') clients.sort((a,b)=> diasDe(b) - diasDe(a));
     else if(activeFilters.sort === 'monto') clients.sort((a,b)=> montoDe(b) - montoDe(a));
@@ -1499,7 +1531,7 @@ function renderBoard(){
             </div>
             ${noLeidos > 0 ? `<span class="card-nl" title="${noLeidos} mensaje(s) sin leer">${noLeidos}</span>` : ''}
           </div>
-          ${config.visibleFields.monto && (c.monto || (c.prestamo && c.prestamo.saldo_total)) ? `<span class="card-amount">${escapeHtml(fmtMontoCorto(c.monto || c.prestamo.saldo_total))}</span>` : ''}
+          ${config.visibleFields.monto && montoVencido(c) > 0 ? `<span class="card-amount" title="${c.prestamo ? 'Cuotas vencidas impagas' : 'Monto cargado a mano (sin préstamo importado)'}">${escapeHtml(fmtMontoCorto(montoVencido(c)))}${c.prestamo && c.prestamo.cuotas_vencidas > 1 ? `<small class="card-amount-cuotas"> · ${c.prestamo.cuotas_vencidas} cuotas</small>` : ''}</span>` : ''}
           ${(tags.length || cfBadges) ? `<div class="card-tags">${tags.join('')}${cfBadges}</div>` : ''}
           ${(config.visibleFields.telefono && c.telefono) ? `<div class="meta abre-chat" title="Ver el chat">📞 ${escapeHtml(c.telefono)}</div>` : ''}
           ${mostrarPreview ? `<div class="chat-preview-row abre-chat" title="${escapeHtml(ultimo)}">
@@ -1551,7 +1583,7 @@ function renderBoard(){
       const client = state.clients.find(c=>c.id===id);
       if(!client) return;
       if(client.stage === stage.id) return;
-      if(stage.id === 'cerrado'){
+      if(esEtapaDePago(stage.id)){
         openCobradoModal(id);
         return;
       }
@@ -1714,7 +1746,7 @@ document.getElementById('btnSaveClient').addEventListener('click', async ()=>{
     if(!c){ document.getElementById('clientModal').classList.remove('open'); toast('Ese cliente ya no está en la cartera'); return; }
     const prevStage = c.stage;
     opciones = { etapaAnterior: prevStage, promesaAnterior: c.fechaPromesa || '' };
-    if(newStage === 'cerrado' && prevStage !== 'cerrado'){
+    if(esEtapaDePago(newStage) && !esEtapaDePago(prevStage)){
       Object.assign(c, data);
       c.stage = prevStage; // pasa a Cerrado recién cuando se confirma el pago
       document.getElementById('clientModal').classList.remove('open');
@@ -1995,7 +2027,8 @@ function normalizeDni(v){ return String(v||'').replace(/\D/g,''); }
 // Todo lo pesado lo hace crmConfirmarPago (crm.js), igual que el
 // "✅ Confirmar pago" de la Bandeja: imputa a las cuotas impagas más viejas,
 // recalcula el atraso, registra el pago (Sueldo & Cobros lo suma solo),
-// pone "Cancelado" si saldó todo y mueve la tarjeta a Cerrado. Después se
+// pone "Cancelado" si saldó todo y mueve la tarjeta a Cerrado (o a "Pagos
+// parciales" si no completó la cuota o quedó saldo vencido). Después se
 // recarga todo desde Supabase para mostrar los números ya recalculados.
 let pendingCobradoId = null;
 let montoSugeridoCuotas = '';
@@ -2059,6 +2092,10 @@ async function confirmCobrado(){
     document.getElementById('cobradoModal').classList.remove('open');
     pendingCobradoId = null;
     if(r && r.cancelado) toast(`✅ ${c.nombre}: préstamo cancelado — el pago se suma solo en Registro de pagos`);
+    else if(r && r.parcial){
+      const queda = r.mora ? r.mora.importe_atraso : 0;
+      toast(`🟠 Pago parcial: ${queda > 0 ? 'queda ' + fmtMontoCorto(queda) + ' vencido' : 'no completó la cuota'} — pasa a "${(r.etapa && r.etapa.nombre) || 'Pagos parciales'}"`);
+    }
     else if(r && r.mora && r.prestamo && r.prestamo.cant_cuotas) toast(`✅ Pago imputado: ${r.mora.cuotas_pagas} de ${r.prestamo.cant_cuotas} cuotas pagas`);
     else toast('✅ Pago registrado — se suma solo en Registro de pagos');
     await hydrateFromSupabase();
@@ -2671,7 +2708,7 @@ function eventosCalendario(){
   const ev = {};
   const add = (fecha, e) => { if(!fecha) return; (ev[fecha] = ev[fecha] || []).push(e); };
   state.clients.forEach(c=>{
-    if(c.fechaPromesa && c.stage !== 'cerrado') add(c.fechaPromesa, { tipo:'promesa', c, txt:`🤝 ${nombreCortoCal(c.nombre)}${c.monto ? ' ' + fmtMontoCorto(c.monto) : ''}` });
+    if(c.fechaPromesa && c.stage !== 'cerrado') add(c.fechaPromesa, { tipo:'promesa', c, txt:`🤝 ${nombreCortoCal(c.nombre)}${montoVencido(c) > 0 ? ' ' + fmtMontoCorto(montoVencido(c)) : ''}` });
     const p = c.prestamo;
     if(p && p.proximo_vencimiento && c.stage !== 'cerrado'){
       const cuota = p.cant_cuotas ? ` cuota ${Math.min((p.cuotas_pagas||0)+1, p.cant_cuotas)}` : '';
@@ -2705,7 +2742,7 @@ function renderCalendar(){
     cellsHtml += `<div class="cal-day ${fuera?'fuera':''} ${dateStr===todayStr?'today':''} ${items.length?'has-items':''}" data-date="${dateStr}">
       <div class="cal-day-num"><span>${d.getDate()}</span></div>
       ${visibles.map(e=>`<div class="cal-ev ${e.tipo}" data-id="${e.c.id}" title="${escapeHtml(e.c.nombre)}">${escapeHtml(e.txt)}</div>`).join('')}
-      ${items.length > 3 ? `<div class="cal-mas">+${items.length - 3} más</div>` : ''}
+      ${items.length > 3 ? `<div class="cal-mas" title="Ver los ${items.length} clientes del día">+${items.length - 3} ${items.length - 3 === 1 ? 'cliente' : 'clientes'} más</div>` : ''}
     </div>`;
   }
 
@@ -2714,7 +2751,7 @@ function renderCalendar(){
   state.clients.forEach(c=>{
     if(c.stage === 'cerrado') return;
     const info = promesaInfo(c.fechaPromesa);
-    if(info && info.diffDias === 0) agenda.push({ c, orden:0, badge:'hoy', titulo:`🤝 ${c.nombre}`, sub:`Prometió${c.monto ? ' ' + fmtMontoCorto(c.monto) : ''} · hoy${(c.etiquetas||[]).some(e=>/comprobante/i.test(e)) ? ' · Ya mandó comprobante 📎' : ''}` });
+    if(info && info.diffDias === 0) agenda.push({ c, orden:0, badge:'hoy', titulo:`🤝 ${c.nombre}`, sub:`Prometió${montoVencido(c) > 0 ? ' · debe ' + fmtMontoCorto(montoVencido(c)) : ''} · hoy${(c.etiquetas||[]).some(e=>/comprobante/i.test(e)) ? ' · Ya mandó comprobante 📎' : ''}` });
     else if(info && info.diffDias < 0) agenda.push({ c, orden:2, badge:'vencida', titulo:`🔔 ${c.nombre}`, sub:`Promesa vencida ${info.diffDias === -1 ? 'ayer' : 'hace ' + Math.abs(info.diffDias) + ' días'} · Reprogramar o escalar` });
     const p = c.prestamo;
     if(p && p.proximo_vencimiento && String(p.proximo_vencimiento).slice(0,10) === todayStr){
@@ -2799,24 +2836,58 @@ function formatDateLarga(dateStr){
   return `${CAL_DIAS_SEMANA[dt.getDay()]} ${d} de ${CAL_MESES[m-1].toLowerCase()}`;
 }
 
+// Detalle de un día del Calendario: TODOS los clientes que aparecen en esa
+// celda (promesas, vencimientos de cuota y cobrados), no solo los 3 que
+// entran en la grilla. Antes listaba únicamente los que tenían promesa ese
+// día, así que en un día 5 con cientos de vencimientos el "+N clientes más"
+// mostraba unos pocos. Un cliente con varios eventos el mismo día sale una
+// sola vez, con una etiqueta por evento. La lista scrollea (60vh).
+const DAY_TIPOS = {
+  promesa: { orden:0, label:'Promesa', col:'#f59e0b' },
+  vence:   { orden:1, label:'Vence cuota', col:'#ef4444' },
+  cobrado: { orden:2, label:'Cobrado', col:'#22c55e' },
+};
 function openDayModal(dateStr){
-  const items = state.clients
-    .filter(c=>c.fechaPromesa===dateStr)
-    .sort((a,b)=> (a.nombre||'').localeCompare(b.nombre||''));
+  const eventos = eventosCalendario()[dateStr] || [];
+  const porCliente = new Map();
+  eventos.forEach(e=>{
+    if(!porCliente.has(e.c.id)) porCliente.set(e.c.id, { c: e.c, tipos: [] });
+    const r = porCliente.get(e.c.id);
+    if(!r.tipos.includes(e.tipo)) r.tipos.push(e.tipo);
+  });
+  const items = [...porCliente.values()].map(r => {
+    r.tipos.sort((a,b)=> DAY_TIPOS[a].orden - DAY_TIPOS[b].orden);
+    return r;
+  }).sort((a,b)=> (DAY_TIPOS[a.tipos[0]].orden - DAY_TIPOS[b.tipos[0]].orden) || (a.c.nombre||'').localeCompare(b.c.nombre||''));
 
   document.getElementById('dayDetailTitle').textContent = formatDateLarga(dateStr);
+  const cuenta = t => eventos.filter(e => e.tipo === t).length;
+  const partes = [['promesa','promesa','promesas'], ['vence','vencimiento','vencimientos'], ['cobrado','cobrado','cobrados']]
+    .map(([t, uno, varios]) => { const n = cuenta(t); return n ? `${n} ${n === 1 ? uno : varios}` : ''; }).filter(Boolean);
   document.getElementById('dayDetailSub').textContent =
-    items.length === 1 ? '1 cliente con promesa este dia' : `${items.length} clientes con promesa este dia`;
+    (items.length === 1 ? '1 cliente este día' : `${items.length} clientes este día`) + (partes.length ? ' · ' + partes.join(' · ') : '');
 
   const listEl = document.getElementById('dayDetailList');
+  listEl.scrollTop = 0;
   if(!items.length){
-    listEl.innerHTML = `<div class="day-modal-empty">Sin clientes con promesa este dia</div>`;
+    listEl.innerHTML = `<div class="day-modal-empty">Sin clientes este día</div>`;
   } else {
-    listEl.innerHTML = items.map(c=>{
-      const pInfo = promesaInfo(c.fechaPromesa);
-      const cls = pInfo ? pInfo.cls : 'promesa-future';
-      const col = cls==='promesa-vencida' ? 'var(--danger)' : cls==='promesa-hoy' ? 'var(--warn)' : 'var(--accent)';
-      const label = cls==='promesa-vencida' ? 'Vencio' : cls==='promesa-hoy' ? 'Promesa es hoy' : 'Promesa futura';
+    listEl.innerHTML = items.map(({ c, tipos })=>{
+      const principal = tipos[0];
+      let col = DAY_TIPOS[principal].col;
+      const tagsTipo = tipos.map(t=>{
+        let label = DAY_TIPOS[t].label, tc = DAY_TIPOS[t].col;
+        if(t === 'promesa'){
+          const pInfo = promesaInfo(c.fechaPromesa);
+          if(pInfo && pInfo.cls === 'promesa-vencida'){ label = 'Promesa vencida'; tc = '#ef4444'; }
+          else if(pInfo && pInfo.cls === 'promesa-hoy') label = 'Promesa es hoy';
+          if(t === principal) col = tc;
+        }
+        if(t === 'vence' && c.prestamo && c.prestamo.cant_cuotas){
+          label = `Vence cuota ${Math.min((c.prestamo.cuotas_pagas||0)+1, c.prestamo.cant_cuotas)}`;
+        }
+        return `<span class="promesa-badge" style="background:${tc}22;color:${tc};border:1px solid ${tc}55;">${label}</span>`;
+      }).join('');
       const badges = config.customFields
         .filter(f => c.customFields && c.customFields[f.id])
         .map(f=>{
@@ -2825,20 +2896,25 @@ function openDayModal(dateStr){
           const cfCol = getCfColor(colorId);
           return `<span class="cf-badge" style="background:${cfCol.text};">${escapeHtml(val)}</span>`;
         }).join('');
-      return `<div class="day-item" data-id="${c.id}" style="border-left-color:${col};">
+      // Monto: lo vencido (igual que la tarjeta); si está al día y el evento
+      // es el vencimiento de la cuota, el valor de esa cuota.
+      const vencido = montoVencido(c);
+      const montoTxt = vencido > 0 ? fmtMontoCorto(vencido)
+        : (tipos.includes('vence') && c.prestamo && c.prestamo.cuota_monto ? 'Cuota ' + fmtMontoCorto(c.prestamo.cuota_monto) : '');
+      return `<div class="day-item ${principal}" data-id="${c.id}">
         <div class="day-item-top">
           <div>
             <div class="day-item-name">${escapeHtml(c.nombre)}</div>
             <div class="day-item-meta">
-              ${c.dni ? `<b>DNI:</b> ${escapeHtml(c.dni)}<br>`:''}
+              ${c.dni ? `<b>DNI:</b> ${escapeHtml(c.dni)}${c.prestamo && c.prestamo.nro ? ' · #' + escapeHtml(c.prestamo.nro) : ''}<br>`:''}
               ${c.telefono ? `<b>Tel:</b> ${escapeHtml(c.telefono)}`:''}
             </div>
           </div>
-          <div class="day-item-monto" style="color:${col};">${c.monto ? escapeHtml(String(c.monto)) : ''}</div>
+          <div class="day-item-monto" style="color:${col};">${escapeHtml(montoTxt)}</div>
         </div>
         <div class="day-item-bottom">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-            <span class="promesa-badge" style="background:${col}22;color:${col};border:1px solid ${col}55;">${label}</span>
+            ${tagsTipo}
             ${badges}
           </div>
           ${c.notas ? `<span class="day-item-notas" title="${escapeHtml(c.notas)}">${escapeHtml(c.notas)}</span>` : ''}
