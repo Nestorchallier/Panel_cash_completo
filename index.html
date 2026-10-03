@@ -1176,6 +1176,68 @@
       margin-bottom: 16px;
     }
 
+    /* 🎯 Objetivos: KPIs y Composición del objetivo un poco más grandes
+       (pedido de Nestor). Solo tamaños, acotado a esta pantalla: los
+       colores siguen saliendo de las variables, así el modo claro/oscuro
+       queda igual, y el resto de las pantallas que comparten clases
+       (stat-card, progress-card...) no cambia. */
+    #view-objetivos .obj-resumen { padding: 26px 28px; }
+    #view-objetivos .obj-resumen-metrics { gap: 20px; margin-bottom: 18px; }
+    #view-objetivos .obj-resumen-metric .lbl { font-size: 12.5px; margin-bottom: 8px; }
+    #view-objetivos .obj-resumen-metric .val { font-size: 30px; line-height: 1.15; }
+    #view-objetivos .obj-resumen-foot { font-size: 13.5px; }
+    #view-objetivos .stack-track { height: 24px; }
+
+    #view-objetivos .gauge-card { padding: 28px; }
+    #view-objetivos .gauge-card .tag,
+    #view-objetivos .stat-card .tag { font-size: 12.5px; }
+    #view-objetivos .gauge-wrap { width: 180px; height: 180px; }
+    #view-objetivos .gauge-wrap svg { width: 180px; height: 180px; }
+    #view-objetivos .gauge-center .pct { font-size: 34px; }
+    #view-objetivos .gauge-center .lbl { font-size: 11.5px; }
+    #view-objetivos .gauge-foot { font-size: 13.5px; }
+    #view-objetivos .stat-card { padding: 28px; }
+    #view-objetivos .stat-card .value { font-size: 38px; margin: 16px 0 8px; }
+    #view-objetivos .stat-card .note { font-size: 14px; }
+    #view-objetivos .stat-card .accent-bar { height: 5px; }
+
+    #view-objetivos .progress-card { padding: 28px; }
+    #view-objetivos .progress-card h3 { font-size: 18px; margin-bottom: 6px; }
+    #view-objetivos .progress-card .sub { font-size: 13.5px; }
+    #view-objetivos .obj-manual-row input { font-size: 14.5px; padding: 11px 14px; }
+    #view-objetivos .btn-obj-set { font-size: 14px; padding: 11px 18px; }
+    #view-objetivos .falta-callout { padding: 18px 22px; margin-bottom: 22px; }
+    #view-objetivos .falta-lbl { font-size: 12.5px; }
+    #view-objetivos .falta-val { font-size: 34px; }
+    #view-objetivos .falta-pct { font-size: 13.5px; }
+    #view-objetivos .legend { gap: 14px 26px; }
+    #view-objetivos .legend-item { font-size: 14px; gap: 8px; }
+    #view-objetivos .legend-item .sw { width: 12px; height: 12px; }
+    #view-objetivos .scale-row { font-size: 14.5px; padding: 12px 0; }
+    #view-objetivos .scale-row .lv { width: 80px; }
+    #view-objetivos .scale-row .scale-falta { font-size: 12.5px; }
+    #view-objetivos .scale-row .status { font-size: 11.5px; padding: 4px 11px; }
+
+    /* En el celular se achica un poco para que los montos no se corten. */
+    @media(max-width:560px) {
+      #view-objetivos .obj-resumen { padding: 20px 18px; }
+      #view-objetivos .obj-resumen-metric .val { font-size: 19px; overflow-wrap: normal; }
+      #view-objetivos .obj-resumen-metrics { gap: 14px; }
+      #view-objetivos .stat-card .value { font-size: 30px; }
+      #view-objetivos .falta-val { font-size: 28px; }
+      #view-objetivos .progress-card,
+      #view-objetivos .gauge-card,
+      #view-objetivos .stat-card { padding: 20px 18px; }
+      #view-objetivos .obj-manual-row input { min-width: 0; }
+      #view-objetivos .btn-obj-set { padding: 11px 14px; }
+      /* Escala de metas: si no entra en una línea, el "falta" y el estado
+         bajan a una segunda línea en vez de salirse de la pantalla. */
+      #view-objetivos .scale-row { flex-wrap: wrap; gap: 4px 0; font-size: 13.5px; }
+      #view-objetivos .scale-row .lv { width: 64px; }
+      #view-objetivos .scale-row .meta { padding-right: 0; }
+      #view-objetivos .scale-row .scale-falta { width: auto; flex: 1; text-align: left; padding-left: 64px; }
+    }
+
     .pago-row {
       display: flex;
       justify-content: space-between;

@@ -27,6 +27,8 @@
 <script src="supabase/kv.js"></script>
 <script src="js/telefonos.js"></script>
 <script src="js/mora.js"></script>
+<!-- Tabla y reglas de la Calculadora (Próximo crédito de la ficha). -->
+<script src="js/proximo-credito.js"></script>
 <script src="supabase/crm.js"></script>
 <style>
   /* Paleta del plan (sección 5.1 del PDF): fondo claro, tarjetas blancas
@@ -232,6 +234,13 @@
   .saldo-label{font-size:12px;color:var(--muted);}
   .saldo-grande{font-size:25px;font-weight:800;color:var(--red-strong);line-height:1.15;margin:0 0 3px;letter-spacing:-.01em;}
   .saldo-grande.cero{color:var(--green);}
+  /* Próximo crédito (si cancela hoy): misma tabla que la Calculadora. */
+  .prox-credito{cursor:pointer;}
+  .prox-credito:hover{border-color:var(--faint);}
+  .prox-monto{font-size:22px;font-weight:800;color:var(--green);line-height:1.15;margin:0 0 3px;letter-spacing:-.01em;}
+  .prox-monto.analisis{color:var(--muted);}
+  .prox-monto.no{color:var(--red-strong);}
+  .prox-sub{font-size:11.5px;color:var(--muted);line-height:1.35;}
   .progreso-bar{height:5px;border-radius:3px;background:var(--line);margin-top:9px;overflow:hidden;}
   .progreso-bar .fill{height:100%;background:var(--blue);border-radius:3px;}
   .progreso-txt{font-size:11.5px;color:var(--muted);margin-top:5px;}
@@ -1620,6 +1629,27 @@ function renderFicha(){
   const valorCuota = p ? (p.cuota_monto || (mora && mora.cuotas && mora.cuotas[0] && mora.cuotas[0].monto) || 0) : 0;
   const venc = mora ? mora.proximo_vencimiento : (p && p.proximo_vencimiento);
   const dias = prestamoCancelado ? 0 : mora ? (mora.dias_atraso || 0) : (p ? (p.dias_atraso || 0) : 0);
+  // Próximo crédito si cancelara HOY todo lo que debe: pagar todo junto lo
+  // deja al día, así que va con 0 días de atraso (tenga o no atraso hoy).
+  // Tabla y reglas de la Calculadora (js/proximo-credito.js).
+  const pc = window.CMProximoCredito ? CMProximoCredito.alCancelarHoy(prestamos, p) : null;
+  const saldoTotal = prestamoCancelado ? 0 : mora ? (mora.saldo_total || 0) : (p ? (p.saldo_total_punitorios || p.saldo_total || 0) : 0);
+  let pcHtml = '';
+  if(pc && pc.estado !== 'sin_datos'){
+    const pcValor = pc.estado === 'ok' ? fmtPesos(pc.monto) : pc.estado === 'no' ? fmtPesos(0) : 'Análisis';
+    const pcCls = pc.estado === 'ok' ? '' : pc.estado === 'no' ? 'no' : 'analisis';
+    const pcDetalle = pc.estado === 'ok' ? `Plan Recibo · desde ${fmtPesos(pc.desde)}`
+      : pc.banda === 'excedido' ? `Monto mayor a la tabla (${fmtPesos(pc.tramo)})` : pc.motivo;
+    const pcCancela = prestamoCancelado ? 'Ya canceló' : `Si cancela hoy${saldoTotal > 0 ? ' ' + fmtPesos(saldoTotal) : ''} queda con 0 días de atraso${dias > 0 ? ` (hoy tiene ${dias})` : ''}`;
+    const pcTitulo = `Calculadora con ${pc.cantCreditos} crédito${pc.cantCreditos === 1 ? '' : 's'} en la base (grupo "${pc.nombreGrupo}"), último monto ${fmtPesos(pc.montoUltimo)} y 0 días de atraso. Clic para abrir la Calculadora.`;
+    pcHtml = `
+    <div class="card prox-credito" id="fichaProxCard" title="${escapeHtml(pcTitulo)}">
+      <div class="card-head"><span class="card-titulo">🧮 Próximo crédito</span></div>
+      <div class="prox-monto ${pcCls}">${pcValor}</div>
+      <div class="prox-sub">${escapeHtml(pcDetalle)} · ${pc.cantCreditos} crédito${pc.cantCreditos === 1 ? '' : 's'}</div>
+      <div class="prox-sub">${escapeHtml(pcCancela)}</div>
+    </div>`;
+  }
   const etapaSel = etapaPorRowId(cliente.etapa_id);
   const promesa = cliente.promesa_fecha;
   const dPromesa = diasHasta(promesa);
@@ -1643,7 +1673,7 @@ function renderFicha(){
       ${cant || mora ? `
       <div class="progreso-bar"><div class="fill" style="width:${progresoPct}%;"></div></div>
       <div class="progreso-txt">${progresoPct}% del préstamo cancelado</div>` : ''}
-    </div>` : ''}
+    </div>` : ''}${pcHtml}
     <div class="card">
       <div class="card-head"><span class="card-titulo">Gestión</span></div>
       <div class="campo-label primero">Etapa en el Kanban</div>
@@ -1732,6 +1762,8 @@ function renderFicha(){
     irAVista('view-refi');
   });
   document.getElementById('fichaProxCredito').addEventListener('click', ()=> irAVista('view-calc'));
+  const proxCard = document.getElementById('fichaProxCard');
+  if(proxCard) proxCard.addEventListener('click', ()=> irAVista('view-calc'));
   document.getElementById('fichaNota').addEventListener('click', agregarNotaInterna);
 }
 
