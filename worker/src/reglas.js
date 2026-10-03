@@ -51,6 +51,8 @@ function detectarFecha(textoOriginal, ahora = new Date()) {
   let m = /\bel\s+(\d{1,2})\/(\d{1,2})\b/.exec(texto);
   if (m) {
     const dia = parseInt(m[1], 10), mes = parseInt(m[2], 10) - 1;
+    // "el 13/14" es "el 13 o el 14", no una fecha: el mes tiene que existir.
+    if (mes < 0 || mes > 11 || dia < 1 || dia > 31) return null;
     let d = new Date(Date.UTC(hoy.getUTCFullYear(), mes, dia));
     // Una fecha con mes que ya pasó hace poco ("pago el 05/9" escrito el
     // 24/9) es de este año, no del que viene: queda como promesa vencida.
@@ -95,8 +97,8 @@ function contienePalabra(texto, palabra) {
 
 // Mensaje que anuncia un pago a futuro aunque no use las palabras de la
 // regla: "te puedo transferir el 5", "el lunes te deposito", "voy a pagar
-// el viernes", "mañana te abono". Hace falta un verbo de pago y, además,
-// una fecha o un tiempo futuro. Lo que está en pasado ("ya te transferí")
+// el viernes", "mañana te abono". Hace falta un verbo de pago y una fecha:
+// sin fecha había demasiadas consultas y quejas tomadas como promesa. Lo que está en pasado ("ya te transferí")
 // es un comprobante, no una promesa.
 function anunciaPago(texto, fechaDetectada) {
   const verboPago = /\b(pag(o|ar|arte|arle|arles|aria|are|amos)|transf(iero|erir|erirte|erirle|erirles|eriria|erire|iera)|deposit(o|ar|arte|arle|arles|aria|are)|abon(o|ar|arte|arle|arles|aria|are)|cancel(o|ar|aria|are)|te (mando|paso|giro) (la plata|el dinero|la guita)|regulariz(o|ar))\b/;
@@ -104,8 +106,10 @@ function anunciaPago(texto, fechaDetectada) {
   // "si pago, ¿cuánto puedo sacar?" es una pregunta, no una promesa; y lo
   // que habla del comprobante es para la regla de comprobantes.
   if (/\bsi (te |les )?(pago|transfiero|deposito|abono|cancelo)\b|comprobante/.test(texto)) return false;
+  // "no pude juntar la plata para el pago", "no puedo pagar": lo contrario.
+  if (/\bno (pude|puedo|voy a poder|tengo|llego|me pagaron|me depositaron)\b/.test(texto)) return false;
   if (/\b(ya|ahi|recien) (te )?(pague|transferi|deposite|abone|pase|cancele)\b|\b(transferi|deposite|abone|cancele)\b/.test(texto)) return false;
-  return !!fechaDetectada || hablaEnFuturo(texto);
+  return !!fechaDetectada;
 }
 
 // Un mensaje NUESTRO que confirma la fecha que propuso el cliente: el
@@ -120,7 +124,7 @@ function promesaConfirmada(textoSaliente, fechaSaliente, entrantes) {
   for (const m of entrantes || []) {
     const texto = normalizar(m.texto || '');
     const suya = detectarFecha(m.texto || '', m.fecha ? new Date(m.fecha) : new Date());
-    if ((suya === fecha || !suya) && anunciaPago(texto, suya)) return fecha;
+    if ((suya === fecha || !suya) && anunciaPago(texto, suya || fecha)) return fecha;
   }
   return null;
 }
