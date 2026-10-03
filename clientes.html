@@ -13,6 +13,8 @@
 <!-- mora.js antes de crm.js: crmGetFichaCliente lo usa para recalcular las
      cuotas y el atraso al día de hoy. -->
 <script src="js/mora.js"></script>
+<!-- Tabla y reglas de la Calculadora (Próximo crédito de la ficha). -->
+<script src="js/proximo-credito.js"></script>
 <script src="supabase/crm.js"></script>
 <style>
   /* Paleta del plan (render 5.3): claro por defecto, oscuro opcional. */
@@ -86,6 +88,10 @@
   .fila .v .tag{margin-left:4px;}
 
   .indicadores{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+  /* Si la columna del centro queda angosta (pantallas de ~1300-1450px),
+     los 4 números no entran enteros ("$560...."): pasan a 2 por fila. */
+  .col{container-type:inline-size;}
+  @container (max-width:680px){ .indicadores{grid-template-columns:repeat(2,minmax(0,1fr));} }
   .indicador{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0;}
   .indicador .label{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);line-height:1.35;}
   .indicador .valor{font-size:25px;font-weight:800;margin-top:5px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -237,65 +243,11 @@ function tramoInfo(dias){
 }
 
 /* ================= Próximo crédito =================
-   Misma tabla y mismas reglas que la Calculadora (calculadora_proximo_credito.html):
-   se busca la fila de la tabla igual o superior más cercana al monto del
-   último crédito, dentro del grupo según cuántos créditos tuvo el cliente,
-   y el resultado depende de los días de atraso:
-     - menos de 20 días: "Plan Recibo" (rango entre el tramo y el máximo);
-     - 1 crédito: 20 a 54 días -> análisis manual; 55 o más -> $0;
-     - 2 y 3 créditos: 20-39 -> columna 3; 40-54 -> columna 4; 55+ -> análisis;
-     - 4 o más: 20-39 -> columna 3; 40-59 -> columna 4; 60+ -> análisis;
-     - monto por encima de la tabla -> análisis manual.
-   Si se cambia la tabla en la Calculadora, hay que cambiarla acá también. */
-const PC_GRUPO_1 = [
-  [160000,260000],[180000,280000],[200000,300000],[220000,320000],
-  [240000,340000],[260000,360000],[280000,380000],[300000,400000]
-];
-const PC_GRUPO_2Y3 = [
-  [160000,360000,160000,160000],[180000,420000,160000,160000],[200000,440000,160000,160000],
-  [220000,460000,160000,160000],[240000,480000,160000,160000],[260000,500000,160000,160000],
-  [280000,540000,180000,160000],[300000,560000,180000,160000],[320000,580000,200000,160000],
-  [340000,600000,200000,160000],[360000,640000,220000,160000],[380000,660000,220000,180000],
-  [400000,680000,240000,180000],[420000,700000,260000,180000],[440000,720000,260000,200000],
-  [460000,740000,280000,200000],[480000,760000,280000,220000],[500000,800000,300000,220000],
-  [520000,800000,320000,240000],[540000,800000,320000,240000],[560000,800000,340000,260000],
-  [580000,800000,340000,260000],[600000,800000,360000,260000],[620000,800000,380000,280000],
-  [640000,800000,380000,280000],[660000,800000,400000,300000],[680000,800000,400000,300000],
-  [700000,800000,420000,320000],[720000,800000,440000,320000],[740000,800000,440000,340000],
-  [760000,800000,460000,340000],[780000,800000,460000,360000],[800000,800000,480000,360000]
-];
-const PC_GRUPO_4OMAS = [
-  [160000,460000,160000,160000],[180000,480000,160000,160000],[200000,500000,180000,160000],
-  [220000,520000,200000,160000],[240000,560000,200000,180000],[260000,580000,220000,200000],
-  [280000,620000,240000,200000],[300000,640000,260000,220000],[320000,680000,280000,240000],
-  [340000,720000,280000,260000],[360000,740000,300000,260000],[380000,780000,320000,280000],
-  [400000,800000,340000,300000],[420000,800000,360000,300000],[440000,800000,360000,320000],
-  [460000,800000,380000,340000],[480000,800000,400000,340000],[500000,800000,420000,360000],
-  [520000,800000,440000,380000],[540000,800000,440000,400000],[560000,800000,460000,400000],
-  [580000,800000,480000,420000],[600000,800000,500000,440000],[620000,800000,520000,440000],
-  [640000,800000,520000,460000],[660000,800000,540000,480000],[680000,800000,560000,480000],
-  [700000,800000,560000,480000],[720000,800000,440000,320000],[740000,800000,440000,340000],
-  [760000,800000,460000,340000],[780000,800000,460000,360000],[800000,800000,480000,360000]
-];
-// -> { estado: 'ok'|'revision'|'no'|'sin_datos', monto, desde, motivo }
-function calcularProximoCredito(cantCreditos, montoUltimo, dias){
-  const monto = Number(montoUltimo) || 0;
-  const d = Math.max(0, Number(dias) || 0);
-  const grupo = cantCreditos >= 4 ? '4' : cantCreditos >= 2 ? '2' : '1';
-  if(monto <= 0) return { estado:'sin_datos', grupo, motivo:'Falta el monto del último crédito' };
-  const tabla = grupo === '1' ? PC_GRUPO_1 : grupo === '2' ? PC_GRUPO_2Y3 : PC_GRUPO_4OMAS;
-  const fila = tabla.find(r => monto <= r[0]);
-  if(!fila) return { estado:'revision', grupo, motivo:`Monto mayor a la tabla (${money(tabla[tabla.length-1][0])})` };
-  if(d < 20) return { estado:'ok', grupo, monto: fila[1], desde: fila[0], motivo:'Plan Recibo' };
-  if(grupo === '1'){
-    if(d < 55) return { estado:'revision', grupo, motivo:'1 crédito y 20 días o más' };
-    return { estado:'no', grupo, monto: 0, motivo:'1 crédito y 55 días o más' };
-  }
-  const corte = grupo === '2' ? 55 : 60;
-  if(d < 40) return { estado:'ok', grupo, monto: fila[2], motivo:'Aprobado' };
-  if(d < corte) return { estado:'ok', grupo, monto: fila[3], motivo:'Aprobado' };
-  return { estado:'revision', grupo, motivo:`${corte} días de atraso o más` };
-}
+   La tabla y las reglas son las de la Calculadora y viven en
+   js/proximo-credito.js (un solo lugar, así no se desfasan). La ficha
+   muestra qué crédito le tocaría si cancelara HOY todo lo que debe: pagar
+   todo junto lo deja al día, así que se calcula con 0 días de atraso
+   aunque hoy esté atrasado (CMProximoCredito.alCancelarHoy). */
 
 /* ================= Lista ================= */
 async function cargarLista(){
@@ -611,16 +563,16 @@ function renderFicha(telefonos){
   // Historial de créditos, del más viejo al más nuevo (como en el render).
   // Los préstamos sin fecha de alta (los de la Hoja de Ruta) van primero.
   const historial = [...prestamos].sort((a, b) => String(a.fecha_alta || '').localeCompare(String(b.fecha_alta || '')));
-  // Para la Calculadora: el "último crédito" es el más reciente que tenga monto.
-  const ultimo = [...historial].reverse().find(x => Number(x.monto) > 0) || p;
-  const pc = calcularProximoCredito(prestamos.length, ultimo && ultimo.monto, diasAtraso);
+  // Próximo crédito si cancela hoy (atraso 0), con la tabla de la Calculadora.
+  const pc = CMProximoCredito.alCancelarHoy(prestamos, p);
   let pcValor, pcCls, pcSub;
-  if(pc.estado === 'ok'){ pcValor = money(pc.monto); pcCls = 'verde'; pcSub = pc.desde ? `Plan Recibo · desde ${money(pc.desde)}` : 'Aprobado'; }
+  if(pc.estado === 'ok'){ pcValor = money(pc.monto); pcCls = 'verde'; pcSub = `Plan Recibo · desde ${money(pc.desde)}`; }
   else if(pc.estado === 'no'){ pcValor = money(0); pcCls = 'rojo'; pcSub = 'No aprobado · ' + pc.motivo; }
-  else if(pc.estado === 'revision'){ pcValor = 'Análisis'; pcCls = 'ambar'; pcSub = pc.motivo; }
+  else if(pc.estado === 'revision'){ pcValor = 'Análisis'; pcCls = 'ambar'; pcSub = pc.banda === 'excedido' ? `Monto mayor a la tabla (${money(pc.tramo)})` : pc.motivo; }
   else { pcValor = '—'; pcCls = ''; pcSub = pc.motivo; }
-  const cantTxt = `${prestamos.length} crédito${prestamos.length === 1 ? '' : 's'} en la base`;
-  const pcTitulo = `Cálculo de la Calculadora con: ${cantTxt} (grupo "${pc.grupo === '1' ? '1 crédito' : pc.grupo === '2' ? '2 y 3 créditos' : '4 o más'}"), último monto ${ultimo && ultimo.monto ? money(ultimo.monto) : '—'} y ${diasAtraso} días de atraso. Solo se cuentan los créditos que están cargados en la base (los Excel traen los préstamos vigentes, no el historial completo). Clic para abrir la Calculadora.`;
+  const cantTxt = `${pc.cantCreditos} crédito${pc.cantCreditos === 1 ? '' : 's'}`;
+  const pcCancela = cancelado ? 'Ya canceló' : `Si cancela hoy${saldoTotal > 0 ? ' ' + money(saldoTotal) : ''} (queda con 0 días de atraso)`;
+  const pcTitulo = `Cálculo de la Calculadora como si cancelara hoy todo lo que debe: ${cantTxt} en la base (grupo "${pc.nombreGrupo}"), último monto ${pc.montoUltimo ? money(pc.montoUltimo) : '—'} y 0 días de atraso${diasAtraso > 0 ? ` (hoy tiene ${diasAtraso}, pero pagando todo junto queda al día)` : ''}. Solo se cuentan los créditos que están cargados en la base (los Excel traen los préstamos vigentes, no el historial completo). Clic para abrir la Calculadora.`;
 
   document.getElementById('headIzq').innerHTML = `
     <button class="miga" id="btnVolverLista">👥 Clientes ›</button>
@@ -673,7 +625,7 @@ function renderFicha(telefonos){
           <div class="indicador"><div class="label">Saldo vencido</div><div class="valor ${saldoVencido > 0 ? 'rojo' : ''}">${money(saldoVencido)}</div></div>
           <div class="indicador"><div class="label">Saldo total</div><div class="valor">${money(saldoTotal)}</div></div>
           <div class="indicador"><div class="label">Días de atraso</div><div class="valor ${diasAtraso > 0 ? 'rojo' : ''}">${diasAtraso}</div></div>
-          <div class="indicador clic" id="indProxCredito" title="${escapeHtml(pcTitulo)}"><div class="label">Próximo crédito</div><div class="valor ${pcCls}">${pcValor}</div><div class="sub">${escapeHtml(pcSub)} · ${escapeHtml(cantTxt)}</div></div>
+          <div class="indicador clic" id="indProxCredito" title="${escapeHtml(pcTitulo)}"><div class="label">Próximo crédito</div><div class="valor ${pcCls}">${pcValor}</div><div class="sub">${escapeHtml(pcCancela)}</div><div class="sub">${escapeHtml(pcSub)} · ${escapeHtml(cantTxt)}</div></div>
         </div>
         ${p ? `
         <div class="card">
