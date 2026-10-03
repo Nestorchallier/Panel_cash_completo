@@ -172,6 +172,9 @@ const corto = (t, n = 60) => { const s = String(t || '').replace(/\s+/g, ' ').tr
         res = clasificarMensaje(reglasSinComprobante, contexto);
       }
       if (!res) continue;
+      // Una promesa escrita antes de un pago ya registrado está cumplida: no
+      // vuelve a poner al cliente en "Promesa" con una fecha vieja.
+      if (res.regla.accion && res.regla.accion.detecta_fecha && comprobanteYaAcreditado(clienteId, m)) continue;
       const { regla, fechaDetectada } = res;
       const accion = regla.accion || {};
       const ts = new Date(m.creado_at).getTime();
