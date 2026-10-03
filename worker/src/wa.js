@@ -507,9 +507,21 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
     creado_at: creadoAt,
   };
   // En los grupos se guarda quién escribió (nombre de perfil de WhatsApp).
+  // Si no vino el nombre de perfil (pasa mucho con participantes @lid y en
+  // el historial), se busca el número real del participante para mostrar
+  // el nombre agendado o, como último recurso, el número.
   if (esGrupo && direccion === 'entrante') {
-    const part = msg.key.participantAlt || msg.key.participantPn || msg.key.participant;
-    fila.autor = msg.pushName || nombrePorJidGlobal[msg.key.participant] || (part && !part.endsWith('@lid') ? '+' + part.split('@')[0] : null);
+    const participante = msg.key.participant;
+    let pn = msg.key.participantAlt || msg.key.participantPn || pnPorLidGlobal[participante] || null;
+    if (!pn && participante && !participante.endsWith('@lid')) pn = participante;
+    if (!pn) pn = await pnDeLid(sock, participante);
+    if (pn && pn.endsWith('@lid')) pn = null;
+    fila.autor = msg.pushName || nombrePorJidGlobal[participante] || (pn && nombrePorJidGlobal[pn])
+      || (pn ? '+' + pn.split('@')[0].split(':')[0] : null);
+    if (msg.pushName && participante) {
+      nombrePorJidGlobal[participante] = nombrePorJidGlobal[participante] || msg.pushName;
+      if (pn) nombrePorJidGlobal[pn] = nombrePorJidGlobal[pn] || msg.pushName;
+    }
   }
   let { error: errorInsert } = await supabase.from('mensajes').insert(fila);
   // Si todavía no se creó la columna "autor" en la base, se guarda sin ella.
