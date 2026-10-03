@@ -5,6 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WhatsApp CRM — CRM Panel Unificado</title>
 <script src="js/embed-guard.js"></script>
+<script>
+  // Modo cuadro (?modal=1&cliente=<id>): el Kanban abre esta misma página
+  // en un cuadro arriba del tablero para ver el chat de un cliente sin ir
+  // hasta la Bandeja. Se marca acá, antes de pintar, para que no se vea un
+  // instante la lista ni la ficha; el tema viene en ?tema= por el mismo
+  // motivo (después lo sigue actualizando el Kanban por postMessage).
+  (function(){
+    var p = new URLSearchParams(location.search);
+    if(p.get('modal') !== '1') return;
+    document.documentElement.classList.add('modo-modal');
+    if(p.get('tema')) document.documentElement.setAttribute('data-theme', p.get('tema') === 'dark' ? 'dark' : 'light');
+  })();
+</script>
 <link rel="stylesheet" href="css/fuentes.css">
 <!-- Emojis a color como los del render del plan (los de Windows se ven
      distintos y más chicos). Solo baja los emojis que aparecen en pantalla. -->
@@ -291,6 +304,10 @@
   ::-webkit-scrollbar{width:8px;height:8px;}
   ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px;}
   :root[data-theme="dark"] ::-webkit-scrollbar-thumb{background:#334155;}
+
+  /* Modo cuadro: solo la conversación (encabezado, mensajes y caja de escribir). */
+  html.modo-modal header, html.modo-modal .wa-chats, html.modo-modal .wa-ficha, html.modo-modal #btnToggleFicha{display:none !important;}
+  html.modo-modal .wa-conv{border:none;}
 
   @media (max-width:1150px){ .wa-ficha{width:300px;} .wa-search{width:230px;} .wa-chats{width:310px;} }
   @media (max-width:1000px){ .wa-ficha{position:absolute;right:0;top:0;bottom:0;box-shadow:var(--shadow);z-index:10;} .wa-crm{position:relative;} .header-sub{display:none;} }
@@ -602,7 +619,18 @@ document.getElementById('chatList').addEventListener('click', e=>{
 // Esc cierra el chat abierto, como en WhatsApp Web (si hay un cuadro o
 // menú abierto, el Esc es para ese cuadro).
 document.addEventListener('keydown', e=>{
-  if(e.key !== 'Escape' || !conversacionActual) return;
+  if(e.key !== 'Escape') return;
+  if(MODO_MODAL){
+    // En el cuadro del Kanban el Esc cierra el cuadro entero (el Esc no
+    // cruza el iframe, así que se le avisa a la página de afuera), salvo
+    // que haya un cuadro, el visor de adjuntos o un menú abierto adentro.
+    if(document.querySelector('.modal-fondo, .visor')) return;
+    const abiertoM = id => { const p = document.getElementById(id); return p && p.style.display === 'block'; };
+    if(abiertoM('plantillasPopup') || abiertoM('emojiPopup')){ ['plantillasPopup','emojiPopup'].forEach(id => { const p = document.getElementById(id); if(p) p.style.display = 'none'; }); return; }
+    window.parent.postMessage({ type: 'cm-cerrar-chat-modal' }, '*');
+    return;
+  }
+  if(!conversacionActual) return;
   if(document.querySelector('.modal-fondo')) return;
   const abierto = id => { const p = document.getElementById(id); return p && p.style.display === 'block'; };
   if(abierto('plantillasPopup') || abierto('emojiPopup')){ ['plantillasPopup','emojiPopup'].forEach(id => { const p = document.getElementById(id); if(p) p.style.display = 'none'; }); return; }
@@ -1708,16 +1736,42 @@ window.addEventListener('message', async e=>{
 // Viene del botón "Abrir chat" de la ficha de Clientes. Si ese cliente ya
 // tiene una conversación, la abre; si no tiene ninguna todavía pero tiene
 // un teléfono cargado, arranca una nueva (igual que "+ Nuevo chat").
+// Devuelve true si pudo abrir el chat (el modo cuadro lo usa para avisar
+// en pantalla cuando no hay teléfono).
 async function abrirChatDeCliente(clienteId){
   if(!conversaciones.length) await cargarConversaciones();
   let conv = conversaciones.find(c => c.cliente_id === clienteId);
   if(!conv){
     const { data: tel } = await window.sb.from('clientes_telefonos').select('telefono').eq('cliente_id', clienteId).eq('principal', true).maybeSingle();
-    if(!tel){ toast('Este cliente no tiene teléfono cargado todavía.', 'error'); return; }
+    if(!tel){ toast('Este cliente no tiene teléfono cargado todavía.', 'error'); return false; }
     conv = await crmCrearConversacion(tel.telefono);
     await cargarConversaciones();
   }
   abrirConversacion(conv.id);
+  return true;
+}
+
+// Modo cuadro (lo abre el Kanban): ?modal=1&cliente=<id>.
+const PARAMS_MODAL = new URLSearchParams(location.search);
+const MODO_MODAL = PARAMS_MODAL.get('modal') === '1';
+const CLIENTE_MODAL = MODO_MODAL ? PARAMS_MODAL.get('cliente') : null;
+function avisoModal(texto){
+  if(conversacionActual) return;
+  document.getElementById('wacConv').innerHTML = `<div class="empty-state"><div style="font-size:34px;">💬</div><div>${escapeHtml(texto)}</div></div>`;
+}
+async function abrirChatDelModal(){
+  if(!CLIENTE_MODAL){ avisoModal('No se indicó de qué cliente es el chat.'); return; }
+  try{
+    const ok = await abrirChatDeCliente(CLIENTE_MODAL);
+    if(!ok) avisoModal('Este cliente no tiene teléfono cargado todavía: cargalo en su ficha para poder escribirle.');
+  }catch(err){
+    console.error('abrirChatDelModal', err);
+    avisoModal('No se pudo abrir el chat de este cliente. Cerrá el cuadro y probá de nuevo.');
+  }
+}
+if(MODO_MODAL){
+  const vacio = document.getElementById('convEmpty');
+  if(vacio) vacio.lastElementChild.textContent = 'Abriendo el chat...';
 }
 
 /* ===== Auth + carga inicial ===== */
@@ -1744,6 +1798,7 @@ window.appReady.then(async ()=>{
   await cargarContactos().catch(e => console.warn('contactos', e));
   await cargarConversaciones();
   cargarResumenPrestamos();
+  if(MODO_MODAL) abrirChatDelModal();
 
   // Con cientos de chats la tabla conversaciones puede recibir una ráfaga
   // de updates en pocos segundos — sin este debounce, cada uno disparaba
