@@ -44,4 +44,5 @@ sudo systemctl restart cash-market-worker    # reiniciar
 ```
 
 Para actualizar el código: volver a copiar los archivos de `worker/src`
-y correr `bash ~/worker/linux/instalar.sh` de nuevo.
+(y `js/telefonos.js` y `js/mora.js` del panel a `~/js`, que el worker los
+reusa) y correr `bash ~/worker/linux/instalar.sh` de nuevo.

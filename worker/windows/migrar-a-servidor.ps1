@@ -54,11 +54,25 @@ try {
   & scp.exe @opcionesSsh $paquete "${destino}:/tmp/worker-cash-market.tgz"
   if ($LASTEXITCODE -ne 0) { throw 'No se pudo copiar el worker al servidor.' }
 
+  # El worker reusa archivos del panel (src/telefonos.js y mora-diaria.js
+  # hacen require('../../js/...')): van a ~/js, al lado de ~/worker.
+  Remoto 'mkdir -p ~/js'
+  $jsPanel = Join-Path (Split-Path $WorkerDir -Parent) 'js'
+  & scp.exe @opcionesSsh (Join-Path $jsPanel 'telefonos.js') (Join-Path $jsPanel 'mora.js') "${destino}:js/"
+  if ($LASTEXITCODE -ne 0) { throw 'No se pudieron copiar js\telefonos.js y js\mora.js al servidor.' }
+
   Write-Host 'Instalando en el servidor (puede tardar unos minutos)...'
   Remoto 'mkdir -p ~/worker && tar -xzf /tmp/worker-cash-market.tgz -C ~/worker && rm /tmp/worker-cash-market.tgz && bash ~/worker/linux/instalar.sh'
 
-  Start-Sleep -Seconds 15
-  Remoto 'journalctl -u cash-market-worker -n 15 --no-pager'
+  Start-Sleep -Seconds 20
+  Remoto 'journalctl -u cash-market-worker -n 15 --no-pager -o cat'
+  # systemd lo relanza aunque falle al arrancar: mirar si llego a conectar
+  # (o a pedir QR, que tambien es estar andando).
+  & ssh.exe @opcionesSsh $destino 'journalctl -u cash-market-worker --since "-1min" -o cat | grep -qE "WhatsApp conectado|QR nuevo generado"'
+  if ($LASTEXITCODE -ne 0) {
+    Remoto 'sudo systemctl disable --now cash-market-worker'
+    throw 'El worker no llego a conectarse en el servidor (ver el log de arriba).'
+  }
   Write-Host ''
   Write-Host 'Listo: el worker corre en el servidor. En la PC quedo desinstalado (los archivos siguen ahi).' -ForegroundColor Green
 } catch {
