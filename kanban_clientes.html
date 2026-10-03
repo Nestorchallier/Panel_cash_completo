@@ -438,6 +438,38 @@
   .card .wa,.card .chat-open,.card .del{opacity:1 !important;font-size:14px;color:#475569;padding:3px 4px;}
   :root[data-theme="dark"] .card .wa,:root[data-theme="dark"] .card .chat-open,:root[data-theme="dark"] .card .del{color:var(--muted);}
   .card .wa:hover,.card .chat-open:hover{color:#16a34a;}
+  /* Nombre, teléfono y vista previa abren el chat en el cuadro (como en
+     Whaticket); el resto de la tarjeta sigue abriendo la edición. */
+  .card .abre-chat{cursor:pointer;}
+  .card h4.abre-chat:hover{color:var(--accent);text-decoration:underline;text-underline-offset:2px;}
+  .card .meta.abre-chat:hover{color:var(--text);}
+
+  /* Cuadro del chat arriba del tablero: adentro va el WhatsApp CRM en
+     modo cuadro (solo la conversación, sin lista ni ficha). */
+  .chat-modal-overlay{
+    position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(2px);
+    display:none;align-items:center;justify-content:center;z-index:60;padding:20px;
+  }
+  .chat-modal-overlay.open{display:flex;}
+  .chat-modal{
+    width:760px;max-width:100%;height:85vh;max-height:100%;display:flex;flex-direction:column;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    box-shadow:0 20px 50px rgba(15,23,42,.3);
+  }
+  .chat-modal-barra{
+    height:42px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:0 8px 0 16px;border-bottom:1px solid var(--line);background:var(--panel-2);
+  }
+  .chat-modal-titulo{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .chat-modal-acciones{display:flex;align-items:center;gap:4px;flex-shrink:0;}
+  .chat-modal-acciones button{
+    background:none;border:1px solid transparent;color:var(--muted);font-size:12.5px;font-weight:600;
+    height:30px;padding:0 10px;border-radius:7px;cursor:pointer;font-family:inherit;
+  }
+  .chat-modal-acciones button:hover{border-color:var(--line);color:var(--text);background:var(--panel);}
+  .chat-modal-acciones #btnCerrarChatModal{font-size:16px;width:32px;padding:0;}
+  .chat-modal iframe{flex:1;width:100%;border:none;display:block;background:var(--panel);}
+  @media (max-width:640px){ .chat-modal-overlay{padding:0;} .chat-modal{height:100%;border-radius:0;} }
   .card .del{font-size:16px;letter-spacing:1px;}
   .card .del:hover{color:#dc2626;}
   /* ---- Calendario (render 5.5) ---- */
@@ -904,6 +936,20 @@
       <button class="btn-ghost" id="btnCancelMover">Cancelar</button>
       <button class="btn-primary" id="btnConfirmMover">Mover</button>
     </div>
+  </div>
+</div>
+
+<!-- Cuadro con el chat de WhatsApp del cliente, arriba del tablero -->
+<div class="chat-modal-overlay" id="chatModal">
+  <div class="chat-modal" role="dialog" aria-modal="true" aria-labelledby="chatModalTitulo">
+    <div class="chat-modal-barra">
+      <div class="chat-modal-titulo" id="chatModalTitulo">💬 Chat</div>
+      <div class="chat-modal-acciones">
+        <button id="btnChatEnBandeja" title="Abrir este chat en la Bandeja de WhatsApp, con la lista y la ficha">Abrir en la Bandeja ↗</button>
+        <button id="btnCerrarChatModal" title="Cerrar (Esc)" aria-label="Cerrar">✕</button>
+      </div>
+    </div>
+    <iframe id="chatModalFrame" title="Chat de WhatsApp del cliente"></iframe>
   </div>
 </div>
 
@@ -1448,21 +1494,21 @@ function renderBoard(){
         card.innerHTML = `
           <div class="card-top">
             <div class="card-id">
-              <h4>${highlight(c.nombre, q)}</h4>
+              <h4 class="abre-chat" title="Ver el chat de ${escapeHtml(c.nombre)}">${highlight(c.nombre, q)}</h4>
               ${subPartes.length ? `<div class="card-sub">${subPartes.join(' · ')}</div>` : ''}
             </div>
             ${noLeidos > 0 ? `<span class="card-nl" title="${noLeidos} mensaje(s) sin leer">${noLeidos}</span>` : ''}
           </div>
           ${config.visibleFields.monto && (c.monto || (c.prestamo && c.prestamo.saldo_total)) ? `<span class="card-amount">${escapeHtml(fmtMontoCorto(c.monto || c.prestamo.saldo_total))}</span>` : ''}
           ${(tags.length || cfBadges) ? `<div class="card-tags">${tags.join('')}${cfBadges}</div>` : ''}
-          ${(config.visibleFields.telefono && c.telefono) ? `<div class="meta">📞 ${escapeHtml(c.telefono)}</div>` : ''}
-          ${mostrarPreview ? `<div class="chat-preview-row" title="${escapeHtml(ultimo)}">
+          ${(config.visibleFields.telefono && c.telefono) ? `<div class="meta abre-chat" title="Ver el chat">📞 ${escapeHtml(c.telefono)}</div>` : ''}
+          ${mostrarPreview ? `<div class="chat-preview-row abre-chat" title="${escapeHtml(ultimo)}">
             <span>💬 ${escapeHtml(ultimo)}</span>
           </div>` : ''}
           <div class="card-footer">
             <div class="card-cobrador" title="${escapeHtml(cobrador)}">${cobrador ? `<span class="mini-avatar" style="background:${colorCobrador(cobrador)}">${escapeHtml(inicialesDe(cobrador))}</span><span>${escapeHtml(nombreCorto(cobrador))}</span>` : ''}</div>
             <div class="card-acciones">
-              <button class="chat-open" title="Abrir el chat en la Bandeja de WhatsApp" data-id="${c.id}">💬</button>
+              <button class="chat-open" title="Ver el chat acá mismo, sin salir del tablero" data-id="${c.id}">💬</button>
               <button class="wa ${c.telefono ? '' : 'disabled'}" title="${c.telefono ? 'Enviar WhatsApp con plantilla' : 'Sin teléfono cargado'}" data-id="${c.id}">📞</button>
               <button class="mas" title="Más opciones" data-id="${c.id}">⋯</button>
             </div>
@@ -1473,7 +1519,13 @@ function renderBoard(){
           e.dataTransfer.setData('text/plain', c.id);
         });
         card.addEventListener('dragend', ()=> card.classList.remove('dragging'));
-        card.addEventListener('click', ()=> openClientModal(c.id));
+        // Tocar el nombre, el teléfono o la vista previa abre el chat en el
+        // cuadro; el resto de la tarjeta abre la edición, como siempre.
+        // (Al arrastrar no hay "click", así que el drag & drop no se entera.)
+        card.addEventListener('click', e=>{
+          if(e.target.closest('.abre-chat')) abrirChatModal(c.id);
+          else openClientModal(c.id);
+        });
         card.querySelector('.mas').addEventListener('click', (e)=>{
           e.stopPropagation();
           abrirMenuTarjeta(c.id, e.currentTarget);
@@ -1485,7 +1537,7 @@ function renderBoard(){
         });
         card.querySelector('.chat-open').addEventListener('click', (e)=>{
           e.stopPropagation();
-          window.top.postMessage({ type: 'cm-abrir-chat-cliente', clienteId: c.id }, '*');
+          abrirChatModal(c.id);
         });
         cardsEl.appendChild(card);
       });
@@ -1530,7 +1582,62 @@ document.addEventListener('scroll', cerrarMenuTarjeta, true);
 document.getElementById('cmEditar').addEventListener('click', ()=>{ cerrarMenuTarjeta(); if(cardMenuId) openClientModal(cardMenuId); });
 document.getElementById('cmChat').addEventListener('click', ()=>{
   cerrarMenuTarjeta();
-  if(cardMenuId) window.top.postMessage({ type: 'cm-abrir-chat-cliente', clienteId: cardMenuId }, '*');
+  if(cardMenuId) abrirChatModal(cardMenuId);
+});
+
+// --- Chat en un cuadro arriba del tablero (como en Whaticket) ---
+// Carga el WhatsApp CRM con ?modal=1: la misma página de la Bandeja (envío,
+// reintentos, tiempo real, adjuntos), pero mostrando solo la conversación
+// de ese cliente. Así no hay que ir hasta la Bandeja para leer o contestar.
+let chatModalClienteId = null;
+function versionArchivos(){
+  return new URLSearchParams(location.search).get('v') || String(Date.now());
+}
+function temaActual(){
+  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+}
+function abrirChatModal(clienteId){
+  const c = state.clients.find(x => x.id === clienteId);
+  chatModalClienteId = clienteId;
+  document.getElementById('chatModalTitulo').textContent = '💬 Chat' + (c && c.nombre ? ' · ' + c.nombre : '');
+  const frame = document.getElementById('chatModalFrame');
+  frame.src = 'whatsapp_crm.html?modal=1&cliente=' + encodeURIComponent(clienteId)
+    + '&tema=' + temaActual() + '&v=' + encodeURIComponent(versionArchivos());
+  document.getElementById('chatModal').classList.add('open');
+}
+function cerrarChatModal(){
+  const modal = document.getElementById('chatModal');
+  if(!modal.classList.contains('open')) return;
+  modal.classList.remove('open');
+  // Se descarga la página de adentro para cortar su tiempo real.
+  document.getElementById('chatModalFrame').src = 'about:blank';
+  chatModalClienteId = null;
+  // Al abrir el chat quedó leído: se refresca el tablero para sacar el
+  // globito de "sin leer" (y mostrar lo que haya cambiado mientras tanto).
+  if(window.appReady) window.appReady.then(hydrateFromSupabase);
+}
+// Le pasa el modo claro/oscuro al chat de adentro (el panel principal solo
+// se lo avisa a este iframe, no al de adentro).
+function avisarTemaAlChatModal(){
+  const frame = document.getElementById('chatModalFrame');
+  if(chatModalClienteId && frame.contentWindow) frame.contentWindow.postMessage({ type: 'cm-theme', theme: temaActual() }, '*');
+}
+document.getElementById('chatModalFrame').addEventListener('load', avisarTemaAlChatModal);
+document.getElementById('btnCerrarChatModal').addEventListener('click', cerrarChatModal);
+document.getElementById('btnChatEnBandeja').addEventListener('click', ()=>{
+  const id = chatModalClienteId;
+  cerrarChatModal();
+  if(id) window.top.postMessage({ type: 'cm-abrir-chat-cliente', clienteId: id }, '*');
+});
+document.getElementById('chatModal').addEventListener('click', e=>{
+  if(e.target.id === 'chatModal') cerrarChatModal();
+});
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape') cerrarChatModal(); });
+window.addEventListener('message', e=>{
+  if(!e.data) return;
+  // El Esc adentro del chat no llega acá: la página de adentro lo avisa.
+  if(e.data.type === 'cm-cerrar-chat-modal' && e.source === document.getElementById('chatModalFrame').contentWindow) cerrarChatModal();
+  if(e.data.type === 'cm-theme') setTimeout(avisarTemaAlChatModal, 0);
 });
 document.getElementById('cmEliminar').addEventListener('click', ()=>{
   cerrarMenuTarjeta();
