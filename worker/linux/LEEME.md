@@ -15,19 +15,21 @@ gratis para siempre ("Always Free").
    pública de la PC (`C:\Users\usuario\.ssh\oracle_worker.pub`).
 3. Anotar la IP pública.
 
-## Instalar el worker
+## Pasar el worker de la PC al servidor
 
-Desde la PC, con la clave guardada (PowerShell, en la carpeta del panel):
+En la PC, con la carpeta del panel actualizada (`git pull`), doble clic en
+`worker\windows\migrar-a-servidor.cmd` y pegar la IP. El script:
 
-```
-scp -i $HOME\.ssh\oracle_worker -r worker ubuntu@IP:~/
-ssh -i $HOME\.ssh\oracle_worker ubuntu@IP "rm -rf ~/worker/node_modules ~/worker/logs; bash ~/worker/linux/instalar.sh"
-```
+1. Prueba la conexión con el servidor (llave `C:\Users\usuario\.ssh\oracle_worker`).
+2. Corta y desinstala el worker de la PC: dos workers con la misma sesión
+   se pisan.
+3. Copia `worker\` con el `.env` y la carpeta `auth\`, así el servidor usa
+   la misma sesión de WhatsApp y no hace falta escanear el QR.
+4. Corre `linux/instalar.sh` en el servidor y muestra el log.
 
-La copia lleva el `.env` y la carpeta `auth/`, así que el servidor usa la
-misma sesión de WhatsApp y no hace falta escanear el QR. **Antes** de
-copiar, detener el worker de la PC (`worker\windows\desinstalar.cmd`): dos
-workers con la misma sesión se pisan.
+Si algo falla en el servidor, vuelve a dejar el worker andando en la PC. Si
+el servidor ya tiene el worker corriendo, no copia nada (para no pisar su
+sesión con la de la PC).
 
 `instalar.sh` instala Node.js si falta, las dependencias, pone el servidor
 en hora argentina (los horarios de envío usan la hora local) y registra el
