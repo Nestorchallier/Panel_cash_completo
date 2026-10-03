@@ -10,7 +10,7 @@ $PidFile   = Join-Path $LogsDir 'worker.pid'
 # Un nombre por carpeta: si hay un segundo cobrador con otra copia del
 # worker (ver .env.example), cada copia tiene su propia tarea y no se pisan.
 $CarpetaPanel = Split-Path (Split-Path $WorkerDir -Parent) -Leaf
-$TaskName     = "Cash Market - Worker WhatsApp ($CarpetaPanel)"
+$TaskName     = "CRM Panel Unificado - Worker WhatsApp ($CarpetaPanel)"
 
 $sha = [System.Security.Cryptography.SHA1]::Create()
 $hash = ($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($WorkerDir.ToLowerInvariant())) |
