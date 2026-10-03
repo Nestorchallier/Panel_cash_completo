@@ -2297,6 +2297,7 @@
       <button class="sidebar-item" data-view="view-whatsapp"><span class="si-icon">💬</span><span class="si-label">WhatsApp CRM</span><span class="si-badge" id="sidebarBadgeWa"></span></button>
       <button class="sidebar-item" data-view="view-kanban" data-mode="kanban"><span class="si-icon">🗂️</span><span class="si-label">Kanban de Cartera</span></button>
       <button class="sidebar-item" data-view="view-clientes"><span class="si-icon">👥</span><span class="si-label">Clientes</span><span class="si-nuevo">NUEVO</span></button>
+      <button class="sidebar-item" data-view="view-agenda"><span class="si-icon">📇</span><span class="si-label">Agenda</span><span class="si-nuevo">NUEVO</span></button>
       <div class="sidebar-seccion">HERRAMIENTAS</div>
       <button class="sidebar-item" data-view="view-calendario" data-target="view-kanban" data-mode="calendar"><span class="si-icon">📅</span><span class="si-label">Calendario</span></button>
       <button class="sidebar-item" data-view="view-mensajes"><span class="si-icon">📨</span><span class="si-label">Envío de Mensajes</span></button>
@@ -2654,6 +2655,12 @@
   <div id="view-clientes" class="app-view">
     <div class="view-iframe-wrap">
       <iframe id="iframeClientes" title="Clientes"></iframe>
+    </div>
+  </div>
+
+  <div id="view-agenda" class="app-view">
+    <div class="view-iframe-wrap">
+      <iframe id="iframeAgenda" title="Agenda"></iframe>
     </div>
   </div>
 
@@ -4070,12 +4077,13 @@
       const iframeWhatsapp = document.getElementById('iframeWhatsapp');
       const iframeClientes = document.getElementById('iframeClientes');
       const iframeConexion = document.getElementById('iframeConexion');
-      let refiLoaded = false, calcLoaded = false, kanbanLoaded = false, whatsappLoaded = false, clientesLoaded = false, conexionLoaded = false;
+      const iframeAgenda = document.getElementById('iframeAgenda');
+      let refiLoaded = false, calcLoaded = false, kanbanLoaded = false, whatsappLoaded = false, clientesLoaded = false, conexionLoaded = false, agendaLoaded = false;
       // Se suma como query param a cada iframe para que el navegador siempre
       // pida la version nueva del archivo despues de un deploy, en vez de
       // servir una copia vieja cacheada. Subir este numero en cada cambio a
       // kanban_clientes.html / refi_buscador.html / calculadora_proximo_credito.html / whatsapp_crm.html
-      // / clientes.html / conexion.html (o a los js/css que usan).
+      // / clientes.html / conexion.html / agenda.html (o a los js/css que usan).
       const ASSET_VERSION = 27;
 
       // Las pantallas embebidas se cargan recién cuando hay sesión. Si se
@@ -4113,6 +4121,11 @@
           ponerSrc(iframeClientes, 'clientes.html?v=' + ASSET_VERSION);
           clientesLoaded = true;
           iframeClientes.addEventListener('load', () => notifyThemeToIframes(currentTheme), { once: true });
+        }
+        if (view === 'view-agenda' && !agendaLoaded) {
+          ponerSrc(iframeAgenda, 'agenda.html?v=' + ASSET_VERSION);
+          agendaLoaded = true;
+          iframeAgenda.addEventListener('load', () => notifyThemeToIframes(currentTheme), { once: true });
         }
         if (view === 'view-conexion' && !conexionLoaded) {
           ponerSrc(iframeConexion, 'conexion.html?v=' + ASSET_VERSION);
@@ -4257,6 +4270,14 @@
         if (d.type === 'cm-abrir-chat-cliente' && d.clienteId) {
           irYMandarMensaje('view-whatsapp', iframeWhatsapp, whatsappLoaded, { type: 'cm-abrir-chat-cliente', clienteId: d.clienteId });
         }
+        // Agenda: "💬" abre el chat de ese número, y cualquier cambio se
+        // le avisa al WhatsApp CRM para que muestre los nombres nuevos.
+        if (d.type === 'cm-abrir-chat-telefono' && d.telefono) {
+          irYMandarMensaje('view-whatsapp', iframeWhatsapp, whatsappLoaded, { type: 'cm-abrir-chat-telefono', telefono: d.telefono });
+        }
+        if (d.type === 'cm-agenda-cambio' && whatsappLoaded && iframeWhatsapp.contentWindow) {
+          iframeWhatsapp.contentWindow.postMessage({ type: 'cm-agenda-cambio' }, '*');
+        }
         if (d.type === 'cm-editar-cliente-kanban' && d.clienteId) {
           irYMandarMensaje('view-kanban', iframeKanban, kanbanLoaded, { type: 'cm-editar-cliente', id: d.clienteId });
         }
@@ -4310,7 +4331,7 @@
     // (la preferencia vieja, cm_theme_v1, era del diseño anterior).
     const THEME_KEY = 'cm_theme_v2';
     function notifyThemeToIframes(theme){
-      ['iframeKanban', 'iframeRefi', 'iframeCalc', 'iframeWhatsapp', 'iframeClientes', 'iframeConexion'].forEach(id => {
+      ['iframeKanban', 'iframeRefi', 'iframeCalc', 'iframeWhatsapp', 'iframeClientes', 'iframeConexion', 'iframeAgenda'].forEach(id => {
         const el = document.getElementById(id);
         if (el && el.contentWindow) {
           try { el.contentWindow.postMessage({ type: 'cm-theme', theme }, '*'); } catch (e) { }

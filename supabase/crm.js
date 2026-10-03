@@ -529,6 +529,49 @@ async function crmGetTimelineCliente(clienteId, limiteMensajes) {
   return items.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 }
 
+// ───────────────────────── agenda (no clientes) ─────────────────────────
+// Equipo, gerencia y otros contactos que no son clientes (009_agenda_contactos.sql).
+// Si todavía no se corrió esa migración, crmListContactos devuelve [] y
+// marca crmListContactos.faltaTabla = true para que la pantalla lo avise.
+
+function _esFaltaTabla(error) {
+  return error && (error.code === '42P01' || error.code === 'PGRST205' || /contactos/.test(error.message || '') && /does not exist|schema cache/.test(error.message || ''));
+}
+
+async function crmListContactos() {
+  const uid = await _uid();
+  const { data, error } = await window.sb.from('contactos').select('*').eq('user_id', uid).order('nombre');
+  crmListContactos.faltaTabla = _esFaltaTabla(error);
+  if (error) { if (!crmListContactos.faltaTabla) console.error('crmListContactos', error); return []; }
+  return data || [];
+}
+
+// Crea o actualiza (si trae id). El teléfono se guarda normalizado para
+// poder cruzarlo con los chats.
+async function crmGuardarContacto(c) {
+  const uid = await _uid();
+  const telefono = c.telefono ? ((window.normalizarTelefonoAR && window.normalizarTelefonoAR(c.telefono)) || null) : null;
+  if (c.telefono && !telefono) throw new Error('Teléfono inválido');
+  const fila = {
+    user_id: uid, nombre: String(c.nombre || '').trim(), telefono,
+    grupo: c.grupo || 'equipo', cargo: c.cargo || null, notas: c.notas || null,
+    actualizado_at: new Date().toISOString(),
+  };
+  if (!fila.nombre) throw new Error('Falta el nombre');
+  const q = c.id ? window.sb.from('contactos').update(fila).eq('id', c.id) : window.sb.from('contactos').insert(fila);
+  const { data, error } = await q.select().single();
+  if (error) {
+    if (error.code === '23505') throw new Error('Ya hay un contacto con ese teléfono');
+    console.error('crmGuardarContacto', error); throw error;
+  }
+  return data;
+}
+
+async function crmEliminarContacto(id) {
+  const { error } = await window.sb.from('contactos').delete().eq('id', id);
+  if (error) { console.error('crmEliminarContacto', error); throw error; }
+}
+
 // Canales de Realtime: avisan cambios en vivo sin tener que hacer polling.
 function crmSuscribirConversaciones(userId, onChange) {
   return window.sb.channel('conversaciones-' + userId)
@@ -638,6 +681,7 @@ if (typeof window !== 'undefined') {
     crmListPlantillas, crmSavePlantillas,
     crmListPagos, crmAddPago,
     crmGetNombreUsuario, crmSetNombreUsuario,
+    crmListContactos, crmGuardarContacto, crmEliminarContacto,
     crmListConversaciones, crmListMensajes, crmMarcarConversacionLeida, crmListResumenChats, crmListResumenPrestamos,
     crmEnviarMensaje, crmCrearConversacion,
     crmGetFichaCliente, crmActualizarCliente, crmAgregarNotaCliente, crmListTelefonosCliente,
