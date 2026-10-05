@@ -12,6 +12,7 @@
 <script src="supabase/kv.js"></script>
 <script src="js/telefonos.js"></script>
 <script src="supabase/crm.js"></script>
+<script src="js/supervisor-datos.js"></script>
 <style>
   /* Misma paleta que Agenda y Conexión: claro por defecto, oscuro opcional. */
   :root{
@@ -132,6 +133,7 @@
       <button class="chip" data-r="7d">7 días</button>
       <button class="chip" data-r="mes">Este mes</button>
     </div>
+    <select class="fecha" id="fAgente" aria-label="Agente" hidden><option value="">👥 Todo el equipo</option></select>
     <span class="espacio"></span>
     <label class="toggle" title="Por defecto los grupos de WhatsApp no cuentan: no son chats con clientes"><input type="checkbox" id="chkGrupos"> Incluir grupos</label>
     <label class="toggle" id="lblLaboral"><input type="checkbox" id="chkLaboral"> Solo horario laboral <span class="nota" id="notaLaboral"></span></label>
@@ -154,6 +156,19 @@ let informe = null;  // los números ya calculados (los usa Exportar)
 let sesionWa = null;
 let contactosPorTel = {};
 let pedidoActual = 0;
+
+/* ===== Modo equipo (Panel de supervisor → 📈 Informes) =====
+   Con ?equipo=1 y un supervisor logueado, el informe suma a todos los
+   agentes (o al que se elija en el filtro). Es solo lectura: no se crea
+   ni se cambia nada. */
+const MODO_EQUIPO = new URLSearchParams(location.search).get('equipo') === '1';
+let agentesEquipo = []; // [{id, nombre}]
+// Los user_id del informe: el propio (o el agente que mira el supervisor), o los del equipo.
+async function uidsInforme(){
+  if(!MODO_EQUIPO) return [await _uid()];
+  const elegido = document.getElementById('fAgente').value;
+  return elegido ? [elegido] : agentesEquipo.map(a => a.id);
+}
 
 /* ===== Utilidades ===== */
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -257,7 +272,7 @@ function horaEnHorario(h){
 /* ===== Carga desde Supabase ===== */
 async function cargarDatos(){
   const pedido = ++pedidoActual;
-  const uid = await _uid();
+  const uids = await uidsInforme();
   const desdeIso = new Date(filtro.desde + 'T00:00:00').toISOString();
   const hastaIso = new Date(filtro.hasta + 'T23:59:59.999').toISOString();
 
@@ -268,7 +283,7 @@ async function cargarDatos(){
   for(let desde = 0; ; desde += PAGINA){
     let q = sb.from('mensajes')
       .select('id, conversacion_id, direccion, tipo, texto, estado, creado_at, conversaciones!inner(id, user_id, es_grupo, telefono, nombre, cliente_id, clientes(nombre))')
-      .eq('conversaciones.user_id', uid)
+      .in('conversaciones.user_id', uids)
       .gte('creado_at', desdeIso).lte('creado_at', hastaIso);
     if(!filtro.grupos) q = q.eq('conversaciones.es_grupo', false);
     const { data, error: e } = await q.order('creado_at', { ascending: true }).order('id', { ascending: true })
@@ -310,8 +325,8 @@ async function cargarDatos(){
 
   // 4) Pagos (fecha es un día, sin hora) y promesas registradas en el rango.
   const [rPagos, rPromesas] = await Promise.all([
-    sb.from('pagos').select('id, monto, fecha, estado').eq('user_id', uid).gte('fecha', filtro.desde).lte('fecha', filtro.hasta),
-    sb.from('eventos').select('id, cliente_id, creado_at').eq('user_id', uid).eq('tipo', 'promesa').gte('creado_at', desdeIso).lte('creado_at', hastaIso),
+    sb.from('pagos').select('id, monto, fecha, estado').in('user_id', uids).gte('fecha', filtro.desde).lte('fecha', filtro.hasta),
+    sb.from('eventos').select('id, cliente_id, creado_at').in('user_id', uids).eq('tipo', 'promesa').gte('creado_at', desdeIso).lte('creado_at', hastaIso),
   ]);
   if(rPagos.error) console.error('informes pagos', rPagos.error);
   if(rPromesas.error) console.error('informes promesas', rPromesas.error);
@@ -643,7 +658,7 @@ document.getElementById('chkLaboral').addEventListener('change', e => { filtro.l
 document.getElementById('btnExportar').addEventListener('click', exportar);
 document.getElementById('contenido').addEventListener('click', e => {
   const ch = e.target.closest('[data-chat]');
-  if(ch) window.top.postMessage({ type: 'cm-abrir-chat-telefono', telefono: ch.dataset.chat }, '*');
+  if(ch && !MODO_EQUIPO) window.top.postMessage({ type: 'cm-abrir-chat-telefono', telefono: ch.dataset.chat }, '*');
 });
 
 /* ===== Tema (lo manda el panel principal) ===== */
@@ -654,7 +669,12 @@ window.addEventListener('message', e=>{ if(e.data && e.data.type==='cm-theme') a
 /* ===== Auth + carga inicial ===== */
 sb.auth.getSession().then(async ({ data: { session } }) => {
   if (!session) { location.href = 'index.html'; return; }
-  await crmBootstrap();
+  if (MODO_EQUIPO) {
+    // Solo un supervisor ve el informe del equipo. Acá no se crea nada (sin bootstrap).
+    if (!(await supEsSupervisor())) { location.href = 'index.html'; return; }
+  } else {
+    await crmBootstrap();
+  }
   window._markAppReady();
 });
 sb.auth.onAuthStateChange((_event, session) => { if (!session) location.href = 'index.html'; });
@@ -664,6 +684,21 @@ pintarFiltros();
 window.appReady.then(async ()=>{
   const saved = await kvGet(THEME_KEY);
   if (saved) applyTheme(saved);
+  if(MODO_EQUIPO){
+    document.querySelector('.header-sub').textContent = 'Todo el equipo: chats de WhatsApp, pagos y promesas';
+    document.getElementById('lblLaboral').style.display = 'none'; // el horario es de cada agente
+    try{ agentesEquipo = await supListarAgentes(); }catch(e){ console.error('informes equipo', e); }
+    const sel = document.getElementById('fAgente');
+    agentesEquipo.forEach(a => sel.add(new Option(a.nombre, a.id)));
+    sel.hidden = false;
+    sel.addEventListener('change', actualizar);
+    if(!agentesEquipo.length){
+      document.getElementById('contenido').innerHTML = '<div class="vacio">Todavía no hay agentes.</div>';
+      return;
+    }
+    await actualizar();
+    return;
+  }
   try{
     const [sesion, contactos] = await Promise.all([crmGetWaSesion(), crmListContactos()]);
     sesionWa = sesion;

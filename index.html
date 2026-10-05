@@ -1014,6 +1014,22 @@
       margin-top: 4px;
     }
 
+    /* Objetivo fijado por el supervisor (objetivos_agente): no se edita */
+    .obj-fijado-sup {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      margin: 10px 0 16px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(37, 99, 235, .08);
+      font-size: 13.5px;
+      color: var(--text-dim);
+    }
+    .obj-fijado-sup b { color: var(--text); }
+    .obj-fijado-sup.on { display: flex; }
+
     /* Resumen del objetivo en Objetivos (solo lectura) */
     .obj-resumen {
       background: var(--card);
@@ -2690,6 +2706,7 @@
     <div class="progress-card">
       <h3>Composición del objetivo</h3>
       <div class="sub" id="objetivoSub">Objetivo total: $0</div>
+      <div class="obj-fijado-sup" id="objFijadoSup">🔒 <span>Objetivo del mes fijado por el <b>supervisor</b>: no se puede cambiar desde acá.</span></div>
       <div class="obj-manual-row" id="objManualRow">
         <input type="number" id="objManualInput" placeholder="Poner objetivo manualmente ($)">
         <button id="objManualBtn" class="btn-obj-set">Fijar</button>
@@ -3051,7 +3068,7 @@
     function saveState() {
       // Supervisor mirando a un agente: se muestra, no se guarda.
       if (window.cmSoloLectura && window.cmSoloLectura()) return;
-      kvSet(STORAGE_KEY, state).catch(e => console.error('No se pudo guardar en Supabase', e));
+      kvSet(STORAGE_KEY, estadoParaGuardar()).catch(e => console.error('No se pudo guardar en Supabase', e));
     }
 
     async function loadState() {
@@ -3245,7 +3262,55 @@
     // pagos (agregar, marcar cobrado, borrar, duplicados, importar, objetivo):
     // actualiza a la vez Registro de pagos, Objetivos y Comisiones, porque
     // las tres pantallas leen el mismo state y sus nodos viven siempre en el DOM.
+    /* ===== Objetivo fijado por el supervisor (tabla objetivos_agente) =====
+       Si el supervisor fijó el objetivo de este mes, ese manda: reemplaza
+       al que se haya cargado acá (a mano o por Excel) y no se puede editar.
+       Sin fila para el mes (o sin la migración 012) sigue todo como antes. */
+    let objetivoSupervisor = null;
+    // El objetivo propio (y los montos de la escala) de antes de aplicar el
+    // del supervisor: es lo que se guarda en kv_store, así si el supervisor
+    // lo quita vuelve el de siempre.
+    let objetivoPropio = null;
+    function estadoParaGuardar() {
+      if (objetivoSupervisor == null || !objetivoPropio) return state;
+      const metas = objetivoPropio.metas.length === state.scaleRows.length ? objetivoPropio.metas : null;
+      return Object.assign({}, state, {
+        objetivoTotal: objetivoPropio.total,
+        scaleRows: state.scaleRows.map((s, i) => Object.assign({}, s, { meta: metas ? metas[i] : Math.round((s.escala || 0) * objetivoPropio.total) })),
+      });
+    }
+    async function cargarObjetivoSupervisor() {
+      try {
+        const uid = await window.cmUidVista();
+        const periodo = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).slice(0, 7);
+        const { data, error } = await window.sb.from('objetivos_agente')
+          .select('monto').eq('user_id', uid).eq('periodo', periodo).maybeSingle();
+        if (error) return;
+        const nuevo = data && Number(data.monto) > 0 ? Number(data.monto) : null;
+        if (nuevo !== objetivoSupervisor) { objetivoSupervisor = nuevo; render(); }
+      } catch (e) { console.warn('objetivos_agente', e); }
+    }
+    function aplicarObjetivoSupervisor() {
+      const fijado = objetivoSupervisor != null;
+      document.getElementById('objFijadoSup').classList.toggle('on', fijado);
+      document.getElementById('objManualRow').style.display = fijado ? 'none' : '';
+      if (!fijado) {
+        // El supervisor lo quitó: vuelve el objetivo propio.
+        if (objetivoPropio) {
+          state.objetivoTotal = objetivoPropio.total;
+          if (objetivoPropio.metas.length === state.scaleRows.length) state.scaleRows.forEach((s, i) => { s.meta = objetivoPropio.metas[i]; });
+          objetivoPropio = null;
+        }
+        return;
+      }
+      if (!objetivoPropio) objetivoPropio = { total: state.objetivoTotal, metas: state.scaleRows.map(s => s.meta) };
+      if (state.objetivoTotal === objetivoSupervisor) return;
+      state.objetivoTotal = objetivoSupervisor;
+      state.scaleRows.forEach(s => { s.meta = Math.round((s.escala || 0) * objetivoSupervisor); });
+    }
+
     function render() {
+      aplicarObjetivoSupervisor();
       document.getElementById('dateChip').textContent = 'Corte: ' + state.cutoffDate;
       document.getElementById('dateChipSueldo').textContent = 'Corte: ' + state.cutoffDate;
       document.getElementById('dateChipObjetivos').textContent = 'Corte: ' + state.cutoffDate;
@@ -3554,6 +3619,7 @@
     function fijarObjetivoManual() {
       const input = document.getElementById('objManualInput');
       const val = parseFloat(input.value);
+      if (objetivoSupervisor != null) return; // lo fijó el supervisor
       if (!val || val <= 0) { input.focus(); return; }
       state.objetivoTotal = val;
       state.objetivoManual = true;
@@ -3731,7 +3797,7 @@
           }
           if (wsDash) {
             const d = parseDashboard(wsDash);
-            if (d.objetivoTotal) {
+            if (d.objetivoTotal && objetivoSupervisor == null) {
               if (state.objetivoManual) {
                 if (confirm('Ya fijaste el objetivo manualmente en $' + fmt(state.objetivoTotal) + '. ¿Reemplazarlo por el valor detectado en el Excel ($' + fmt(d.objetivoTotal) + ')?')) {
                   state.objetivoTotal = d.objetivoTotal;
@@ -3993,7 +4059,9 @@
         if (!(window.cmSoloLectura && window.cmSoloLectura())) loadDefaultData();
       }
       if (!state.myCobrador && !(window.cmSoloLectura && window.cmSoloLectura())) state.myCobrador = 'Nestor Challier';
+      await cargarObjetivoSupervisor();
       render();
+      setInterval(cargarObjetivoSupervisor, 60000);
       await integrarPagosCRM();
       // Así, con esta pantalla abierta, un pago confirmado desde la Bandeja
       // o el Kanban aparece solo (cada 30 s, o al volver a esta pestaña).
@@ -4392,7 +4460,7 @@
       // servir una copia vieja cacheada. Subir este numero en cada cambio a
       // kanban_clientes.html / refi_buscador.html / calculadora_proximo_credito.html / whatsapp_crm.html
       // / clientes.html / conexion.html / agenda.html / informes.html (o a los js/css que usan).
-      const ASSET_VERSION = 35;
+      const ASSET_VERSION = 36;
 
       // Las pantallas embebidas se cargan recién cuando hay sesión. Si se
       // cargaban antes (la vista guardada se abre apenas carga el panel),

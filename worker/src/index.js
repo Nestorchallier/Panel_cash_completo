@@ -6,6 +6,7 @@ const pino = require('pino');
 const { iniciarWhatsApp } = require('./wa');
 const { iniciarColaEnvios } = require('./cola');
 const { iniciarMoraDiaria } = require('./mora-diaria');
+const { iniciarComandosUsuarios } = require('./usuarios');
 
 const AUTH_DIR = path.join(__dirname, '..', 'auth');
 
@@ -128,6 +129,10 @@ async function main() {
   // No depende de WhatsApp: recalcula cuotas vencidas y días de atraso
   // aunque el celular esté desconectado (ver mora-diaria.js).
   iniciarMoraDiaria({ supabase, userId: WORKER_USER_ID });
+  // Pedidos de la pantalla 👥 Usuarios del Panel de supervisor (crear
+  // agentes, contraseñas, deshabilitar): necesitan la clave service, que
+  // solo está acá (ver usuarios.js).
+  iniciarComandosUsuarios({ supabase, logger });
 
   logger.info('Worker corriendo. Ctrl+C para cortar.');
 }

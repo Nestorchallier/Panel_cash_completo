@@ -12,6 +12,7 @@
   const STATE_KEY = 'panelComisionesCobros_state_v1'; // Registro de pagos / Objetivos (index.html)
 
   const hoyAR = () => new Date().toLocaleDateString('en-CA', { timeZone: TZ });
+  const periodoAR = () => hoyAR().slice(0, 7); // 'AAAA-MM' del mes en curso
   const horaAR = (iso) => new Date(iso).toLocaleTimeString('es-AR', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false });
 
   // ¿El usuario logueado es supervisor? Si todavía no se corrió
@@ -92,11 +93,12 @@
   // registro (index.html los integra al abrirse: integrarPagosCRM).
   async function supCobradoYObjetivo(ids) {
     const out = {};
-    ids.forEach(id => { out[id] = { cobrado: 0, objetivo: 0, corte: '' }; });
+    ids.forEach(id => { out[id] = { cobrado: 0, objetivo: 0, objetivoPropio: 0, fijado: false, corte: '' }; });
     if (!ids.length) return out;
-    const [rKv, rPagos] = await Promise.all([
+    const [rKv, rPagos, fijados] = await Promise.all([
       window.sb.from('kv_store').select('user_id, value').eq('key', STATE_KEY).in('user_id', ids),
       window.sb.from('pagos').select('id, user_id, monto, estado, origen').in('user_id', ids).neq('origen', 'excel').range(0, 9999),
+      supObjetivosFijados(ids, periodoAR()),
     ]);
     if (rKv.error) console.warn('kv_store estado', rKv.error);
     const integrados = {};
@@ -106,6 +108,7 @@
       out[r.user_id] = {
         cobrado: pagos.filter(p => p.estado === 'Cobrado').reduce((s, p) => s + (Number(p.monto) || 0), 0),
         objetivo: Number(st.objetivoTotal) || 0,
+        objetivoPropio: Number(st.objetivoTotal) || 0, // el del panel del agente
         corte: st.cutoffDate || '',
       };
       integrados[r.user_id] = new Set(Array.isArray(st.pagosCRMIntegrados) ? st.pagosCRMIntegrados : []);
@@ -116,6 +119,24 @@
       if (String(p.estado || '').toLowerCase() !== 'cobrado') return;
       out[p.user_id].cobrado += Number(p.monto) || 0;
     });
+    // El objetivo que fijó el supervisor para este mes manda sobre el que
+    // el agente tenga cargado en su panel.
+    Object.keys(fijados).forEach(id => {
+      if (out[id]) { out[id].objetivo = fijados[id]; out[id].fijado = true; }
+    });
+    return out;
+  }
+
+  // Objetivos fijados por el supervisor (tabla objetivos_agente, ver
+  // 012_supervisor_gestion.sql) para un mes: { uid: monto }. Sin la tabla
+  // todavía (migración sin correr) devuelve {} y todo sigue como antes.
+  async function supObjetivosFijados(ids, periodo) {
+    const out = {};
+    if (!ids.length) return out;
+    const { data, error } = await window.sb.from('objetivos_agente')
+      .select('user_id, monto').eq('periodo', periodo).in('user_id', ids);
+    if (error) { console.warn('objetivos_agente', error); return out; }
+    (data || []).forEach(r => { out[r.user_id] = Number(r.monto) || 0; });
     return out;
   }
 
@@ -171,7 +192,7 @@
 
   Object.assign(window, {
     supEsSupervisor, supListarAgentes, supEstadosConexion, supActividadHoy,
-    supCobradoYObjetivo, supPromesasHoy, supChats, supMensajesHoy,
-    supHoyAR: hoyAR, supHoraAR: horaAR, supNombreCorto: nombreCorto,
+    supCobradoYObjetivo, supObjetivosFijados, supPromesasHoy, supChats, supMensajesHoy,
+    supHoyAR: hoyAR, supPeriodoAR: periodoAR, supHoraAR: horaAR, supNombreCorto: nombreCorto,
   });
 })();
