@@ -837,27 +837,43 @@ async function firmarAdjuntos(paths){
 }
 function urlAdjunto(path){ const c = urlsFirmadas.get(path); return c ? c.url : null; }
 function extension(path, tipo){
-  const m = /\.([a-z0-9]{2,4})$/i.exec(path || '');
+  const m = /\.([a-z0-9]{1,5})$/i.exec(path || '');
   return (m ? m[1] : (tipo === 'pdf' ? 'pdf' : tipo === 'audio' ? 'ogg' : 'jpg')).toLowerCase();
 }
-// WhatsApp no manda el nombre original de las fotos: se nombran como en el
-// render ("comprobante...") con la fecha, para que la descarga sea clara.
+// Los documentos nuevos traen el nombre original en la ruta ("..._x__Planilla.xlsx").
+// Las fotos no tienen nombre en WhatsApp: se llaman "foto" con la fecha
+// (no "comprobante": en los grupos mandan fotos de todo tipo).
 function nombreAdjunto(m){
+  const ext = extension(m.media_path, m.tipo);
+  const orig = /__([^/]+)\.[a-z0-9]{1,5}$/i.exec(m.media_path || '');
+  if(orig) return orig[1] + '.' + ext;
   const d = new Date(m.creado_at);
   const sufijo = isNaN(d) ? '' : `_${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  return (m.tipo === 'audio' ? 'audio' : 'comprobante') + sufijo + '.' + extension(m.media_path, m.tipo);
+  const base = m.tipo === 'audio' ? 'audio' : m.tipo === 'imagen' ? 'foto' : 'archivo';
+  return base + sufijo + '.' + ext;
+}
+function iconoArchivo(ext){
+  if(['xls','xlsx','csv'].includes(ext)) return '📊';
+  if(['doc','docx','txt'].includes(ext)) return '📝';
+  if(ext === 'pdf') return '📄';
+  return '📎';
 }
 function burbujaAdjunto(m){
   if(m.media_path){
     const url = urlAdjunto(m.media_path);
     const nombre = nombreAdjunto(m);
     if(m.tipo === 'imagen'){
-      return `<div class="adj-card"><div class="adj-nombre">📄 ${escapeHtml(nombre)}</div>${url
+      return `<div class="adj-card"><div class="adj-nombre">📷 ${escapeHtml(nombre)}</div>${url
         ? `<button class="adj-thumb" data-ver="${escapeHtml(m.media_path)}" data-nombre="${escapeHtml(nombre)}" title="Ver en grande"><img class="adj-img" src="${escapeHtml(url)}" alt="${escapeHtml(nombre)}" loading="lazy"></button>`
         : `<div class="adj-nodisp">📷 Imagen no disponible</div>`}</div>`;
     }
     if(m.tipo === 'pdf'){
-      return `<div class="adj-card"><div class="adj-nombre">📄 ${escapeHtml(nombre)}${url ? ` · <a href="${escapeHtml(url)}" target="_blank" rel="noopener">Ver PDF</a>` : ''}</div>${url ? '' : `<div class="adj-nodisp">PDF no disponible</div>`}</div>`;
+      // PDF se abre en otra pestaña; Excel, Word, etc. se descargan con su nombre.
+      const ext = extension(m.media_path, m.tipo);
+      const accion = !url ? '' : ext === 'pdf'
+        ? ` · <a href="${escapeHtml(url)}" target="_blank" rel="noopener">Ver PDF</a>`
+        : ` · <a href="#" data-descargar="${escapeHtml(m.media_path)}" data-nombre="${escapeHtml(nombre)}">Descargar</a>`;
+      return `<div class="adj-card"><div class="adj-nombre">${iconoArchivo(ext)} ${escapeHtml(nombre)}${accion}</div>${url ? '' : `<div class="adj-nodisp">Archivo no disponible</div>`}</div>`;
     }
     if(m.tipo === 'audio'){
       return `<div class="adj-card"><div class="adj-nombre">🎙️ Audio</div>${url ? `<audio controls preload="none" src="${escapeHtml(url)}"></audio>` : `<div class="adj-nodisp">Audio no disponible</div>`}</div>`;
@@ -866,7 +882,7 @@ function burbujaAdjunto(m){
   }
   if(m.tipo === 'audio') return `<div class="adjunto-nota">🎙️ Audio (del historial, no se descargó)</div>`;
   if(m.tipo === 'imagen') return `<div class="adjunto-nota">📷 Imagen (del historial, no se descargó)</div>`;
-  if(m.tipo === 'pdf') return `<div class="adjunto-nota">📄 PDF (no se pudo descargar)</div>`;
+  if(m.tipo === 'pdf') return `<div class="adjunto-nota">📄 Archivo (no se pudo descargar)</div>`;
   return '';
 }
 
@@ -892,6 +908,16 @@ async function abrirVisor(path, nombre){
     const { data } = await window.sb.storage.from('comprobantes').createSignedUrl(path, 600, { download: nombre });
     if(data && data.signedUrl) v.querySelector('#visorDescargar').href = data.signedUrl;
   }catch(e){ /* queda el link común: abre la imagen y se guarda desde ahí */ }
+}
+
+// Link firmado con el nombre del archivo, así el navegador lo guarda como
+// "Planilla.xlsx" y no con el nombre interno.
+async function descargarAdjunto(path, nombre){
+  try{
+    const { data } = await window.sb.storage.from('comprobantes').createSignedUrl(path, 600, { download: nombre });
+    const href = (data && data.signedUrl) || urlAdjunto(path);
+    if(href) window.location.href = href;
+  }catch(e){ const u = urlAdjunto(path); if(u) window.open(u, '_blank', 'noopener'); }
 }
 
 /* ===== Tildes de WhatsApp ===== */
@@ -1032,6 +1058,8 @@ function renderConversacionShell(){
   msgs.addEventListener('click', e=>{
     const b = e.target.closest('.adj-thumb');
     if(b) abrirVisor(b.dataset.ver, b.dataset.nombre);
+    const dl = e.target.closest('[data-descargar]');
+    if(dl){ e.preventDefault(); descargarAdjunto(dl.dataset.descargar, dl.dataset.nombre); }
     const r = e.target.closest('[data-reintentar]');
     if(r) reintentarMensaje(r.dataset.reintentar);
     if(e.target.closest('[data-ver-anteriores]')) cargarMensajesAnteriores();
