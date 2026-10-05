@@ -66,7 +66,8 @@ function _leerExcel(file) {
       } catch (err) { reject(err); }
     };
     reader.onerror = reject;
-    reader.readAsArrayBuffer(file);
+    // SheetJS se baja recién acá (ver js/xlsx-lazy.js).
+    window.cargarXLSX().then(() => reader.readAsArrayBuffer(file), reject);
   });
 }
 

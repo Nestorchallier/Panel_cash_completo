@@ -20,7 +20,8 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
     rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- SheetJS se carga bajo demanda (js/xlsx-lazy.js), solo al importar/exportar Excel. -->
+  <script src="js/xlsx-lazy.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase/config.js"></script>
   <script src="supabase/kv.js"></script>
@@ -3455,8 +3456,9 @@
 
     document.getElementById('btnEditScale').addEventListener('click', () => openScaleEditor());
 
-    document.getElementById('btnExportPagosExcel').addEventListener('click', () => {
+    document.getElementById('btnExportPagosExcel').addEventListener('click', async () => {
       if (!state.payments.length) return;
+      try { await cargarXLSX(); } catch (err) { avisoSinXLSX(err); return; }
       const rows = state.payments.map(p => ({
         Nombre: p.name,
         Monto: p.monto,
@@ -3683,7 +3685,7 @@
         }
         e.target.value = '';
       };
-      reader.readAsArrayBuffer(file);
+      cargarXLSX().then(() => reader.readAsArrayBuffer(file), avisoSinXLSX);
     });
 
     document.getElementById('resetBtn').addEventListener('click', () => {
@@ -3825,7 +3827,7 @@
         }
         e.target.value = '';
       };
-      reader.readAsArrayBuffer(file);
+      cargarXLSX().then(() => reader.readAsArrayBuffer(file), avisoSinXLSX);
     });
 
     // Aplica los pagos importados en "Importar cobros" a la cartera del Kanban:
@@ -4079,7 +4081,7 @@
                 renderizarTabla();
                 mostrarResumenCarga();
             };
-            reader.readAsArrayBuffer(file);
+            cargarXLSX().then(() => reader.readAsArrayBuffer(file), avisoSinXLSX);
         }
 
         function procesarPegado(texto) {
@@ -4309,7 +4311,7 @@
       // servir una copia vieja cacheada. Subir este numero en cada cambio a
       // kanban_clientes.html / refi_buscador.html / calculadora_proximo_credito.html / whatsapp_crm.html
       // / clientes.html / conexion.html / agenda.html / informes.html (o a los js/css que usan).
-      const ASSET_VERSION = 31;
+      const ASSET_VERSION = 32;
 
       // Las pantallas embebidas se cargan recién cuando hay sesión. Si se
       // cargaban antes (la vista guardada se abre apenas carga el panel),

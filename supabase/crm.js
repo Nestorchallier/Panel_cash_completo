@@ -19,9 +19,20 @@ async function _uid() {
 // Se llama una vez por sesión (ver index.html), después del login. Crea la
 // fila de usuarios, las columnas default del Kanban y las reglas de
 // clasificación si todavía no existen — es un no-op si ya estaban.
+// Cada pantalla embebida lo llamaba de nuevo al abrirse (una ida y vuelta
+// más antes de mostrar nada). Como es idempotente, alcanza con una vez por
+// pestaña y usuario: se anota en sessionStorage (que el panel comparte con
+// sus iframes, mismo origen) y las pantallas siguientes lo saltean.
 async function crmBootstrap(nombre) {
+  let clave = null;
+  try {
+    const { data: { session } } = await window.sb.auth.getSession();
+    if (session) clave = 'cm_bootstrap_ok_' + session.user.id;
+    if (clave && sessionStorage.getItem(clave) === '1') return;
+  } catch (e) { /* sin sessionStorage: se hace siempre, como antes */ }
   const { error } = await window.sb.rpc('bootstrap_usuario', { p_nombre: nombre || '' });
-  if (error) console.error('bootstrap_usuario', error);
+  if (error) { console.error('bootstrap_usuario', error); return; }
+  try { if (clave) sessionStorage.setItem(clave, '1'); } catch (e) { }
 }
 
 // ───────────────────────── etapas ─────────────────────────
@@ -222,13 +233,32 @@ async function crmAddPago(pago) {
 
 async function crmListConversaciones() {
   const uid = await _uid();
-  const { data, error } = await window.sb
+  // PostgREST corta cada respuesta en 1000 filas (max-rows): con 1300+ chats
+  // los más viejos no llegaban nunca. Se pide de a páginas de 1000; las dos
+  // primeras van en paralelo (el caso normal hoy) y si la segunda vino llena
+  // se siguen pidiendo. El id como desempate deja el orden estable entre
+  // páginas (hay muchos ultimo_at iguales o nulos).
+  const PAGINA = 1000;
+  const pagina = n => window.sb
     .from('conversaciones')
     .select('*, clientes(id, nombre, dni, etapa_id, promesa_fecha, etiquetas, cobrador_nombre)')
     .eq('user_id', uid)
-    .order('ultimo_at', { ascending: false, nullsFirst: false });
-  if (error) { console.error('crmListConversaciones', error); return []; }
-  return data || [];
+    .order('ultimo_at', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: true })
+    .range(n * PAGINA, (n + 1) * PAGINA - 1);
+  const out = [];
+  let pedidas = [pagina(0), pagina(1)], n = 2;
+  while (pedidas.length) {
+    const resultados = await Promise.all(pedidas);
+    pedidas = [];
+    for (const { data, error } of resultados) {
+      if (error) { console.error('crmListConversaciones', error); return out; }
+      out.push(...(data || []));
+    }
+    const ultima = resultados[resultados.length - 1].data || [];
+    if (ultima.length === PAGINA) pedidas = [pagina(n++)];
+  }
+  return out;
 }
 
 // Trae los últimos `limite` mensajes del chat (o los anteriores a `antesDe`)

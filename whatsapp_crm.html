@@ -710,8 +710,10 @@ function pintarPillFiltros(){
   document.getElementById('pillCobrador').classList.toggle('activo', !!selC.value);
 }
 
-async function cargarConversaciones(){
-  conversaciones = await crmListConversaciones();
+// `pedido`: promesa de crmListConversaciones() ya lanzada (la carga inicial
+// la pide en paralelo con el resto); si no viene, se pide acá.
+async function cargarConversaciones(pedido){
+  conversaciones = await (pedido || crmListConversaciones());
   // La lista se reemplaza entera: el chat abierto pasa a apuntar a su
   // versión nueva (si no, quedaba con datos viejos, ej. sin el cliente
   // recién agendado).
@@ -1871,20 +1873,29 @@ sb.auth.onAuthStateChange((_event, session) => { if (!session) location.href = '
 
 window.appReady.then(async ()=>{
   const { data: { session } } = await window.sb.auth.getSession();
-  etapasCache = await crmListEtapas();
-  const selEtapa = document.getElementById('filtroEtapa');
-  selEtapa.innerHTML = `<option value="">Todas</option>` + etapasCache.map(e => `<option value="${escapeHtml(e._rowId)}">${escapeHtml(e.name)}</option>`).join('');
-  const [plantillas, nombre, reglas] = await Promise.all([
+  // Todo en paralelo: antes iban en fila (etapas -> plantillas/nombre/reglas
+  // -> contactos -> chats -> préstamos) y la lista tardaba la suma de todas.
+  // Los chats se pintan recién cuando está lo demás (usan etapas, contactos
+  // y reglas), pero ya vienen viajando desde el principio.
+  const pedidoChats = crmListConversaciones();
+  pedidoChats.catch(() => {});
+  const pedidoResumen = crmListResumenPrestamos();
+  pedidoResumen.catch(() => {});
+  const [etapas, plantillas, nombre, reglas] = await Promise.all([
+    crmListEtapas(),
     crmListPlantillas(),
     crmGetNombreUsuario(),
     window.crmListReglas ? crmListReglas().catch(() => []) : Promise.resolve([]),
+    cargarContactos().catch(e => console.warn('contactos', e)),
   ]);
+  etapasCache = etapas;
+  const selEtapa = document.getElementById('filtroEtapa');
+  selEtapa.innerHTML = `<option value="">Todas</option>` + etapasCache.map(e => `<option value="${escapeHtml(e._rowId)}">${escapeHtml(e.name)}</option>`).join('');
   plantillasCache = plantillas;
   nombreUsuarioCache = nombreCorto(nombre);
   reglasCache = reglas || [];
-  await cargarContactos().catch(e => console.warn('contactos', e));
-  await cargarConversaciones();
-  cargarResumenPrestamos();
+  await cargarConversaciones(pedidoChats);
+  pedidoResumen.then(r => { resumenPrestamosCache = r; renderChatList(); }).catch(e => console.error('cargarResumenPrestamos', e));
   if(MODO_MODAL) abrirChatDelModal();
 
   // Con cientos de chats la tabla conversaciones puede recibir una ráfaga
