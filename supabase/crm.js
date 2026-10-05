@@ -300,6 +300,35 @@ async function crmEnviarMensaje(conversacionId, texto) {
   await window.sb.from('conversaciones').update({ ultimo_texto: 'Vos: ' + texto, ultimo_at: new Date().toISOString(), no_leidos: 0 }).eq('id', conversacionId);
 }
 
+// Nota de voz grabada en el chat (🎤): se sube a la carpeta del usuario en
+// el bucket privado "comprobantes" y queda en la cola como tipo 'audio'
+// con su media_path. El worker la pasa a OGG/Opus y la manda como nota de
+// voz. yaSubido: en un reintento no se vuelve a subir el mismo audio.
+// Devuelve el media_path.
+async function crmEnviarAudio(conversacionId, blob, { yaSubido = null } = {}) {
+  const uid = await _uid();
+  let mediaPath = yaSubido;
+  if (!mediaPath) {
+    const tipo = String((blob && blob.type) || '');
+    const ext = /ogg/.test(tipo) ? 'ogg' : /mp4|aac|m4a/.test(tipo) ? 'm4a' : 'webm';
+    mediaPath = `${uid}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_voz.${ext}`;
+    const { error: errSubida } = await window.sb.storage.from('comprobantes')
+      .upload(mediaPath, blob, { upsert: false, contentType: tipo.split(';')[0] || 'audio/webm' });
+    if (errSubida) {
+      console.error('crmEnviarAudio (subida)', errSubida);
+      const e = new Error(errSubida.message || 'No se pudo subir el audio');
+      e.etapa = 'subida'; e.original = errSubida;
+      throw e;
+    }
+  }
+  const { error } = await window.sb.from('mensajes').insert({
+    conversacion_id: conversacionId, direccion: 'saliente', tipo: 'audio', texto: null, media_path: mediaPath, estado: 'pendiente', enviado_por: uid,
+  });
+  if (error) { console.error('crmEnviarAudio', error); error.mediaPath = mediaPath; throw error; }
+  await window.sb.from('conversaciones').update({ ultimo_texto: 'Vos: 🎙️ Audio', ultimo_at: new Date().toISOString(), no_leidos: 0 }).eq('id', conversacionId);
+  return mediaPath;
+}
+
 // Para "+ Nuevo chat": arranca una conversación a mano con un teléfono que
 // todavía no escribió. Si el teléfono matchea un cliente existente, queda vinculada.
 async function crmCrearConversacion(telefonoCrudo) {
@@ -794,7 +823,7 @@ if (typeof window !== 'undefined') {
     crmGetNombreUsuario, crmSetNombreUsuario,
     crmListContactos, crmGuardarContacto, crmEliminarContacto,
     crmListConversaciones, crmListMensajes, crmMarcarConversacionLeida, crmListResumenChats, crmListResumenPrestamos,
-    crmEnviarMensaje, crmCrearConversacion,
+    crmEnviarMensaje, crmEnviarAudio, crmCrearConversacion,
     crmGetFichaCliente, crmActualizarCliente, crmAgregarNotaCliente, crmListTelefonosCliente,
     crmListEventosConversacion,
     crmNombreCorto, crmIniciales, crmMoverEtapa, crmGuardarPromesa, crmConfirmarPago,

@@ -43,6 +43,15 @@ fi
 
 sudo timedatectl set-timezone "$ZONA" || true
 
+# ffmpeg: las notas de voz grabadas desde el panel (🎤) vienen en WebM
+# (Chrome) y WhatsApp las quiere en OGG/Opus; el worker las convierte con
+# ffmpeg (src/audio.js).
+if ! command -v ffmpeg > /dev/null; then
+  echo "Instalando ffmpeg (para las notas de voz)..."
+  sudo apt-get update -y > /dev/null
+  sudo apt-get install -y ffmpeg
+fi
+
 echo "Instalando dependencias..."
 cd "$WORKER_DIR"
 npm ci --omit=dev
