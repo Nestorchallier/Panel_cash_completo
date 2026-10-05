@@ -244,11 +244,11 @@ function renderQr(){
 
 async function contarRecibidosHoy(){
   try{
-    const { data: { session } } = await window.sb.auth.getSession();
+    const uid = await window.cmUidVista();
     const desde = new Date(); desde.setHours(0,0,0,0);
     const { count } = await window.sb.from('mensajes')
       .select('id, conversaciones!inner(user_id)', { count:'exact', head:true })
-      .eq('conversaciones.user_id', session.user.id).eq('direccion', 'entrante').gte('creado_at', desde.toISOString());
+      .eq('conversaciones.user_id', uid).eq('direccion', 'entrante').gte('creado_at', desde.toISOString());
     recibidosHoy = count ?? null;
   }catch(e){ recibidosHoy = null; }
 }

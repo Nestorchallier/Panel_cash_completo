@@ -10,10 +10,12 @@
 // el render/drag-drop/filtros que ya funcionan. Lo que cambia es de dónde
 // salen y adónde se guardan esos objetos.
 
+// El usuario cuyos datos se leen y escriben: el logueado, o el agente que
+// está mirando un supervisor (ver cmUidVista en supabase/kv.js). Desde que
+// existe el rol supervisor, RLS ya no alcanza para quedarse con "lo mío"
+// (el supervisor ve todo): cada consulta filtra por este id a propósito.
 async function _uid() {
-  const { data: { session } } = await window.sb.auth.getSession();
-  if (!session) throw new Error('No autenticado');
-  return session.user.id;
+  return window.cmUidVista();
 }
 
 // Se llama una vez por sesión (ver index.html), después del login. Crea la
@@ -24,6 +26,8 @@ async function _uid() {
 // pestaña y usuario: se anota en sessionStorage (que el panel comparte con
 // sus iframes, mismo origen) y las pantallas siguientes lo saltean.
 async function crmBootstrap(nombre) {
+  // Mirando el panel de otro no se crea nada (es solo lectura).
+  if (window.cmSoloLectura && window.cmSoloLectura()) return;
   let clave = null;
   try {
     const { data: { session } } = await window.sb.auth.getSession();
@@ -277,6 +281,8 @@ async function crmListMensajes(conversacionId, opciones) {
 }
 
 async function crmMarcarConversacionLeida(conversacionId) {
+  // El supervisor mirando un chat no lo marca como leído (es del agente).
+  if (window.cmSoloLectura && window.cmSoloLectura()) return;
   await window.sb.from('conversaciones').update({ no_leidos: 0 }).eq('id', conversacionId);
 }
 
@@ -303,7 +309,8 @@ async function crmCrearConversacion(telefonoCrudo) {
   const { data: existente } = await window.sb.from('conversaciones').select('*').eq('user_id', uid).eq('telefono', tel).maybeSingle();
   if (existente) return existente;
 
-  const { data: telCliente } = await window.sb.from('clientes_telefonos').select('cliente_id').eq('telefono', tel).maybeSingle();
+  const { data: telCliente } = await window.sb.from('clientes_telefonos').select('cliente_id, clientes!inner(user_id)')
+    .eq('telefono', tel).eq('clientes.user_id', uid).limit(1).maybeSingle();
   const { data: nueva, error } = await window.sb.from('conversaciones').insert({
     user_id: uid, jid: tel + '@s.whatsapp.net', telefono: tel, cliente_id: telCliente ? telCliente.cliente_id : null,
   }).select('*').single();
