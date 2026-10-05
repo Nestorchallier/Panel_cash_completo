@@ -23,6 +23,7 @@
   let tramo = null;               // { id, dia }
   const sesionDesde = new Date().toISOString();
   let apagado = false;
+  const REINTENTO_MS = 5 * 60000;  // si falta la tabla o el permiso, se vuelve a probar cada 5 min
   let ocupado = false;
 
   const diaDe = (ms) => new Date(ms).toLocaleDateString('en-CA', { timeZone: TZ });
@@ -104,11 +105,14 @@
         chequear(r2.error);
       }
     } catch (e) {
-      // Sin tabla o sin permisos: no tiene sentido seguir intentando.
+      // Sin tabla o sin permisos: se pausa y se reintenta cada tanto, así
+      // una pestaña abierta antes de crear las tablas no queda apagada para
+      // siempre (en modo solo lectura sí se apaga del todo).
       const codigo = e && e.code;
       if (['42P01', 'PGRST205', 'PGRST204', '42501', 'SOLO_LECTURA'].includes(codigo)) {
         apagado = true;
-        console.warn('Contador de actividad apagado (¿falta correr supabase/010_actividad.sql?)', e);
+        console.warn('Contador de actividad en pausa (¿falta correr supabase/010_actividad.sql?)', e);
+        if (codigo !== 'SOLO_LECTURA') setTimeout(() => { apagado = false; }, REINTENTO_MS);
       } else {
         console.error('actividad', e);
       }
