@@ -1900,7 +1900,7 @@ sb.auth.getSession().then(async ({ data: { session } }) => {
 sb.auth.onAuthStateChange((_event, session) => { if (!session) location.href = 'index.html'; });
 
 window.appReady.then(async ()=>{
-  const { data: { session } } = await window.sb.auth.getSession();
+  const uidVista = await window.cmUidVista();
   // Todo en paralelo: antes iban en fila (etapas -> plantillas/nombre/reglas
   // -> contactos -> chats -> préstamos) y la lista tardaba la suma de todas.
   // Los chats se pintan recién cuando está lo demás (usan etapas, contactos
@@ -1930,7 +1930,7 @@ window.appReady.then(async ()=>{
   // de updates en pocos segundos — sin este debounce, cada uno disparaba
   // una recarga completa de la lista.
   let pendienteRecarga = null;
-  crmSuscribirConversaciones(session.user.id, () => {
+  crmSuscribirConversaciones(uidVista, () => {
     clearTimeout(pendienteRecarga);
     pendienteRecarga = setTimeout(cargarConversaciones, 1200);
   });

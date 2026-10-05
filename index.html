@@ -27,6 +27,8 @@
   <script src="supabase/kv.js"></script>
   <script src="js/telefonos.js"></script>
   <script src="supabase/crm.js"></script>
+  <script src="js/actividad.js"></script>
+  <script src="js/supervisor-datos.js"></script>
   <style>
     :root {
       --bg: #080B0F;
@@ -2391,6 +2393,62 @@
     .auth-error { color: var(--coral); font-size: 12.5px; min-height: 16px; }
     .sidebar-credito { color: #64748b; font-size: 10.5px; line-height: 1.45; text-align: center; padding: 8px 4px 0; }
     .auth-credito { color: var(--text-dim); font-size: 11px; line-height: 1.5; text-align: center; margin-top: 6px; opacity: .8; }
+
+    /* ===== Rol supervisor ===== */
+    /* Pantalla "¿Qué querés ver?" (supervisor recién logueado). */
+    .sup-elegir {
+      position: fixed; inset: 0; z-index: 2000; display: none;
+      align-items: center; justify-content: center; padding: 16px;
+      background: linear-gradient(135deg, #0f172a, #1e3a8a);
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
+    .sup-elegir.abierto { display: flex; }
+    .sup-elegir-caja { background: #fff; color: #0f172a; border-radius: 16px; padding: 30px; width: 760px; max-width: 100%; max-height: 92vh; overflow: auto; box-shadow: 0 24px 60px rgba(0,0,0,.35); }
+    .sup-elegir-caja h2 { margin: 0; font-size: 22px; }
+    .sup-elegir-caja .sub { color: #64748b; font-size: 13px; margin: 4px 0 18px; }
+    .sup-op { display: block; width: 100%; text-align: left; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 14px; cursor: pointer; font: inherit; color: inherit; }
+    .sup-op:hover { border-color: #2563eb; }
+    .sup-op b { display: block; font-size: 15px; margin-bottom: 3px; }
+    .sup-op span { font-size: 13px; color: #334155; }
+    .sup-op.principal { background: #eff6ff; border-color: #2563eb; margin-bottom: 12px; }
+    .sup-grilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+    .sup-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; background: #94a3b8; }
+    .sup-dot.conectado { background: #16a34a; }
+    .sup-dot.inactivo { background: #f59e0b; }
+    .sup-dot.desconectado { background: #dc2626; }
+    .sup-elegir-pie { margin-top: 16px; text-align: right; }
+    .sup-elegir-pie button { background: none; border: none; color: #64748b; font: inherit; font-size: 12.5px; cursor: pointer; text-decoration: underline; }
+    .sup-vacio { color: #64748b; font-size: 13px; padding: 10px 2px; }
+
+    /* Banner del modo "ver agente" (solo lectura). */
+    .sup-banner {
+      display: none; position: sticky; top: 0; z-index: 50;
+      align-items: center; gap: 10px; flex-wrap: wrap;
+      background: #fef3c7; color: #92400e; border-bottom: 1px solid #f59e0b;
+      padding: 9px 16px; font-size: 13px; min-height: 42px; box-sizing: border-box;
+    }
+    body.modo-ver-agente .sup-banner { display: flex; }
+    .sup-banner .txt { flex: 1; min-width: 220px; }
+    .sup-banner .acciones { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .sup-banner select, .sup-banner button { font: inherit; font-weight: 700; color: #92400e; background: transparent; border: 1px solid #f59e0b; border-radius: 8px; padding: 4px 8px; cursor: pointer; }
+    body.modo-ver-agente .view-iframe-wrap { height: calc(100vh - var(--alto-banner, 42px)); }
+    /* Solo lectura: fuera todo lo que escribe en Registro de pagos /
+       Objetivos / Comisiones / Envío de Mensajes. Igual, si algo se
+       escapa, supabase/kv.js no deja guardar nada. */
+    .cm-solo-lectura #resetBtn,
+    .cm-solo-lectura #view-comisiones .import-btn,
+    .cm-solo-lectura #view-objetivos .import-btn,
+    .cm-solo-lectura .add-pago-form,
+    .cm-solo-lectura .obj-manual-row,
+    .cm-solo-lectura .del-btn,
+    .cm-solo-lectura .edit-cat-btn,
+    .cm-solo-lectura #btnImportarBackup,
+    .cm-solo-lectura .sidebar-item[data-view="view-mensajes"],
+    .cm-solo-lectura #dupSection { display: none !important; }
+    .cm-solo-lectura .pago-tag,
+    .cm-solo-lectura .tier { pointer-events: none; }
+    .cm-solo-lectura #myCobradorInput,
+    .cm-solo-lectura #myRecorridoInput { pointer-events: none; opacity: .6; }
   </style>
 </head>
 
@@ -2406,6 +2464,17 @@
     <div id="authError" class="auth-error"></div>
     <div class="auth-credito">Creado por Nestor Challier<br>© 2026 Nestor Challier. Todos los derechos reservados.</div>
   </form>
+</div>
+
+<!-- Rol supervisor: "¿Qué querés ver?" al entrar (ver js/supervisor-datos.js). -->
+<div class="sup-elegir" id="supElegir">
+  <div class="sup-elegir-caja">
+    <h2 id="supElegirHola">Hola, Supervisor 👋</h2>
+    <div class="sub">¿Qué querés ver?</div>
+    <button class="sup-op principal" id="supIrPanel"><b>📊 Panel de supervisor</b><span>Métricas, objetivos y conexión de todos los agentes</span></button>
+    <div class="sup-grilla" id="supElegirAgentes"><div class="sup-vacio">Cargando agentes...</div></div>
+    <div class="sup-elegir-pie"><button id="supElegirSalir">↪ Cerrar sesión</button></div>
+  </div>
 </div>
 
 <div class="app-shell" id="appShell" style="display:none">
@@ -2456,6 +2525,14 @@
   </div>
 
   <main class="content-area">
+  <!-- Supervisor mirando el panel de un agente: todo es solo lectura. -->
+  <div class="sup-banner" id="supBanner">
+    <span class="txt">👁️ Estás viendo el panel de <b id="supBannerNombre">—</b> como supervisor (solo lectura: no podés enviar mensajes ni mover tarjetas)</span>
+    <span class="acciones">
+      <label>Cambiar agente <select id="supBannerAgente"></select></label>
+      <button id="supBannerVolver">← Volver al panel de supervisor</button>
+    </span>
+  </div>
 
   <!-- Las tres pantallas (Registro de pagos, Objetivos, Comisiones) usan
        el mismo state y las pinta el mismo render(): cada pago cargado,
@@ -2972,6 +3049,8 @@
     const STORAGE_KEY = 'panelComisionesCobros_state_v1';
 
     function saveState() {
+      // Supervisor mirando a un agente: se muestra, no se guarda.
+      if (window.cmSoloLectura && window.cmSoloLectura()) return;
       kvSet(STORAGE_KEY, state).catch(e => console.error('No se pudo guardar en Supabase', e));
     }
 
@@ -3909,9 +3988,11 @@
     /* ================= INIT ================= */
     window.appReady.then(async () => {
       if (!(await loadState())) {
-        loadDefaultData();
+        // Mirando a un agente que todavía no cargó nada: vacío, no los
+        // datos de ejemplo.
+        if (!(window.cmSoloLectura && window.cmSoloLectura())) loadDefaultData();
       }
-      if (!state.myCobrador) state.myCobrador = 'Nestor Challier';
+      if (!state.myCobrador && !(window.cmSoloLectura && window.cmSoloLectura())) state.myCobrador = 'Nestor Challier';
       render();
       await integrarPagosCRM();
       // Así, con esta pantalla abierta, un pago confirmado desde la Bandeja
@@ -4311,7 +4392,7 @@
       // servir una copia vieja cacheada. Subir este numero en cada cambio a
       // kanban_clientes.html / refi_buscador.html / calculadora_proximo_credito.html / whatsapp_crm.html
       // / clientes.html / conexion.html / agenda.html / informes.html (o a los js/css que usan).
-      const ASSET_VERSION = 33;
+      const ASSET_VERSION = 34;
 
       // Las pantallas embebidas se cargan recién cuando hay sesión. Si se
       // cargaban antes (la vista guardada se abre apenas carga el panel),
@@ -4532,9 +4613,10 @@
         try {
           const { data: { session } } = await window.sb.auth.getSession();
           if (!session) return;
+          const uid = await window.cmUidVista();
           const [{ data: ses }, { count }] = await Promise.all([
-            window.sb.from('wa_sesion').select('estado').eq('user_id', session.user.id).maybeSingle(),
-            window.sb.from('conversaciones').select('id', { count: 'exact', head: true }).eq('user_id', session.user.id).gt('no_leidos', 0),
+            window.sb.from('wa_sesion').select('estado').eq('user_id', uid).maybeSingle(),
+            window.sb.from('conversaciones').select('id', { count: 'exact', head: true }).eq('user_id', uid).gt('no_leidos', 0),
           ]);
           const estado = (ses && ses.estado) || 'desconectado';
           const pill = document.getElementById('sidebarWaEstado');
@@ -4685,20 +4767,127 @@
       const authError = document.getElementById('authError');
       const btnLogout = document.getElementById('btnLogout');
 
-      function showApp() {
+      // Al entrar se mira el rol (supabase/011_supervisor.sql):
+      //  - cobrador: el panel de siempre, y se arranca el contador de
+      //    actividad (js/actividad.js);
+      //  - supervisor: la pantalla "¿Qué querés ver?" o, si ya eligió un
+      //    agente, el panel de ese agente en solo lectura con el banner.
+      let mostrada = false;
+      async function showApp() {
+        if (mostrada) return;
+        mostrada = true;
         authGate.style.display = 'none';
-        appShell.style.display = '';
-        // Primera vez que entra este cobrador: crea su fila en usuarios, sus
-        // columnas default del Kanban y sus reglas de clasificación si
-        // todavía no existen (no-op si ya estaban). Se dispara antes de
-        // marcar la app como lista para que el resto de las cargas (que
-        // esperan window.appReady) ya encuentren los datos iniciales.
-        crmBootstrap().finally(() => window._markAppReady());
+        let propio = null, esSup = false;
+        try { propio = await cmUidPropio(); } catch (e) { }
+        esSup = await supEsSupervisor();
+        const vista = cmVista();
+
+        if (!esSup) {
+          // Un cobrador nunca mira a otro: si quedó algo anotado en esta
+          // pestaña (de un supervisor que salió), se borra y se recarga
+          // limpio para que ninguna pantalla quede en modo lectura.
+          if (vista) { cmDejarDeVer(); location.reload(); return; }
+          appShell.style.display = '';
+          // Primera vez que entra este cobrador: crea su fila en usuarios, sus
+          // columnas default del Kanban y sus reglas de clasificación si
+          // todavía no existen (no-op si ya estaban). Se dispara antes de
+          // marcar la app como lista para que el resto de las cargas (que
+          // esperan window.appReady) ya encuentren los datos iniciales.
+          crmBootstrap().finally(() => window._markAppReady());
+          cmActividadArrancar();
+          return;
+        }
+
+        if (vista && vista.agente && vista.sup === propio) {
+          if (!cmSoloLectura()) { location.reload(); return; }
+          await mostrarModoVerAgente(propio, vista);
+          window._markAppReady();
+          return;
+        }
+        if (vista) { cmDejarDeVer(); location.reload(); return; }
+        mostrarElegir(propio);
       }
       function showGate() {
+        mostrada = false;
         appShell.style.display = 'none';
+        document.getElementById('supElegir').classList.remove('abierto');
         authGate.style.display = 'flex';
       }
+
+      function verAgente(propio, agente) {
+        cmVerAgente(propio, agente.id, agente.nombre);
+        // Se recarga todo el panel: cada pantalla arranca ya con el agente
+        // elegido y en solo lectura.
+        location.hash = '';
+        location.reload();
+      }
+
+      async function mostrarElegir(propio) {
+        const caja = document.getElementById('supElegir');
+        caja.classList.add('abierto');
+        document.getElementById('supIrPanel').onclick = () => { location.href = 'supervisor.html'; };
+        try {
+          const nombre = await crmGetNombreUsuario();
+          if (nombre) document.getElementById('supElegirHola').textContent = 'Hola, ' + nombre.split(/\s+/)[0] + ' 👋';
+        } catch (e) { }
+        const cont = document.getElementById('supElegirAgentes');
+        try {
+          const agentes = await supListarAgentes();
+          const ids = agentes.map(a => a.id);
+          const [con, chats] = await Promise.all([supEstadosConexion(ids), supChats(ids)]);
+          if (!agentes.length) { cont.innerHTML = '<div class="sup-vacio">Todavía no hay agentes cargados.</div>'; return; }
+          cont.innerHTML = '';
+          agentes.forEach(a => {
+            const c = con[a.id] || {};
+            const b = document.createElement('button');
+            b.className = 'sup-op';
+            b.dataset.agente = a.id;
+            const extra = c.estado === 'conectado' ? ' · ' + ((chats[a.id] || {}).total || 0) + ' chats' : '';
+            b.innerHTML = `<b><span class="sup-dot ${c.estado || ''}"></span><span class="sup-nombre"></span></b><span class="sup-estado"></span>`;
+            b.querySelector('.sup-nombre').textContent = supNombreCorto(a.nombre);
+            b.querySelector('.sup-estado').textContent = (c.texto || 'Sin conexión hoy') + extra;
+            b.onclick = () => verAgente(propio, a);
+            cont.appendChild(b);
+          });
+        } catch (e) {
+          console.error('supervisor: agentes', e);
+          cont.innerHTML = '<div class="sup-vacio">No se pudieron cargar los agentes.</div>';
+        }
+      }
+
+      async function mostrarModoVerAgente(propio, vista) {
+        document.body.classList.add('modo-ver-agente');
+        appShell.style.display = '';
+        document.getElementById('supBannerNombre').textContent = vista.nombre || 'agente';
+        // El banner puede ocupar dos renglones en pantallas angostas: las
+        // pantallas embebidas se achican lo que haga falta.
+        const banner = document.getElementById('supBanner');
+        const medir = () => document.body.style.setProperty('--alto-banner', banner.offsetHeight + 'px');
+        medir();
+        window.addEventListener('resize', medir);
+        document.getElementById('sidebarUserRol').textContent = 'Supervisor · solo lectura';
+        document.getElementById('supBannerVolver').onclick = () => { cmDejarDeVer(); location.href = 'supervisor.html'; };
+        const sel = document.getElementById('supBannerAgente');
+        sel.innerHTML = `<option value="${vista.agente}"></option>`;
+        sel.options[0].textContent = vista.nombre || 'agente';
+        try {
+          const agentes = await supListarAgentes();
+          sel.innerHTML = '';
+          agentes.forEach(a => {
+            const o = document.createElement('option');
+            o.value = a.id; o.textContent = a.nombre;
+            if (a.id === vista.agente) o.selected = true;
+            sel.appendChild(o);
+          });
+          sel.onchange = () => { const a = agentes.find(x => x.id === sel.value); if (a) verAgente(propio, a); };
+        } catch (e) { console.error('supervisor: agentes', e); }
+      }
+
+      document.getElementById('supElegirSalir').addEventListener('click', async () => {
+        cmDejarDeVer();
+        await sb.auth.signOut();
+        location.reload();
+      });
 
       sb.auth.getSession().then(({ data: { session } }) => {
         if (session) showApp(); else showGate();
@@ -4727,6 +4916,7 @@
       });
 
       btnLogout.addEventListener('click', async () => {
+        cmDejarDeVer();
         await sb.auth.signOut();
         location.reload();
       });

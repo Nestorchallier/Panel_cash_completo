@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de supervisor</title>
+<script>
+  // En el Panel de supervisor no se está mirando a ningún agente: se borra
+  // lo que haya quedado de "Ver panel" antes de cargar el cliente Supabase
+  // (ver supabase/kv.js).
+  try { sessionStorage.removeItem('cm_ver_agente_v1'); } catch (e) { }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase/config.js"></script>
+<script src="supabase/kv.js"></script>
+<script src="js/telefonos.js"></script>
+<script src="supabase/crm.js"></script>
+<script src="js/supervisor-datos.js"></script>
+<style>
+  :root {
+    --bg: #f1f5f9; --card: #fff; --line: #e2e8f0; --text: #0f172a; --dim: #64748b;
+    --side: #0f172a; --side-txt: #e2e8f0; --azul: #2563eb; --verde: #16a34a; --naranja: #f59e0b; --rojo: #dc2626; --gris: #e2e8f0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #0b1220; --card: #111a2e; --line: #1f2a44; --text: #e2e8f0; --dim: #94a3b8; --gris: #26324d; }
+  }
+  :root[data-theme="dark"] { --bg: #0b1220; --card: #111a2e; --line: #1f2a44; --text: #e2e8f0; --dim: #94a3b8; --gris: #26324d; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 14px; }
+  .shell { display: flex; min-height: 100vh; }
+  aside { width: 230px; flex-shrink: 0; background: var(--side); color: var(--side-txt); padding: 16px 12px; display: flex; flex-direction: column; }
+  .marca { display: flex; align-items: center; gap: 10px; font-weight: 700; margin: 0 0 22px; }
+  .marca .logo { background: var(--azul); color: #fff; border-radius: 8px; padding: 6px 8px; font-size: 12px; }
+  .seccion { font-size: 11px; letter-spacing: .08em; color: #94a3b8; margin: 10px 6px 6px; }
+  .item { display: block; width: 100%; text-align: left; background: none; border: none; color: var(--side-txt); font: inherit; font-size: 14.5px; padding: 8px 10px; border-radius: 8px; cursor: pointer; text-decoration: none; }
+  .item:hover { background: rgba(255,255,255,.06); }
+  .item.activo { background: var(--azul); color: #fff; }
+  .sub-agentes { display: none; padding-left: 14px; }
+  .sub-agentes.abierto { display: block; }
+  .sub-agentes .item { font-size: 13px; padding: 6px 10px; }
+  .pie-side { margin-top: auto; font-size: 12px; color: #94a3b8; }
+  .pie-side button { margin-top: 8px; }
+  main { flex: 1; min-width: 0; padding: 22px 28px 40px; }
+  .cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  h1 { margin: 0; font-size: 22px; }
+  .sub { color: var(--dim); font-size: 13px; margin-top: 4px; }
+  .btn { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font: inherit; cursor: pointer; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .kpi { background: var(--card); border-radius: 12px; padding: 16px; border: 1px solid var(--line); }
+  .kpi .lbl { color: var(--dim); font-size: 12.5px; }
+  .kpi .val { font-size: 26px; font-weight: 800; margin: 6px 0 4px; }
+  .kpi .nota { font-size: 12px; color: var(--verde); }
+  .kpi .nota.mal { color: var(--rojo); }
+  .tabla-wrap { background: var(--card); border-radius: 12px; border: 1px solid var(--line); overflow-x: auto; margin-bottom: 18px; }
+  table { width: 100%; border-collapse: collapse; min-width: 860px; }
+  th { text-align: left; font-size: 12.5px; color: var(--dim); font-weight: 600; padding: 11px 12px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--card) 92%, var(--line)); }
+  td { padding: 11px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  td.nombre { font-weight: 700; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; background: #94a3b8; }
+  .dot.conectado { background: var(--verde); } .dot.inactivo { background: var(--naranja); } .dot.desconectado { background: var(--rojo); }
+  .barra { display: inline-block; width: 120px; height: 8px; background: var(--gris); border-radius: 6px; overflow: hidden; vertical-align: middle; margin-right: 8px; }
+  .barra i { display: block; height: 100%; }
+  .ver { background: var(--azul); color: #fff; border: none; border-radius: 7px; padding: 6px 10px; font: inherit; font-size: 12.5px; cursor: pointer; }
+  .abajo { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; }
+  .caja { background: var(--card); border-radius: 12px; border: 1px solid var(--line); padding: 16px; min-width: 0; }
+  .caja h3 { margin: 0 0 10px; font-size: 15px; }
+  .linea-ag { font-size: 12.5px; margin: 8px 0 3px; }
+  .linea { position: relative; height: 22px; background: var(--gris); border-radius: 6px; overflow: hidden; }
+  .linea i { position: absolute; top: 0; bottom: 0; }
+  .ejes { display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); margin-top: 4px; }
+  .leyenda { font-size: 11.5px; color: var(--dim); margin-top: 10px; }
+  .leyenda span { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin: 0 3px 0 8px; }
+  .alertas { margin: 0; padding-left: 18px; }
+  .alertas li { margin-bottom: 9px; font-size: 13.5px; }
+  .vacio { color: var(--dim); font-size: 13px; }
+  .error { background: #fee2e2; color: #991b1b; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; display: none; }
+  @media (max-width: 900px) {
+    .shell { flex-direction: column; }
+    aside { width: 100%; }
+    main { padding: 16px; }
+    .abajo { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <div class="marca"><span class="logo">CRM</span>Panel Unificado</div>
+    <div class="seccion">SUPERVISIÓN</div>
+    <a class="item activo" href="#arriba">📊 Panel de supervisor</a>
+    <button class="item" id="btnVerAgente">👥 Ver un agente ▾</button>
+    <div class="sub-agentes" id="subAgentes"></div>
+    <a class="item" href="#actividad">⏱️ Actividad</a>
+    <a class="item" href="#alertas">🔔 Alertas</a>
+    <div class="pie-side">
+      <div id="quienSoy">Supervisor</div>
+      <button class="item" id="btnSalir">↪ Cerrar sesión</button>
+    </div>
+  </aside>
+  <main id="arriba">
+    <div class="cabecera">
+      <div>
+        <h1>Panel de supervisor</h1>
+        <div class="sub" id="subtitulo">Cargando...</div>
+      </div>
+      <button class="btn" id="btnActualizar">↻ Actualizar</button>
+    </div>
+    <div class="error" id="error"></div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="lbl">Cobrado del equipo</div><div class="val" id="kCobrado">—</div><div class="nota" id="kCobradoNota">&nbsp;</div></div>
+      <div class="kpi"><div class="lbl">Objetivo del equipo</div><div class="val" id="kObjetivo">—</div><div class="nota" id="kObjetivoNota">&nbsp;</div></div>
+      <div class="kpi"><div class="lbl">Promesas hoy</div><div class="val" id="kPromesas">—</div><div class="nota" id="kPromesasNota">&nbsp;</div></div>
+      <div class="kpi"><div class="lbl">Agentes conectados</div><div class="val" id="kConectados">—</div><div class="nota" id="kConectadosNota">&nbsp;</div></div>
+      <div class="kpi"><div class="lbl">Mensajes enviados hoy</div><div class="val" id="kMensajes">—</div><div class="nota" id="kMensajesNota">&nbsp;</div></div>
+    </div>
+
+    <div class="tabla-wrap">
+      <table>
+        <thead><tr><th>Agente</th><th>Conexión</th><th>Activo hoy</th><th>Cobrado</th><th>Objetivo</th><th>Promesas hoy (cumplidas / total)</th><th>Chats sin responder</th><th></th></tr></thead>
+        <tbody id="filas"><tr><td colspan="8" class="vacio">Cargando agentes...</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="abajo">
+      <div class="caja" id="actividad">
+        <h3 id="actTitulo">⏱️ Actividad de hoy</h3>
+        <div id="lineas"><div class="vacio">Cargando...</div></div>
+        <div class="leyenda"><span style="background:var(--verde)"></span>activo · <span style="background:var(--naranja)"></span>pausa sin actividad · <span style="background:var(--gris);border:1px solid var(--line)"></span>desconectado</div>
+      </div>
+      <div class="caja" id="alertas">
+        <h3>🔔 Alertas</h3>
+        <ul class="alertas" id="listaAlertas"><li class="vacio">Cargando...</li></ul>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const fmtPlata = (n) => {
+  n = Number(n) || 0;
+  if (Math.abs(n) >= 1e6) return '$ ' + (n / 1e6).toLocaleString('es-AR', { maximumFractionDigits: 1 }) + ' M';
+  return '$ ' + Math.round(n).toLocaleString('es-AR');
+};
+const fmtDuracion = (ms) => { const m = Math.round(ms / 60000); return Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' m'; };
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let propio = null;
+let agentes = [];
+let actualizadoEn = null;
+
+function verAgente(a) {
+  cmVerAgente(propio, a.id, a.nombre);
+  location.href = 'index.html';
+}
+
+function tiempoActivo(tramos) {
+  return (tramos || []).reduce((s, t) => s + Math.max(0, new Date(t.fin) - new Date(t.inicio)), 0);
+}
+
+function colorPct(p) { return p >= 55 ? 'var(--verde)' : p >= 40 ? 'var(--naranja)' : 'var(--rojo)'; }
+
+// Línea del día de cada agente: verde = tramos con actividad, naranja = los
+// huecos entre tramos (y el final, si sigue con el panel abierto pero sin
+// tocar nada), gris = antes de entrar / después de irse.
+function pintarActividad(lista, actividad, conexion) {
+  const ahora = Date.now();
+  let desde = null;
+  lista.forEach(a => { const t = actividad[a.id] || []; if (t.length) { const i = new Date(t[0].inicio).getTime(); if (desde === null || i < desde) desde = i; } });
+  const hoy = supHoyAR();
+  const inicioDia = new Date(hoy + 'T08:00:00-03:00').getTime();
+  desde = Math.min(desde === null ? inicioDia : desde, inicioDia);
+  desde = Math.floor(desde / 3600000) * 3600000;
+  let hasta = Math.ceil(ahora / 3600000) * 3600000;
+  if (hasta - desde < 3600000) hasta = desde + 3600000;
+  const pct = (ms) => ((ms - desde) / (hasta - desde) * 100).toFixed(2) + '%';
+  const ancho = (a, b) => (Math.max(0, b - a) / (hasta - desde) * 100).toFixed(2) + '%';
+  $('actTitulo').textContent = `⏱️ Actividad de hoy (${supHoraAR(new Date(desde).toISOString())} a ${supHoraAR(new Date(hasta).toISOString())})`;
+  const html = lista.map(a => {
+    const tramos = actividad[a.id] || [];
+    let seg = '';
+    tramos.forEach((t, i) => {
+      const ini = new Date(t.inicio).getTime(), fin = new Date(t.fin).getTime();
+      seg += `<i style="left:${pct(ini)};width:${ancho(ini, fin)};background:var(--verde)"></i>`;
+      const sig = tramos[i + 1];
+      if (sig) { const s = new Date(sig.inicio).getTime(); seg += `<i style="left:${pct(fin)};width:${ancho(fin, s)};background:var(--naranja)"></i>`; }
+    });
+    const ult = tramos[tramos.length - 1];
+    const c = conexion[a.id] || {};
+    if (ult && c.estado === 'inactivo') { const f = new Date(ult.fin).getTime(); seg += `<i style="left:${pct(f)};width:${ancho(f, ahora)};background:var(--naranja)"></i>`; }
+    return `<div class="linea-ag">${esc(supNombreCorto(a.nombre))} <span class="vacio">· ${esc(c.texto || '')}</span></div><div class="linea" data-agente="${esc(a.id)}">${seg}</div>`;
+  }).join('');
+  $('lineas').innerHTML = html || '<div class="vacio">Sin agentes.</div>';
+}
+
+function pintarAlertas(lista, d) {
+  const al = [];
+  const hoy = new Date();
+  const finMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
+  const pctMes = Math.round(hoy.getDate() / finMes * 100);
+  lista.forEach(a => {
+    const n = supNombreCorto(a.nombre);
+    const c = d.conexion[a.id] || {};
+    const tramos = d.actividad[a.id] || [];
+    if (c.estado === 'desconectado' && tramos.length) al.push(`${n} no se conecta desde las ${supHoraAR(c.latidoAt)}`);
+    else if (c.estado !== 'conectado' && c.estado !== 'inactivo' && !tramos.length) al.push(`${n} no se conectó hoy`);
+    if (c.estado === 'inactivo' && c.minutos >= 30) al.push(`${n} lleva ${c.minutos} min sin actividad`);
+    const ch = d.chats[a.id] || {};
+    if (ch.sinResponder >= 15) al.push(`${ch.sinResponder} chats sin responder de ${n}`);
+    const o = d.cobro[a.id] || {};
+    if (o.objetivo > 0) {
+      const p = Math.round(o.cobrado / o.objetivo * 100);
+      if (p < pctMes - 15) al.push(`${n} va ${p}% del objetivo con ${pctMes}% del mes`);
+    }
+  });
+  $('listaAlertas').innerHTML = al.length ? al.map(t => `<li>${esc(t)}</li>`).join('') : '<li class="vacio">Sin alertas por ahora.</li>';
+}
+
+async function cargar() {
+  $('error').style.display = 'none';
+  try {
+    agentes = await supListarAgentes();
+    const ids = agentes.map(a => a.id);
+    const [conexion, actividad, cobro, promesas, chats, mensajes] = await Promise.all([
+      supEstadosConexion(ids), supActividadHoy(ids), supCobradoYObjetivo(ids), supPromesasHoy(ids), supChats(ids), supMensajesHoy(ids),
+    ]);
+    const d = { conexion, actividad, cobro, promesas, chats, mensajes };
+
+    // KPIs del equipo
+    const totCob = ids.reduce((s, id) => s + cobro[id].cobrado, 0);
+    const totObj = ids.reduce((s, id) => s + cobro[id].objetivo, 0);
+    $('kCobrado').textContent = fmtPlata(totCob);
+    $('kCobradoNota').textContent = 'Registro de pagos de ' + ids.length + ' agentes';
+    $('kObjetivo').textContent = totObj > 0 ? Math.round(totCob / totObj * 100) + '%' : '—';
+    $('kObjetivoNota').textContent = totObj > 0 ? 'de ' + fmtPlata(totObj) : 'Sin objetivos cargados';
+    const pTot = ids.reduce((s, id) => s + promesas[id].total, 0);
+    const pOk = ids.reduce((s, id) => s + promesas[id].cumplidas, 0);
+    $('kPromesas').textContent = pTot;
+    $('kPromesasNota').textContent = pOk + ' cumplidas';
+    const con = ids.filter(id => conexion[id].estado === 'conectado' || conexion[id].estado === 'inactivo').length;
+    const desc = ids.length - con;
+    $('kConectados').textContent = con + ' / ' + ids.length;
+    $('kConectadosNota').textContent = desc ? desc + (desc === 1 ? ' desconectado' : ' desconectados') : 'todos conectados';
+    $('kConectadosNota').classList.toggle('mal', desc > 0);
+    $('kMensajes').textContent = mensajes.enviados.toLocaleString('es-AR');
+    $('kMensajesNota').textContent = mensajes.recibidos.toLocaleString('es-AR') + ' recibidos';
+
+    // Tabla por agente
+    $('filas').innerHTML = agentes.length ? '' : '<tr><td colspan="8" class="vacio">Todavía no hay agentes. Cada cobrador aparece acá la primera vez que entra al panel.</td></tr>';
+    agentes.forEach(a => {
+      const c = conexion[a.id], o = cobro[a.id], p = promesas[a.id], ch = chats[a.id] || {};
+      const pct = o.objetivo > 0 ? Math.round(o.cobrado / o.objetivo * 100) : null;
+      const tr = document.createElement('tr');
+      tr.dataset.agente = a.id;
+      tr.innerHTML = `<td class="nombre">${esc(a.nombre)}</td>
+        <td><span class="dot ${c.estado}"></span>${esc(c.texto)}</td>
+        <td>${fmtDuracion(tiempoActivo(actividad[a.id]))}</td>
+        <td>${fmtPlata(o.cobrado)}</td>
+        <td>${pct === null ? '<span class="vacio">Sin objetivo</span>' : `<span class="barra"><i style="width:${Math.min(pct, 100)}%;background:${colorPct(pct)}"></i></span>${pct}%`}</td>
+        <td>${p.cumplidas} / ${p.total}${p.total && p.cumplidas === p.total ? ' ✔' : ''}</td>
+        <td>${ch.sinResponder || 0}</td>
+        <td><button class="ver">Ver panel</button></td>`;
+      tr.querySelector('.ver').onclick = () => verAgente(a);
+      $('filas').appendChild(tr);
+    });
+
+    pintarActividad(agentes, actividad, conexion);
+    pintarAlertas(agentes, d);
+
+    // Menú "Ver un agente"
+    $('subAgentes').innerHTML = '';
+    agentes.forEach(a => {
+      const b = document.createElement('button');
+      b.className = 'item';
+      b.innerHTML = `<span class="dot ${conexion[a.id].estado}"></span>`;
+      b.append(supNombreCorto(a.nombre));
+      b.onclick = () => verAgente(a);
+      $('subAgentes').appendChild(b);
+    });
+
+    actualizadoEn = Date.now();
+    pintarSubtitulo();
+  } catch (e) {
+    console.error('supervisor', e);
+    $('error').textContent = 'No se pudieron cargar los datos del equipo: ' + (e.message || e);
+    $('error').style.display = 'block';
+  }
+}
+
+function pintarSubtitulo() {
+  const dia = new Date().toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', weekday: 'long', day: '2-digit', month: '2-digit' });
+  const min = actualizadoEn ? Math.floor((Date.now() - actualizadoEn) / 60000) : 0;
+  $('subtitulo').textContent = dia.charAt(0).toUpperCase() + dia.slice(1) + ' · actualizado ' + (min < 1 ? 'recién' : 'hace ' + min + ' min');
+}
+
+$('btnActualizar').onclick = cargar;
+$('btnVerAgente').onclick = () => $('subAgentes').classList.toggle('abierto');
+$('btnSalir').onclick = async () => { cmDejarDeVer(); await sb.auth.signOut(); location.href = 'index.html'; };
+
+/* ===== Auth: solo supervisores ===== */
+sb.auth.getSession().then(async ({ data: { session } }) => {
+  if (!session) { location.href = 'index.html'; return; }
+  propio = session.user.id;
+  if (!(await supEsSupervisor())) { location.href = 'index.html'; return; }
+  try {
+    const nombre = await crmGetNombreUsuario();
+    if (nombre) $('quienSoy').textContent = nombre + ' · Supervisor';
+  } catch (e) { }
+  window._markAppReady();
+  await cargar();
+  setInterval(cargar, 60000);
+  setInterval(pintarSubtitulo, 15000);
+});
+sb.auth.onAuthStateChange((_event, session) => { if (!session) location.href = 'index.html'; });
+</script>
+</body>
+</html>
