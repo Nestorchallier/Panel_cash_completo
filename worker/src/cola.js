@@ -11,7 +11,19 @@ const { aplicarPromesaConfirmada } = require('./aplicar-reglas');
 // auditar si un mensaje salió o no.
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
-const POLL_MS = 4000;
+const POLL_MS = 1500;
+// Una respuesta en un chat donde el cliente escribió en las últimas 24 h es
+// una conversación, no un envío masivo: sale casi enseguida (con un respiro
+// corto entre una y otra) en vez de esperar el intervalo anti-bloqueo.
+const PAUSA_RESPUESTA_MS = 3000;
+const VENTANA_RESPUESTA_MS = 24 * 3600000;
+
+async function esRespuesta(supabase, conversacionId) {
+  const desde = new Date(Date.now() - VENTANA_RESPUESTA_MS).toISOString();
+  const { data } = await supabase.from('mensajes').select('id')
+    .eq('conversacion_id', conversacionId).eq('direccion', 'entrante').gte('creado_at', desde).limit(1);
+  return !!(data && data.length);
+}
 
 function horaActualEntre(desde, hasta, ahora = new Date()) {
   const hhmm = ahora.toTimeString().slice(0, 5);
@@ -37,7 +49,9 @@ async function resetearContadorSiCambioDeDia(supabase, userId, sesion) {
   return sesion;
 }
 
-async function enviarUno(sock, supabase, userId, sesion) {
+// soloRespuesta: durante el intervalo anti-bloqueo solo se mandan respuestas
+// a chats activos. Devuelve false si no mandó nada, o { respuesta } si mandó.
+async function enviarUno(sock, supabase, userId, sesion, { soloRespuesta = false } = {}) {
   const { data: pendiente } = await supabase
     .from('mensajes')
     .select('*, conversaciones!inner(id, jid, user_id, cliente_id)')
@@ -49,6 +63,8 @@ async function enviarUno(sock, supabase, userId, sesion) {
     .maybeSingle();
 
   if (!pendiente) return false;
+  const respuesta = await esRespuesta(supabase, pendiente.conversaciones.id);
+  if (soloRespuesta && !respuesta) return false;
 
   // El id de WhatsApp (wa_id) se elige ACÁ y se guarda en la fila ANTES de
   // mandar. Por dos motivos:
@@ -86,18 +102,20 @@ async function enviarUno(sock, supabase, userId, sesion) {
     logger.error({ err: e }, 'Error enviando mensaje, se reintenta en el próximo ciclo');
     await supabase.from('mensajes').update({ estado: 'error' }).eq('id', pendiente.id);
   }
-  return true;
+  return { respuesta };
 }
 
 function iniciarColaEnvios({ supabase, userId, getSock }) {
   let enviandoAhora = false;
   let proximoEnvioPermitidoEn = 0;
+  let ultimoEnvio = 0;
 
   setInterval(async () => {
     if (enviandoAhora) return;
     const sock = getSock();
     if (!sock) return;
-    if (Date.now() < proximoEnvioPermitidoEn) return;
+    const enIntervalo = Date.now() < proximoEnvioPermitidoEn;
+    if (enIntervalo && Date.now() - ultimoEnvio < PAUSA_RESPUESTA_MS) return;
 
     enviandoAhora = true;
     try {
@@ -109,11 +127,16 @@ function iniciarColaEnvios({ supabase, userId, getSock }) {
       if (!horaActualEntre(sesion.horario_desde, sesion.horario_hasta)) return;
       if ((sesion.enviados_hoy || 0) >= (sesion.limite_diario || 250)) return;
 
-      const envio = await enviarUno(sock, supabase, userId, sesion);
+      const envio = await enviarUno(sock, supabase, userId, sesion, { soloRespuesta: enIntervalo });
       if (envio) {
-        const min = (sesion.intervalo_min || 25) * 1000;
-        const max = (sesion.intervalo_max || 60) * 1000;
-        proximoEnvioPermitidoEn = Date.now() + min + Math.random() * Math.max(0, max - min);
+        ultimoEnvio = Date.now();
+        // Solo los envíos "en frío" (sin charla reciente) abren el intervalo
+        // anti-bloqueo; una respuesta no lo alarga.
+        if (!envio.respuesta) {
+          const min = (sesion.intervalo_min || 25) * 1000;
+          const max = (sesion.intervalo_max || 60) * 1000;
+          proximoEnvioPermitidoEn = Date.now() + min + Math.random() * Math.max(0, max - min);
+        }
       }
     } catch (e) {
       logger.error({ err: e }, 'Error en el ciclo de la cola de envíos');
