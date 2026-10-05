@@ -81,7 +81,6 @@
     main { padding: 16px; }
     .abajo { grid-template-columns: 1fr; }
   }
-.caja.resaltar{outline:2px solid #2563eb;outline-offset:2px;transition:outline-color .3s}
   /* Secciones: Panel / Informes / Objetivos por agente / Usuarios */
   .vista[hidden] { display: none !important; }
   .form-linea { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
@@ -98,6 +97,18 @@
   .tag.pend { background: #fef3c7; color: #854d0e; }
   .acciones-fila { display: flex; gap: 6px; justify-content: flex-end; }
   .nota-chica { font-size: 12px; color: var(--dim); }
+  /* Avance por agente (Objetivos por agente) */
+  .avance td, .avance th { padding: 9px 8px; }
+  .avance th.esc, .avance td.esc { text-align: right; border-left: 1px dashed var(--line); }
+  .avance td.num, .avance th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .avance .falta { color: var(--rojo); font-weight: 700; }
+  .avance .alcanzada { color: var(--verde); font-weight: 700; }
+  .avance .detalle { display: block; font-size: 11.5px; color: var(--dim); font-weight: 400; }
+  .avance td.pct { font-weight: 700; }
+  .avance tr.total td { font-weight: 700; background: color-mix(in srgb, var(--card) 88%, var(--line)); border-top: 2px solid var(--line); }
+  .avance .barra { width: 90px; }
+  .avance .inp.monto { width: 120px; padding: 5px 8px; }
+  .avance .editor[hidden] { display: none; }
   .iframe-informes { width: 100%; height: calc(100vh - 120px); min-height: 600px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
   dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--text); padding: 20px; width: min(420px, calc(100vw - 32px)); }
   dialog::backdrop { background: rgba(15, 23, 42, .45); }
@@ -120,8 +131,6 @@
     <a class="item activo" href="#panel" data-vista="vistaPanel">📊 Panel de supervisor</a>
     <button class="item" id="btnVerAgente">👥 Ver un agente ▾</button>
     <div class="sub-agentes" id="subAgentes"></div>
-    <a class="item" href="#actividad">⏱️ Actividad</a>
-    <a class="item" href="#alertas">🔔 Alertas</a>
     <a class="item" href="#informes" data-vista="vistaInformes">📈 Informes</a>
     <div class="seccion">CONFIGURACIÓN</div>
     <a class="item" href="#objetivos" data-vista="vistaObjetivos">🎯 Objetivos por agente</a>
@@ -186,7 +195,7 @@
     <div class="cabecera">
       <div>
         <h1>🎯 Objetivos por agente</h1>
-        <div class="sub">El objetivo que fijes acá es el que ve el agente en su pantalla Objetivos, y no lo puede cambiar. Sin objetivo fijado, vale el que el agente tenga cargado.</div>
+        <div class="sub">El objetivo que fijes acá es el que ve el agente en su pantalla Objetivos, y no lo puede cambiar. Sin objetivo fijado, vale el que el agente tenga cargado. Abajo, el avance de cada uno y lo que le falta para cada escala.</div>
       </div>
       <div class="form-linea">
         <label class="nota-chica" for="objPeriodo">Mes</label>
@@ -194,12 +203,19 @@
       </div>
     </div>
     <div class="error" id="objError"></div>
+    <div class="kpis">
+      <div class="kpi"><div class="lbl">Recaudación objetivo del equipo</div><div class="val" id="objKpiObjetivo">—</div><div class="nota">&nbsp;</div></div>
+      <div class="kpi"><div class="lbl">Cobrado del equipo</div><div class="val" id="objKpiCobrado" style="color:var(--verde)">—</div><div class="nota">&nbsp;</div></div>
+      <div class="kpi"><div class="lbl">% recaudación</div><div class="val" id="objKpiPct">—</div><div class="nota">&nbsp;</div></div>
+      <div class="kpi"><div class="lbl" id="objKpiFaltaLbl">Falta para la primera escala</div><div class="val" id="objKpiFalta" style="color:var(--rojo)">—</div><div class="nota-chica" id="objKpiFaltaNota">&nbsp;</div></div>
+    </div>
     <div class="tabla-wrap">
-      <table>
-        <thead><tr><th>Agente</th><th>Objetivo del agente</th><th>Fijado por supervisor</th><th>Cobrado (mes en curso)</th><th>Nuevo objetivo</th><th></th></tr></thead>
-        <tbody id="objFilas"><tr><td colspan="6" class="vacio">Cargando...</td></tr></tbody>
+      <table class="avance">
+        <thead id="objCabeza"></thead>
+        <tbody id="objFilas"><tr><td class="vacio">Cargando...</td></tr></tbody>
       </table>
     </div>
+    <div class="leyenda" id="objLeyenda"></div>
    </section>
 
    <!-- 🔐 Usuarios: los cambios los hace el worker (clave service) a partir de comandos_usuarios -->
@@ -429,17 +445,10 @@ function mostrarVista(id) {
   if (id === 'vistaUsuarios') cargarUsuarios();
   window.scrollTo(0, 0);
 }
-// "Actividad" y "Alertas" del menú: lleva a esa caja del Panel y la resalta
-// un momento (con todo a la vista, el salto solo no se notaba).
-document.querySelectorAll('a.item[href^="#"]').forEach(a => a.addEventListener('click', e => {
+document.querySelectorAll('a.item[data-vista]').forEach(a => a.addEventListener('click', e => {
   e.preventDefault();
-  if (a.dataset.vista) { mostrarVista(a.dataset.vista); history.replaceState(null, '', a.getAttribute('href')); return; }
-  const caja = document.getElementById(a.getAttribute('href').slice(1));
-  if (!caja) return;
-  if ($('vistaPanel').hidden) mostrarVista('vistaPanel');
-  caja.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  caja.classList.add('resaltar');
-  setTimeout(() => caja.classList.remove('resaltar'), 1500);
+  mostrarVista(a.dataset.vista);
+  history.replaceState(null, '', a.getAttribute('href'));
 }));
 function mostrarError(id, texto) { $(id).textContent = texto; $(id).style.display = 'block'; }
 
@@ -449,6 +458,16 @@ function mostrarError(id, texto) { $(id).textContent = texto; $(id).style.displa
 $('objPeriodo').value = supPeriodoAR();
 $('objPeriodo').addEventListener('change', () => cargarObjetivos());
 let objCargando = 0;
+// Escala de metas por defecto (la misma con la que arranca index.html,
+// loadDefaultData) para el agente que todavía no tiene la suya cargada.
+const ESCALAS_DEFECTO = [0.70, 0.78, 0.83, 0.86, 1.00];
+const fmtExacto = (n) => '$ ' + Math.round(n).toLocaleString('es-AR');
+const fmtPct = (n) => n.toFixed(1).replace('.', ',') + '%';
+// Calor de % recaudación por puesto: verde el mejor → rojo el peor, como el Excel.
+const colorCalor = (puesto, cantidad) => {
+  const t = cantidad > 1 ? 1 - puesto / (cantidad - 1) : 1;
+  return `hsla(${Math.round(t * 120)}, 75%, 45%, .22)`;
+};
 async function cargarObjetivos() {
   const pedido = ++objCargando;
   $('objError').style.display = 'none';
@@ -461,19 +480,80 @@ async function cargarObjetivos() {
     const cobro = await supCobradoYObjetivo(ids);
     if (pedido !== objCargando) return;
     const fijados = new Map((data || []).map(r => [r.user_id, r]));
+    // El avance (cobrado, registrado, facturas) es el del panel de cada
+    // agente, que es siempre el del mes en curso: otro mes solo muestra los
+    // objetivos.
     const esMesActual = periodo === supPeriodoAR();
-    $('objFilas').innerHTML = lista.length ? '' : '<tr><td colspan="6" class="vacio">Todavía no hay agentes.</td></tr>';
-    lista.forEach(a => {
+
+    // Cada fila con los mismos números que la pantalla Objetivos del agente
+    // (index.html, render): % cobrado = cobrado / objetivo; una escala está
+    // alcanzada cuando lo registrado llega a su meta, y falta meta − registrado.
+    let usanDefecto = false;
+    const filas = lista.map(a => {
       const f = fijados.get(a.id), o = cobro[a.id] || {};
+      const objetivo = f ? Number(f.monto) : (Number(o.objetivoPropio) || 0);
+      let escalas = [], defecto = false;
+      if (esMesActual) {
+        escalas = o.escalas || [];
+        if (!escalas.length && objetivo > 0) {
+          escalas = ESCALAS_DEFECTO.map(e => ({ escala: e, meta: Math.round(e * objetivo) }));
+          defecto = usanDefecto = true;
+        }
+      }
+      const cobrado = Number(o.cobrado) || 0, registrado = Number(o.registrado) || 0;
+      return { a, f, o, objetivo, escalas, defecto, cobrado, registrado,
+        pct: objetivo > 0 ? cobrado / objetivo * 100 : null };
+    });
+    // Columnas: todas las escalas que tenga algún agente (por %).
+    const niveles = [...new Set(filas.flatMap(r => r.escalas.map(s => Math.round(s.escala * 100))))].sort((x, y) => x - y);
+    filas.sort((x, y) => (y.pct ?? -1) - (x.pct ?? -1));
+    const pcts = filas.filter(r => r.pct !== null).map(r => r.pct); // de mayor a menor
+
+    $('objCabeza').innerHTML = `<tr><th>Agente</th><th class="num">Facturas<span class="detalle">cobradas / objetivo</span></th>
+      <th class="num">Recaudación objetivo</th><th class="num">Cobrado</th><th>% recaudación</th>
+      ${niveles.map(n => `<th class="esc">Falta ${n}%</th>`).join('')}
+      <th>Objetivo (editar)</th></tr>`;
+    const nCols = 6 + niveles.length;
+    $('objFilas').innerHTML = lista.length ? '' : `<tr><td colspan="${nCols}" class="vacio">Todavía no hay agentes.</td></tr>`;
+
+    const tot = { factObj: 0, factCob: 0, objetivo: 0, cobrado: 0, niveles: {} };
+    niveles.forEach(n => { tot.niveles[n] = { falta: 0, alcanzadas: 0, total: 0 }; });
+    filas.forEach(r => {
+      const { a, f, o } = r;
       const tr = document.createElement('tr');
       tr.dataset.agente = a.id;
-      const pct = f && esMesActual ? Math.round(o.cobrado / Number(f.monto) * 100) : null;
-      tr.innerHTML = `<td class="nombre">${esc(a.nombre)}</td>
-        <td>${o.objetivoPropio > 0 ? fmtPlata(o.objetivoPropio) : '<span class="vacio">Sin cargar</span>'}</td>
-        <td>${f ? `<b>${fmtPlata(f.monto)}</b> <span class="tag sup">🔒 fijo</span>` : '<span class="vacio">—</span>'}</td>
-        <td>${esMesActual ? fmtPlata(o.cobrado) + (pct !== null ? ` <span class="nota-chica">(${pct}%)</span>` : '') : '<span class="vacio">—</span>'}</td>
-        <td><div class="form-linea"><input class="inp monto" type="number" min="1" step="1000" placeholder="$ monto" value="${f ? Number(f.monto) : ''}"><button class="btn chico primario guardar">Guardar</button></div></td>
-        <td>${f ? '<button class="btn chico peligro quitar" title="Vuelve a valer el objetivo que tenga cargado el agente">Quitar</button>' : ''}</td>`;
+      tot.objetivo += r.objetivo;
+      if (esMesActual) { tot.cobrado += r.cobrado; tot.factObj += o.factObjetivo || 0; tot.factCob += o.factCobradas || 0; }
+      const fact = esMesActual && o.factObjetivo > 0
+        ? `${o.factCobradas} / ${o.factObjetivo}<span class="detalle">${fmtPct(o.factCobradas / o.factObjetivo * 100)}</span>`
+        : '<span class="vacio">—</span>';
+      const objTxt = r.objetivo > 0
+        ? `${fmtPlata(r.objetivo)}${f ? ' <span class="tag sup" title="Fijado por supervisor">🔒 fijo</span>' : ''}`
+          + (f && o.objetivoPropio > 0 && Number(o.objetivoPropio) !== r.objetivo ? `<span class="detalle">el agente tenía ${fmtPlata(o.objetivoPropio)}</span>` : '')
+        : '<span class="vacio">Sin objetivo</span>';
+      const pctTd = !esMesActual ? '<td><span class="vacio">—</span></td>'
+        : r.pct === null ? '<td><span class="vacio">Sin objetivo</span></td>'
+        : `<td class="pct" style="background:${colorCalor(pcts.indexOf(r.pct), pcts.length)}"><span class="barra"><i style="width:${Math.min(r.pct, 100)}%;background:${colorPct(Math.round(r.pct))}"></i></span>${fmtPct(r.pct)}</td>`;
+      const escTds = niveles.map(n => {
+        const s = r.escalas.find(x => Math.round(x.escala * 100) === n);
+        if (!s) return '<td class="esc"><span class="vacio">—</span></td>';
+        const t = tot.niveles[n]; t.total++;
+        if (r.registrado >= s.meta) { t.alcanzadas++; return `<td class="esc" data-v="0"><span class="alcanzada" title="Meta ${fmtExacto(s.meta)}">✔</span></td>`; }
+        const falta = Math.max(s.meta - r.registrado, 0);
+        t.falta += falta;
+        const brecha = r.objetivo > 0 ? fmtPct((r.registrado - s.meta) / r.objetivo * 100) : '';
+        const factFalta = o.factObjetivo > 0 ? Math.max(Math.ceil(o.factObjetivo * s.escala) - o.factCobradas, 0) : null;
+        return `<td class="esc" data-v="${falta}"><span class="falta" title="Faltan ${fmtExacto(falta)} para la meta de ${fmtExacto(s.meta)}">${fmtPlata(falta)}</span><span class="detalle">${brecha}${factFalta !== null ? ' · ' + factFalta + ' fact.' : ''}</span></td>`;
+      }).join('');
+      tr.innerHTML = `<td class="nombre">${esc(a.nombre)}${r.defecto ? ' <span class="nota-chica" title="Sin escala cargada: se usa la escala por defecto">*</span>' : ''}</td>
+        <td class="num">${fact}</td>
+        <td class="num" data-v="${r.objetivo}" title="${fmtExacto(r.objetivo)}">${objTxt}</td>
+        <td class="num" data-v="${r.cobrado}" title="${esMesActual ? fmtExacto(r.cobrado) + " cobrado · " + fmtExacto(r.registrado) + " registrado" : ""}">${esMesActual ? fmtPlata(r.cobrado) + (r.registrado > r.cobrado ? `<span class="detalle">${fmtPlata(r.registrado)} registrado</span>` : '') : '<span class="vacio">—</span>'}</td>
+        ${pctTd}${escTds}
+        <td><button class="btn chico editar" title="Fijar el objetivo de este agente">${r.objetivo > 0 ? fmtPlata(r.objetivo) : 'Fijar'} ✏️</button>
+          <div class="form-linea editor" hidden><input class="inp monto" type="number" min="1" step="1000" placeholder="$ monto" value="${f ? Number(f.monto) : ''}"><button class="btn chico primario guardar">Guardar</button>${f ? '<button class="btn chico peligro quitar" title="Vuelve a valer el objetivo que tenga cargado el agente">Quitar</button>' : ''}</div></td>`;
+      const editar = tr.querySelector('.editar'), editor = tr.querySelector('.editor');
+      editar.onclick = () => { editar.hidden = true; editor.hidden = false; editor.querySelector('input').focus(); };
       const inp = tr.querySelector('input');
       const guardar = async () => {
         const monto = Math.round(Number(inp.value));
@@ -485,7 +565,10 @@ async function cargarObjetivos() {
         cargar(); // el Panel usa el objetivo nuevo
       };
       tr.querySelector('.guardar').onclick = guardar;
-      inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') guardar(); });
+      inp.addEventListener('keydown', ev => {
+        if (ev.key === 'Enter') guardar();
+        if (ev.key === 'Escape') { editor.hidden = true; editar.hidden = false; }
+      });
       const q = tr.querySelector('.quitar');
       if (q) q.onclick = async () => {
         if (!confirm(`¿Quitar el objetivo fijado de ${a.nombre}? Vuelve a valer el que tenga cargado en su panel.`)) return;
@@ -496,6 +579,34 @@ async function cargarObjetivos() {
       };
       $('objFilas').appendChild(tr);
     });
+
+    if (filas.length) {
+      const tr = document.createElement('tr');
+      tr.className = 'total';
+      const pctTot = tot.objetivo > 0 ? tot.cobrado / tot.objetivo * 100 : null;
+      tr.innerHTML = `<td>TOTAL EQUIPO</td>
+        <td class="num">${esMesActual && tot.factObj > 0 ? `${tot.factCob} / ${tot.factObj}<span class="detalle">${fmtPct(tot.factCob / tot.factObj * 100)}</span>` : '—'}</td>
+        <td class="num">${tot.objetivo > 0 ? fmtPlata(tot.objetivo) : '—'}</td>
+        <td class="num">${esMesActual ? fmtPlata(tot.cobrado) : '—'}</td>
+        <td>${esMesActual && pctTot !== null ? `<span class="barra"><i style="width:${Math.min(pctTot, 100)}%;background:${colorPct(Math.round(pctTot))}"></i></span>${fmtPct(pctTot)}` : '—'}</td>
+        ${niveles.map(n => { const t = tot.niveles[n]; return !t.total ? '<td class="esc">—</td>'
+          : `<td class="esc">${t.falta > 0 ? `<span class="falta">${fmtPlata(t.falta)}</span>` : '<span class="alcanzada">✔</span>'}<span class="detalle">${t.alcanzadas} de ${t.total} ✔</span></td>`; }).join('')}
+        <td></td>`;
+      $('objFilas').appendChild(tr);
+    }
+    // Tarjetas del equipo: objetivo, cobrado, % y lo que falta para la
+    // primera escala (la más baja, normalmente 70%).
+    const n0 = niveles[0];
+    $('objKpiObjetivo').textContent = tot.objetivo > 0 ? fmtPlata(tot.objetivo) : '—';
+    $('objKpiCobrado').textContent = esMesActual ? fmtPlata(tot.cobrado) : '—';
+    $('objKpiPct').textContent = esMesActual && tot.objetivo > 0 ? fmtPct(tot.cobrado / tot.objetivo * 100) : '—';
+    $('objKpiFaltaLbl').textContent = n0 != null ? `Falta para la escala ${n0}%` : 'Falta para la primera escala';
+    $('objKpiFalta').textContent = esMesActual && n0 != null ? (tot.niveles[n0].falta > 0 ? fmtPlata(tot.niveles[n0].falta) : '✔ Todos llegaron') : '—';
+    $('objKpiFaltaNota').textContent = esMesActual && n0 != null ? `${tot.niveles[n0].alcanzadas} de ${tot.niveles[n0].total} agentes la alcanzaron` : ' ';
+    $('objLeyenda').innerHTML = esMesActual
+      ? 'Ordenado de mejor a peor. ✔ = escala alcanzada. Mismos números que la pantalla Objetivos de cada agente: el % es lo cobrado sobre el objetivo; cada escala se marca ✔ cuando lo registrado (cobrado + sin cobrar) llega a su meta. Debajo de lo que falta va la distancia en % del objetivo y las facturas que faltan para llegar a ese % de sus facturas objetivo. El total de cada escala suma lo que les falta a los que no llegaron.'
+        + (usanDefecto ? ` <b>*</b> Sin escala cargada: se usa la de siempre (${ESCALAS_DEFECTO.map(e => Math.round(e * 100) + '%').join(', ')}).` : '')
+      : 'El avance (cobrado, facturas, escalas) es el del panel de cada agente, que es del mes en curso: para otro mes se ven solo los objetivos.';
   } catch (e) {
     console.error('objetivos', e);
     mostrarError('objError', 'No se pudieron cargar los objetivos: ' + (e.message || e));
