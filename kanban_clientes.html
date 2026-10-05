@@ -8,7 +8,8 @@
 <link rel="stylesheet" href="css/fuentes.css">
 <!-- Si alguien abre esta página suelta (fuera del panel), la manda a index.html. -->
 <script src="js/embed-guard.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- SheetJS se carga bajo demanda (js/xlsx-lazy.js), solo al importar Excel. -->
+<script src="js/xlsx-lazy.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase/config.js"></script>
 <script src="supabase/kv.js"></script>
@@ -1828,7 +1829,7 @@ function handleFile(file){
       toast('No se pudo leer el archivo');
     }
   };
-  reader.readAsBinaryString(file);
+  cargarXLSX().then(() => reader.readAsBinaryString(file), avisoSinXLSX);
 }
 
 function guessColumn(headers, keywords){
@@ -2188,7 +2189,7 @@ function handleFilePagos(file){
       toast('No se pudo leer el archivo');
     }
   };
-  reader.readAsBinaryString(file);
+  cargarXLSX().then(() => reader.readAsBinaryString(file), avisoSinXLSX);
 }
 function setupMappingPagos(){
   const selects = {

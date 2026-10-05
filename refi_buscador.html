@@ -6,7 +6,8 @@
 <title>Buscador de Refinanciaciones</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- SheetJS se carga bajo demanda (js/xlsx-lazy.js), solo al importar Excel. -->
+<script src="js/xlsx-lazy.js"></script>
 <style>
   :root{
     --bg: #0a0e14;
@@ -642,7 +643,7 @@
         parseError.style.display = 'block';
       }
     };
-    reader.readAsArrayBuffer(file);
+    cargarXLSX().then(() => reader.readAsArrayBuffer(file), avisoSinXLSX);
   }
 
   function showApp(fileName, count){
