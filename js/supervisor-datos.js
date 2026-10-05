@@ -89,40 +89,64 @@
 
   // Cobrado y objetivo de cada agente, de la misma fuente que Registro de
   // pagos / Objetivos (index.html): el estado guardado en kv_store, más los
-  // pagos confirmados en el CRM (tabla pagos) que todavía no se sumaron al
-  // registro (index.html los integra al abrirse: integrarPagosCRM).
+  // pagos del CRM (tabla pagos) que todavía no se sumaron al registro
+  // (index.html los integra al abrirse: integrarPagosCRM, con la misma regla
+  // de duplicados: mismo nombre y monto que uno ya registrado queda aparte
+  // y no suma). Además devuelve lo que usa la pantalla Objetivos del agente:
+  // registrado (todos los pagos, cobrados o no), la escala de metas (con los
+  // montos recalculados si el supervisor fijó el objetivo) y las facturas de
+  // sus recorridos.
   async function supCobradoYObjetivo(ids) {
     const out = {};
-    ids.forEach(id => { out[id] = { cobrado: 0, objetivo: 0, objetivoPropio: 0, fijado: false, corte: '' }; });
+    const vacio = () => ({ cobrado: 0, registrado: 0, objetivo: 0, objetivoPropio: 0, fijado: false, corte: '', escalas: [], factObjetivo: 0, factCobradas: 0, tieneEstado: false });
+    ids.forEach(id => { out[id] = vacio(); });
     if (!ids.length) return out;
     const [rKv, rPagos, fijados] = await Promise.all([
       window.sb.from('kv_store').select('user_id, value').eq('key', STATE_KEY).in('user_id', ids),
-      window.sb.from('pagos').select('id, user_id, monto, estado, origen').in('user_id', ids).neq('origen', 'excel').range(0, 9999),
+      window.sb.from('pagos').select('id, user_id, nombre, monto, estado, origen').in('user_id', ids).neq('origen', 'excel').range(0, 9999),
       supObjetivosFijados(ids, periodoAR()),
     ]);
     if (rKv.error) console.warn('kv_store estado', rKv.error);
-    const integrados = {};
+    const integrados = {}, registrados = {};
     ((rKv && rKv.data) || []).forEach(r => {
       const st = r.value || {};
       const pagos = Array.isArray(st.payments) ? st.payments : [];
-      out[r.user_id] = {
+      const rutas = Array.isArray(st.routes) ? st.routes : [];
+      out[r.user_id] = Object.assign(vacio(), {
         cobrado: pagos.filter(p => p.estado === 'Cobrado').reduce((s, p) => s + (Number(p.monto) || 0), 0),
+        registrado: pagos.reduce((s, p) => s + (Number(p.monto) || 0), 0),
         objetivo: Number(st.objetivoTotal) || 0,
         objetivoPropio: Number(st.objetivoTotal) || 0, // el del panel del agente
         corte: st.cutoffDate || '',
-      };
+        escalas: (Array.isArray(st.scaleRows) ? st.scaleRows : []).map(s => ({ escala: Number(s.escala) || 0, meta: Number(s.meta) || 0 })),
+        factObjetivo: rutas.reduce((s, x) => s + (Number(x.objetivo) || 0), 0),
+        factCobradas: rutas.reduce((s, x) => s + (Number(x.cobradas) || 0), 0),
+        tieneEstado: true,
+      });
       integrados[r.user_id] = new Set(Array.isArray(st.pagosCRMIntegrados) ? st.pagosCRMIntegrados : []);
+      registrados[r.user_id] = pagos.map(p => ({ name: String(p.name || '').trim().toLowerCase(), monto: Math.round(Number(p.monto) || 0) }));
     });
-    ((rPagos && rPagos.data) || []).forEach(p => {
-      if (!out[p.user_id]) return;
+    // Mismo orden que integrarPagosCRM (del más viejo al más nuevo).
+    ((rPagos && rPagos.data) || []).slice().reverse().forEach(p => {
+      const o = out[p.user_id];
+      if (!o) return;
       if (integrados[p.user_id] && integrados[p.user_id].has(p.id)) return;
-      if (String(p.estado || '').toLowerCase() !== 'cobrado') return;
-      out[p.user_id].cobrado += Number(p.monto) || 0;
+      const lista = registrados[p.user_id] || (registrados[p.user_id] = []);
+      const name = String(p.nombre || '(sin nombre)').trim().toLowerCase();
+      const monto = Number(p.monto) || 0;
+      if (lista.some(x => x.name === name && x.monto === Math.round(monto))) return; // duplicado: no suma
+      lista.push({ name, monto: Math.round(monto) });
+      o.registrado += monto;
+      if (String(p.estado || '').toLowerCase() === 'cobrado') o.cobrado += monto;
     });
     // El objetivo que fijó el supervisor para este mes manda sobre el que
-    // el agente tenga cargado en su panel.
+    // el agente tenga cargado en su panel (y los montos de su escala pasan
+    // a ser ese % del objetivo fijado, como en aplicarObjetivoSupervisor).
     Object.keys(fijados).forEach(id => {
-      if (out[id]) { out[id].objetivo = fijados[id]; out[id].fijado = true; }
+      const o = out[id];
+      if (!o || !(fijados[id] > 0)) return;
+      o.objetivo = fijados[id]; o.fijado = true;
+      if (o.objetivo !== o.objetivoPropio) o.escalas = o.escalas.map(s => ({ escala: s.escala, meta: Math.round(s.escala * o.objetivo) }));
     });
     return out;
   }
