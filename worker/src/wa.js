@@ -179,11 +179,44 @@ async function obtenerOCrearConversacion(supabase, userId, telefono, jid, nombre
   return nueva;
 }
 
-async function subirAdjunto(supabase, bucket, userId, buffer, extension) {
-  const nombre = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${extension}`;
-  const { error } = await supabase.storage.from(bucket).upload(nombre, buffer, { upsert: false });
+// nombreOriginal (solo documentos) va en la ruta después de "__" para que
+// el panel lo muestre y lo descargue con su nombre real.
+async function subirAdjunto(supabase, bucket, userId, buffer, extension, nombreOriginal, contentType) {
+  const base = nombreOriginal ? '__' + nombreSeguro(nombreOriginal) : '';
+  const nombre = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}${base}.${extension}`;
+  const { error } = await supabase.storage.from(bucket).upload(nombre, buffer, { upsert: false, ...(contentType ? { contentType } : {}) });
   if (error) { logger.error({ err: error }, 'No se pudo subir el adjunto a Storage'); return null; }
   return nombre;
+}
+
+// Storage no acepta cualquier carácter en la ruta: se deja el nombre en
+// letras, números, guiones y puntos, sin la extensión (va aparte).
+function nombreSeguro(nombre) {
+  const sinExt = String(nombre).replace(/\.[a-z0-9]{1,5}$/i, '');
+  return sinExt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60) || 'archivo';
+}
+
+const EXT_POR_MIME = {
+  'application/pdf': 'pdf',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/msword': 'doc',
+  'text/csv': 'csv',
+  'text/plain': 'txt',
+  'application/zip': 'zip',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+};
+
+// Los documentos de WhatsApp pueden ser PDF, Excel, Word... Antes se
+// guardaban todos como .pdf y la descarga no abría. Se toma la extensión
+// del nombre del archivo o, si no tiene, del tipo MIME.
+function datosDocumento(msg) {
+  const d = contenido(msg).documentMessage || {};
+  const m = /\.([a-z0-9]{1,5})$/i.exec(d.fileName || '');
+  const ext = (m ? m[1] : EXT_POR_MIME[d.mimetype] || 'bin').toLowerCase();
+  return { ext, nombre: d.fileName || null, mimetype: d.mimetype || null };
 }
 
 function previewTexto(texto, tipo) {
@@ -421,8 +454,12 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
   if (descargarAdjuntos && tiposAdjuntoADescargar.includes(tipo)) {
     try {
       const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: loggerBaileys, reuploadRequest: sock.updateMediaMessage });
-      const ext = tipo === 'imagen' ? 'jpg' : tipo === 'pdf' ? 'pdf' : 'ogg';
-      mediaPath = await subirAdjunto(supabase, config.bucket, userId, buffer, ext);
+      if (tipo === 'pdf') {
+        const doc = datosDocumento(msg);
+        mediaPath = await subirAdjunto(supabase, config.bucket, userId, buffer, doc.ext, doc.nombre, doc.mimetype);
+      } else {
+        mediaPath = await subirAdjunto(supabase, config.bucket, userId, buffer, tipo === 'imagen' ? 'jpg' : 'ogg');
+      }
     } catch (e) {
       logger.error({ err: e }, 'No se pudo descargar el adjunto');
     }
