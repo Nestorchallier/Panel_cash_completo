@@ -81,6 +81,7 @@
     main { padding: 16px; }
     .abajo { grid-template-columns: 1fr; }
   }
+.caja.resaltar{outline:2px solid #2563eb;outline-offset:2px;transition:outline-color .3s}
 </style>
 </head>
 <body>
@@ -313,6 +314,17 @@ sb.auth.getSession().then(async ({ data: { session } }) => {
   setInterval(pintarSubtitulo, 15000);
 });
 sb.auth.onAuthStateChange((_event, session) => { if (!session) location.href = 'index.html'; });
+
+// "Actividad" y "Alertas" del menú: lleva a esa caja y la resalta un momento
+// (con todo a la vista, el salto solo no se notaba).
+document.querySelectorAll('a.item[href^="#"]').forEach(a => a.addEventListener('click', e => {
+  const caja = document.getElementById(a.getAttribute('href').slice(1));
+  if (!caja) return;
+  e.preventDefault();
+  caja.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  caja.classList.add('resaltar');
+  setTimeout(() => caja.classList.remove('resaltar'), 1500);
+}));
 </script>
 </body>
 </html>
