@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WhatsApp CRM — CRM Panel Unificado</title>
-<script src="js/embed-guard.js"></script>
+<script src="js/embed-guard.js?v=39"></script>
 <script>
   // Modo cuadro (?modal=1&cliente=<id>): el Kanban abre esta misma página
   // en un cuadro arriba del tablero para ver el chat de un cliente sin ir
@@ -23,13 +23,13 @@
      distintos y más chicos). Solo baja los emojis que aparecen en pantalla. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase/config.js"></script>
-<script src="supabase/kv.js"></script>
-<script src="js/telefonos.js"></script>
-<script src="js/mora.js"></script>
+<script src="supabase/config.js?v=39"></script>
+<script src="supabase/kv.js?v=39"></script>
+<script src="js/telefonos.js?v=39"></script>
+<script src="js/mora.js?v=39"></script>
 <!-- Tabla y reglas de la Calculadora (Próximo crédito de la ficha). -->
-<script src="js/proximo-credito.js"></script>
-<script src="supabase/crm.js"></script>
+<script src="js/proximo-credito.js?v=39"></script>
+<script src="supabase/crm.js?v=39"></script>
 <style>
   /* Paleta del plan (sección 5.1 del PDF): fondo claro, tarjetas blancas
      con borde suave, chat estilo WhatsApp y etiquetas pastel. El modo
@@ -1311,6 +1311,8 @@ async function enviarMensajeActual(){
 async function guardarEnCola(convId, temp){
   try{
     if(temp.tipo === 'audio'){
+      // Pantalla nueva con crm.js viejo en caché: avisar en vez de un error genérico.
+      if(typeof crmEnviarAudio !== 'function'){ const e = new Error('crm.js viejo'); e.etapa = 'version'; throw e; }
       try{ temp.subido = await crmEnviarAudio(convId, temp.blob, { yaSubido: temp.subido || null }); }
       catch(e){ if(e && e.mediaPath) temp.subido = e.mediaPath; throw e; }
     }
@@ -1324,6 +1326,7 @@ async function guardarEnCola(convId, temp){
     if(!lista.includes(temp)) noGuardados.set(convId, [...lista, temp]);
     if(conversacionActual && conversacionActual.id === convId) renderMensajes();
     toast(navigator.onLine === false ? 'Sin internet: el mensaje no se envió. Tocá "Reintentar" cuando vuelva la conexión.'
+      : e && e.etapa === 'version' ? 'El panel tiene una versión vieja guardada. Recargá con Ctrl+F5 y tocá "Reintentar".'
       : temp.tipo === 'audio' && e && e.etapa === 'subida' ? 'No se pudo subir la nota de voz (¿falta correr supabase/013_audio_saliente.sql?). Tocá "Reintentar".'
       : 'El mensaje no se pudo dejar en la cola de envío. Tocá "Reintentar".', 'error');
   }

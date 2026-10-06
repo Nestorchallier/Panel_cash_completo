@@ -21,14 +21,14 @@
     href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
     rel="stylesheet">
   <!-- SheetJS se carga bajo demanda (js/xlsx-lazy.js), solo al importar/exportar Excel. -->
-  <script src="js/xlsx-lazy.js"></script>
+  <script src="js/xlsx-lazy.js?v=39"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase/config.js"></script>
-  <script src="supabase/kv.js"></script>
-  <script src="js/telefonos.js"></script>
-  <script src="supabase/crm.js"></script>
-  <script src="js/actividad.js"></script>
-  <script src="js/supervisor-datos.js"></script>
+  <script src="supabase/config.js?v=39"></script>
+  <script src="supabase/kv.js?v=39"></script>
+  <script src="js/telefonos.js?v=39"></script>
+  <script src="supabase/crm.js?v=39"></script>
+  <script src="js/actividad.js?v=39"></script>
+  <script src="js/supervisor-datos.js?v=39"></script>
   <style>
     :root {
       --bg: #080B0F;
@@ -4460,7 +4460,7 @@
       // servir una copia vieja cacheada. Subir este numero en cada cambio a
       // kanban_clientes.html / refi_buscador.html / calculadora_proximo_credito.html / whatsapp_crm.html
       // / clientes.html / conexion.html / agenda.html / informes.html (o a los js/css que usan).
-      const ASSET_VERSION = 38;
+      const ASSET_VERSION = 39; // al subirlo, cambiar también el ?v= de los <script src="js/..." y "supabase/..." de cada pantalla
 
       // Las pantallas embebidas se cargan recién cuando hay sesión. Si se
       // cargaban antes (la vista guardada se abre apenas carga el panel),
