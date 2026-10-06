@@ -7,6 +7,7 @@ const { iniciarWhatsApp } = require('./wa');
 const { iniciarColaEnvios } = require('./cola');
 const { iniciarMoraDiaria } = require('./mora-diaria');
 const { iniciarComandosUsuarios } = require('./usuarios');
+const { iniciarLeidosEnCelular } = require('./leer-en-celular');
 
 const AUTH_DIR = path.join(__dirname, '..', 'auth');
 
@@ -126,6 +127,8 @@ async function main() {
 
   iniciarColaEnvios({ supabase, userId: WORKER_USER_ID, getSock: () => sockActual, bucket: BUCKET });
   iniciarLatido(() => sockActual, (s) => { sockActual = s; });
+  // Chats leídos en el CRM -> leídos también en el celular (ver leer-en-celular.js).
+  iniciarLeidosEnCelular({ supabase, userId: WORKER_USER_ID, getSock: () => sockActual });
   // No depende de WhatsApp: recalcula cuotas vencidas y días de atraso
   // aunque el celular esté desconectado (ver mora-diaria.js).
   iniciarMoraDiaria({ supabase, userId: WORKER_USER_ID });
