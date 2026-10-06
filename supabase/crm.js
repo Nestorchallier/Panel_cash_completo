@@ -280,10 +280,39 @@ async function crmListMensajes(conversacionId, opciones) {
   return (data || []).reverse();
 }
 
-async function crmMarcarConversacionLeida(conversacionId) {
-  // El supervisor mirando un chat no lo marca como leído (es del agente).
+// enCelular: además deja la marca para que el worker lo marque como leído
+// en WhatsApp (celular y WhatsApp Web; el contacto ve los tildes azules).
+// Ver worker/src/leer-en-celular.js y supabase/014_archivar_chats.sql.
+async function crmMarcarConversacionLeida(conversacionId, { enCelular = false } = {}) {
+  // El supervisor mirando un chat no lo marca como leído (es del agente),
+  // ni acá ni en el celular.
   if (window.cmSoloLectura && window.cmSoloLectura()) return;
   await window.sb.from('conversaciones').update({ no_leidos: 0 }).eq('id', conversacionId);
+  if (!enCelular) return;
+  // Aparte: si todavía no se corrió la 014 (sin la columna), el chat
+  // igual queda leído en el CRM.
+  const { error } = await window.sb.from('conversaciones')
+    .update({ leer_en_celular_hasta: new Date().toISOString() }).eq('id', conversacionId);
+  if (error) console.warn('crmMarcarConversacionLeida (¿falta correr la 014?)', error);
+}
+
+// Archivar / desarchivar (como en WhatsApp: si llega un mensaje nuevo, el
+// chat sigue archivado — el worker no toca estas columnas).
+async function crmArchivarConversacion(conversacionId, archivar) {
+  if (window.cmSoloLectura && window.cmSoloLectura()) throw new Error('Solo lectura');
+  const { error } = await window.sb.from('conversaciones')
+    .update({ archivada: !!archivar, archivada_at: archivar ? new Date().toISOString() : null })
+    .eq('id', conversacionId);
+  if (error) { console.error('crmArchivarConversacion', error); throw error; }
+}
+
+// Borra el chat SOLO del CRM (en el celular / WhatsApp sigue estando). Los
+// mensajes se van con él (on delete cascade); el cliente no se toca. Si el
+// contacto vuelve a escribir, el worker crea un chat nuevo.
+async function crmEliminarConversacion(conversacionId) {
+  if (window.cmSoloLectura && window.cmSoloLectura()) throw new Error('Solo lectura');
+  const { error } = await window.sb.from('conversaciones').delete().eq('id', conversacionId);
+  if (error) { console.error('crmEliminarConversacion', error); throw error; }
 }
 
 // Deja el mensaje en 'pendiente': lo manda de verdad el worker (cola.js),
@@ -823,6 +852,7 @@ if (typeof window !== 'undefined') {
     crmGetNombreUsuario, crmSetNombreUsuario,
     crmListContactos, crmGuardarContacto, crmEliminarContacto,
     crmListConversaciones, crmListMensajes, crmMarcarConversacionLeida, crmListResumenChats, crmListResumenPrestamos,
+    crmArchivarConversacion, crmEliminarConversacion,
     crmEnviarMensaje, crmEnviarAudio, crmCrearConversacion,
     crmGetFichaCliente, crmActualizarCliente, crmAgregarNotaCliente, crmListTelefonosCliente,
     crmListEventosConversacion,

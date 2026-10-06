@@ -493,10 +493,23 @@ async function guardarMensaje(sock, supabase, userId, config, msg, opciones = {}
       if (pn) nombrePorJidGlobal[pn] = nombrePorJidGlobal[pn] || msg.pushName;
     }
   }
+  // Para poder marcarlo como leído en el celular cuando se lee en el CRM
+  // (leer-en-celular.js): el jid con el que llegó y, en grupos, quién lo
+  // escribió (WhatsApp lo pide para el "leído").
+  if (direccion === 'entrante') {
+    fila.wa_remote_jid = jid;
+    if (esGrupo && msg.key.participant) fila.wa_participante = msg.key.participant;
+  }
   let { error: errorInsert } = await supabase.from('mensajes').insert(fila);
-  // Si todavía no se creó la columna "autor" en la base, se guarda sin ella.
-  if (errorInsert && fila.autor !== undefined && /autor/.test(errorInsert.message || '')) {
-    delete fila.autor;
+  // Si todavía no se crearon las columnas nuevas en la base (autor, o las
+  // de la 014), se guarda sin ellas.
+  for (let i = 0; i < 2 && errorInsert; i++) {
+    const msjError = errorInsert.message || '';
+    const sobran = ['autor', 'wa_remote_jid', 'wa_participante'].filter(c => fila[c] !== undefined && msjError.includes(c));
+    if (!sobran.length) break;
+    // Si falta una de las de la 014, faltan las dos.
+    if (sobran.some(c => c.startsWith('wa_'))) { delete fila.wa_remote_jid; delete fila.wa_participante; }
+    if (sobran.includes('autor')) delete fila.autor;
     ({ error: errorInsert } = await supabase.from('mensajes').insert(fila));
   }
   if (errorInsert) { logger.error({ err: errorInsert }, 'No se pudo guardar el mensaje'); return; }

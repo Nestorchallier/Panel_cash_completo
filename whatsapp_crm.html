@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WhatsApp CRM — CRM Panel Unificado</title>
-<script src="js/embed-guard.js?v=39"></script>
+<script src="js/embed-guard.js?v=40"></script>
 <script>
   // Modo cuadro (?modal=1&cliente=<id>): el Kanban abre esta misma página
   // en un cuadro arriba del tablero para ver el chat de un cliente sin ir
@@ -23,13 +23,13 @@
      distintos y más chicos). Solo baja los emojis que aparecen en pantalla. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase/config.js?v=39"></script>
-<script src="supabase/kv.js?v=39"></script>
-<script src="js/telefonos.js?v=39"></script>
-<script src="js/mora.js?v=39"></script>
+<script src="supabase/config.js?v=40"></script>
+<script src="supabase/kv.js?v=40"></script>
+<script src="js/telefonos.js?v=40"></script>
+<script src="js/mora.js?v=40"></script>
 <!-- Tabla y reglas de la Calculadora (Próximo crédito de la ficha). -->
-<script src="js/proximo-credito.js?v=39"></script>
-<script src="supabase/crm.js?v=39"></script>
+<script src="js/proximo-credito.js?v=40"></script>
+<script src="supabase/crm.js?v=40"></script>
 <style>
   /* Paleta del plan (sección 5.1 del PDF): fondo claro, tarjetas blancas
      con borde suave, chat estilo WhatsApp y etiquetas pastel. El modo
@@ -40,7 +40,7 @@
     --blue:#2563eb; --blue-50:#eff6ff; --green:#16a34a; --green-hover:#15803d; --red:#dc2626; --red-strong:#b91c1c;
     --chat-bg:#efeae2; --chat-dot:#ddd6cb;
     /* Fondo con dibujitos al estilo del chat de WhatsApp (dibujo propio, no la imagen de WhatsApp). */
-    --chat-fondo:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%23d9d1c4' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath transform='translate%2811 8%29 rotate%2815 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3Cpath transform='translate%2854 7%29 rotate%2825 10 10%29 scale%280.9%29' d='M5 2h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 4a2 2 0 0 1 2-2z'/%3E%3Cpath transform='translate%28107 15%29 rotate%28-25 10 10%29 scale%281.1%29' d='M10 17S2 12 2 7a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 5-8 10-8 10z'/%3E%3Cpath transform='translate%28153 6%29 rotate%28-25 10 10%29 scale%281%29' d='M10 1l2.6 5.6 6 .7-4.5 4.1 1.2 6L10 14.4 4.7 17.4l1.2-6L1.4 7.3l6-.7z'/%3E%3Cpath transform='translate%28204 7%29 rotate%28-15 10 10%29 scale%280.9%29' d='M2 6h4l2-3h4l2 3h4v11H2zM10 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'/%3E%3Cpath transform='translate%2824 60%29 rotate%28-25 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM10 5v5l3 2'/%3E%3Cpath transform='translate%2865 57%29 rotate%2835 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM7 8h.01M13 8h.01M6.5 12a4 4 0 0 0 7 0'/%3E%3Cpath transform='translate%28121 54%29 rotate%2825 10 10%29 scale%281.1%29' d='M2 4h16v12H2zM2 4l8 7 8-7'/%3E%3Cpath transform='translate%28166 54%29 rotate%28-15 10 10%29 scale%280.9%29' d='M8 15V3l9-2v12M8 15a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM17 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'/%3E%3Cpath transform='translate%28216 56%29 rotate%280 10 10%29 scale%281%29' d='M5 15a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1A4 4 0 0 1 15 15z'/%3E%3Cpath transform='translate%288 110%29 rotate%28-25 10 10%29 scale%281.1%29' d='M1 9l18-7-6 16-3-7zM10 11l9-9'/%3E%3Cpath transform='translate%2858 110%29 rotate%2835 10 10%29 scale%280.9%29' d='M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM12.5 12.5L18 18'/%3E%3Cpath transform='translate%28103 111%29 rotate%2825 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3Cpath transform='translate%28153 107%29 rotate%28-25 10 10%29 scale%281.1%29' d='M5 2h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 4a2 2 0 0 1 2-2z'/%3E%3Cpath transform='translate%28209 103%29 rotate%2825 10 10%29 scale%280.9%29' d='M10 17S2 12 2 7a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 5-8 10-8 10z'/%3E%3Cpath transform='translate%2825 153%29 rotate%2815 10 10%29 scale%281.1%29' d='M10 1l2.6 5.6 6 .7-4.5 4.1 1.2 6L10 14.4 4.7 17.4l1.2-6L1.4 7.3l6-.7z'/%3E%3Cpath transform='translate%2872 156%29 rotate%280 10 10%29 scale%281%29' d='M2 6h4l2-3h4l2 3h4v11H2zM10 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'/%3E%3Cpath transform='translate%28121 157%29 rotate%280 10 10%29 scale%281%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM10 5v5l3 2'/%3E%3Cpath transform='translate%28163 162%29 rotate%28-15 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM7 8h.01M13 8h.01M6.5 12a4 4 0 0 0 7 0'/%3E%3Cpath transform='translate%28220 153%29 rotate%28-25 10 10%29 scale%281.1%29' d='M2 4h16v12H2zM2 4l8 7 8-7'/%3E%3Cpath transform='translate%2810 206%29 rotate%2815 10 10%29 scale%281%29' d='M8 15V3l9-2v12M8 15a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM17 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'/%3E%3Cpath transform='translate%2865 205%29 rotate%280 10 10%29 scale%281.1%29' d='M5 15a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1A4 4 0 0 1 15 15z'/%3E%3Cpath transform='translate%28103 199%29 rotate%2825 10 10%29 scale%281%29' d='M1 9l18-7-6 16-3-7zM10 11l9-9'/%3E%3Cpath transform='translate%28152 210%29 rotate%280 10 10%29 scale%280.9%29' d='M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM12.5 12.5L18 18'/%3E%3Cpath transform='translate%28205 204%29 rotate%28-25 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3C/g%3E%3C/svg%3E"); --bubble-in:#ffffff; --bubble-out:#d9fdd3;
+    --chat-fondo:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%23e1d9cc' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath transform='translate%2811 8%29 rotate%2815 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3Cpath transform='translate%2854 7%29 rotate%2825 10 10%29 scale%280.9%29' d='M5 2h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 4a2 2 0 0 1 2-2z'/%3E%3Cpath transform='translate%28107 15%29 rotate%28-25 10 10%29 scale%281.1%29' d='M10 17S2 12 2 7a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 5-8 10-8 10z'/%3E%3Cpath transform='translate%28153 6%29 rotate%28-25 10 10%29 scale%281%29' d='M10 1l2.6 5.6 6 .7-4.5 4.1 1.2 6L10 14.4 4.7 17.4l1.2-6L1.4 7.3l6-.7z'/%3E%3Cpath transform='translate%28204 7%29 rotate%28-15 10 10%29 scale%280.9%29' d='M2 6h4l2-3h4l2 3h4v11H2zM10 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'/%3E%3Cpath transform='translate%2824 60%29 rotate%28-25 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM10 5v5l3 2'/%3E%3Cpath transform='translate%2865 57%29 rotate%2835 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM7 8h.01M13 8h.01M6.5 12a4 4 0 0 0 7 0'/%3E%3Cpath transform='translate%28121 54%29 rotate%2825 10 10%29 scale%281.1%29' d='M2 4h16v12H2zM2 4l8 7 8-7'/%3E%3Cpath transform='translate%28166 54%29 rotate%28-15 10 10%29 scale%280.9%29' d='M8 15V3l9-2v12M8 15a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM17 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'/%3E%3Cpath transform='translate%28216 56%29 rotate%280 10 10%29 scale%281%29' d='M5 15a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1A4 4 0 0 1 15 15z'/%3E%3Cpath transform='translate%288 110%29 rotate%28-25 10 10%29 scale%281.1%29' d='M1 9l18-7-6 16-3-7zM10 11l9-9'/%3E%3Cpath transform='translate%2858 110%29 rotate%2835 10 10%29 scale%280.9%29' d='M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM12.5 12.5L18 18'/%3E%3Cpath transform='translate%28103 111%29 rotate%2825 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3Cpath transform='translate%28153 107%29 rotate%28-25 10 10%29 scale%281.1%29' d='M5 2h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 4a2 2 0 0 1 2-2z'/%3E%3Cpath transform='translate%28209 103%29 rotate%2825 10 10%29 scale%280.9%29' d='M10 17S2 12 2 7a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 5-8 10-8 10z'/%3E%3Cpath transform='translate%2825 153%29 rotate%2815 10 10%29 scale%281.1%29' d='M10 1l2.6 5.6 6 .7-4.5 4.1 1.2 6L10 14.4 4.7 17.4l1.2-6L1.4 7.3l6-.7z'/%3E%3Cpath transform='translate%2872 156%29 rotate%280 10 10%29 scale%281%29' d='M2 6h4l2-3h4l2 3h4v11H2zM10 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'/%3E%3Cpath transform='translate%28121 157%29 rotate%280 10 10%29 scale%281%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM10 5v5l3 2'/%3E%3Cpath transform='translate%28163 162%29 rotate%28-15 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM7 8h.01M13 8h.01M6.5 12a4 4 0 0 0 7 0'/%3E%3Cpath transform='translate%28220 153%29 rotate%28-25 10 10%29 scale%281.1%29' d='M2 4h16v12H2zM2 4l8 7 8-7'/%3E%3Cpath transform='translate%2810 206%29 rotate%2815 10 10%29 scale%281%29' d='M8 15V3l9-2v12M8 15a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM17 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'/%3E%3Cpath transform='translate%2865 205%29 rotate%280 10 10%29 scale%281.1%29' d='M5 15a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1A4 4 0 0 1 15 15z'/%3E%3Cpath transform='translate%28103 199%29 rotate%2825 10 10%29 scale%281%29' d='M1 9l18-7-6 16-3-7zM10 11l9-9'/%3E%3Cpath transform='translate%28152 210%29 rotate%280 10 10%29 scale%280.9%29' d='M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM12.5 12.5L18 18'/%3E%3Cpath transform='translate%28205 204%29 rotate%28-25 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3C/g%3E%3C/svg%3E"); --bubble-in:#ffffff; --bubble-out:#d9fdd3;
     --aviso-bg:#fef9c3; --aviso-line:#fde68a; --aviso-text:#854d0e;
     --chip-bg:#fef3c7; --chip-text:#92400e;
     --adj-bg:linear-gradient(180deg,#eff6ff 0%,#e0f2fe 100%); --adj-line:#dbeafe;
@@ -48,14 +48,18 @@
     --shadow-sm:0 1px 2px rgba(15,23,42,.06); --shadow:0 10px 30px rgba(15,23,42,.12);
     --tab-active-bg:#0f172a; --tab-active-text:#ffffff;
     --fondo-modal:rgba(15,23,42,.45);
-    --marco:#eef2f7; --ficha-bg:#f5f8fd;
+    --marco:#e3e7ea; --ficha-bg:#f0f2f5;
+    /* Tonos de WhatsApp Web para separar las secciones: barras (encabezados,
+       caja de escribir, ficha) en gris apenas verdoso, la lista en blanco
+       con hover / elegido en gris, y bordes finos. */
+    --wa-barra:#f0f2f5; --wa-borde:#dde3e6; --wa-hover:#f5f6f6; --wa-sel:#e9edef; --wa-acento:#00a884;
   }
   :root[data-theme="dark"]{
     --bg:#0b1220; --panel:#0f172a; --panel-2:#111c33; --line:#1e293b; --line-2:#162036;
     --text:#e2e8f0; --text-2:#cbd5e1; --muted:#94a3b8; --faint:#64748b;
     --blue:#60a5fa; --blue-50:#132443; --green:#22c55e; --green-hover:#16a34a; --red:#f87171; --red-strong:#f87171;
     --chat-bg:#0b141a; --chat-dot:#111c22;
-    --chat-fondo:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%231a262d' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath transform='translate%2811 8%29 rotate%2815 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3Cpath transform='translate%2854 7%29 rotate%2825 10 10%29 scale%280.9%29' d='M5 2h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 4a2 2 0 0 1 2-2z'/%3E%3Cpath transform='translate%28107 15%29 rotate%28-25 10 10%29 scale%281.1%29' d='M10 17S2 12 2 7a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 5-8 10-8 10z'/%3E%3Cpath transform='translate%28153 6%29 rotate%28-25 10 10%29 scale%281%29' d='M10 1l2.6 5.6 6 .7-4.5 4.1 1.2 6L10 14.4 4.7 17.4l1.2-6L1.4 7.3l6-.7z'/%3E%3Cpath transform='translate%28204 7%29 rotate%28-15 10 10%29 scale%280.9%29' d='M2 6h4l2-3h4l2 3h4v11H2zM10 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'/%3E%3Cpath transform='translate%2824 60%29 rotate%28-25 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM10 5v5l3 2'/%3E%3Cpath transform='translate%2865 57%29 rotate%2835 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM7 8h.01M13 8h.01M6.5 12a4 4 0 0 0 7 0'/%3E%3Cpath transform='translate%28121 54%29 rotate%2825 10 10%29 scale%281.1%29' d='M2 4h16v12H2zM2 4l8 7 8-7'/%3E%3Cpath transform='translate%28166 54%29 rotate%28-15 10 10%29 scale%280.9%29' d='M8 15V3l9-2v12M8 15a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM17 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'/%3E%3Cpath transform='translate%28216 56%29 rotate%280 10 10%29 scale%281%29' d='M5 15a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1A4 4 0 0 1 15 15z'/%3E%3Cpath transform='translate%288 110%29 rotate%28-25 10 10%29 scale%281.1%29' d='M1 9l18-7-6 16-3-7zM10 11l9-9'/%3E%3Cpath transform='translate%2858 110%29 rotate%2835 10 10%29 scale%280.9%29' d='M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM12.5 12.5L18 18'/%3E%3Cpath transform='translate%28103 111%29 rotate%2825 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3Cpath transform='translate%28153 107%29 rotate%28-25 10 10%29 scale%281.1%29' d='M5 2h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 4a2 2 0 0 1 2-2z'/%3E%3Cpath transform='translate%28209 103%29 rotate%2825 10 10%29 scale%280.9%29' d='M10 17S2 12 2 7a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 5-8 10-8 10z'/%3E%3Cpath transform='translate%2825 153%29 rotate%2815 10 10%29 scale%281.1%29' d='M10 1l2.6 5.6 6 .7-4.5 4.1 1.2 6L10 14.4 4.7 17.4l1.2-6L1.4 7.3l6-.7z'/%3E%3Cpath transform='translate%2872 156%29 rotate%280 10 10%29 scale%281%29' d='M2 6h4l2-3h4l2 3h4v11H2zM10 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'/%3E%3Cpath transform='translate%28121 157%29 rotate%280 10 10%29 scale%281%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM10 5v5l3 2'/%3E%3Cpath transform='translate%28163 162%29 rotate%28-15 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM7 8h.01M13 8h.01M6.5 12a4 4 0 0 0 7 0'/%3E%3Cpath transform='translate%28220 153%29 rotate%28-25 10 10%29 scale%281.1%29' d='M2 4h16v12H2zM2 4l8 7 8-7'/%3E%3Cpath transform='translate%2810 206%29 rotate%2815 10 10%29 scale%281%29' d='M8 15V3l9-2v12M8 15a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM17 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'/%3E%3Cpath transform='translate%2865 205%29 rotate%280 10 10%29 scale%281.1%29' d='M5 15a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1A4 4 0 0 1 15 15z'/%3E%3Cpath transform='translate%28103 199%29 rotate%2825 10 10%29 scale%281%29' d='M1 9l18-7-6 16-3-7zM10 11l9-9'/%3E%3Cpath transform='translate%28152 210%29 rotate%280 10 10%29 scale%280.9%29' d='M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM12.5 12.5L18 18'/%3E%3Cpath transform='translate%28205 204%29 rotate%28-25 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3C/g%3E%3C/svg%3E"); --bubble-in:#1f2c34; --bubble-out:#005c4b;
+    --chat-fondo:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%23111c22' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath transform='translate%2811 8%29 rotate%2815 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3Cpath transform='translate%2854 7%29 rotate%2825 10 10%29 scale%280.9%29' d='M5 2h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 4a2 2 0 0 1 2-2z'/%3E%3Cpath transform='translate%28107 15%29 rotate%28-25 10 10%29 scale%281.1%29' d='M10 17S2 12 2 7a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 5-8 10-8 10z'/%3E%3Cpath transform='translate%28153 6%29 rotate%28-25 10 10%29 scale%281%29' d='M10 1l2.6 5.6 6 .7-4.5 4.1 1.2 6L10 14.4 4.7 17.4l1.2-6L1.4 7.3l6-.7z'/%3E%3Cpath transform='translate%28204 7%29 rotate%28-15 10 10%29 scale%280.9%29' d='M2 6h4l2-3h4l2 3h4v11H2zM10 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'/%3E%3Cpath transform='translate%2824 60%29 rotate%28-25 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM10 5v5l3 2'/%3E%3Cpath transform='translate%2865 57%29 rotate%2835 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM7 8h.01M13 8h.01M6.5 12a4 4 0 0 0 7 0'/%3E%3Cpath transform='translate%28121 54%29 rotate%2825 10 10%29 scale%281.1%29' d='M2 4h16v12H2zM2 4l8 7 8-7'/%3E%3Cpath transform='translate%28166 54%29 rotate%28-15 10 10%29 scale%280.9%29' d='M8 15V3l9-2v12M8 15a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM17 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'/%3E%3Cpath transform='translate%28216 56%29 rotate%280 10 10%29 scale%281%29' d='M5 15a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1A4 4 0 0 1 15 15z'/%3E%3Cpath transform='translate%288 110%29 rotate%28-25 10 10%29 scale%281.1%29' d='M1 9l18-7-6 16-3-7zM10 11l9-9'/%3E%3Cpath transform='translate%2858 110%29 rotate%2835 10 10%29 scale%280.9%29' d='M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM12.5 12.5L18 18'/%3E%3Cpath transform='translate%28103 111%29 rotate%2825 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3Cpath transform='translate%28153 107%29 rotate%28-25 10 10%29 scale%281.1%29' d='M5 2h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 4a2 2 0 0 1 2-2z'/%3E%3Cpath transform='translate%28209 103%29 rotate%2825 10 10%29 scale%280.9%29' d='M10 17S2 12 2 7a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 5-8 10-8 10z'/%3E%3Cpath transform='translate%2825 153%29 rotate%2815 10 10%29 scale%281.1%29' d='M10 1l2.6 5.6 6 .7-4.5 4.1 1.2 6L10 14.4 4.7 17.4l1.2-6L1.4 7.3l6-.7z'/%3E%3Cpath transform='translate%2872 156%29 rotate%280 10 10%29 scale%281%29' d='M2 6h4l2-3h4l2 3h4v11H2zM10 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'/%3E%3Cpath transform='translate%28121 157%29 rotate%280 10 10%29 scale%281%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM10 5v5l3 2'/%3E%3Cpath transform='translate%28163 162%29 rotate%28-15 10 10%29 scale%281.1%29' d='M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM7 8h.01M13 8h.01M6.5 12a4 4 0 0 0 7 0'/%3E%3Cpath transform='translate%28220 153%29 rotate%28-25 10 10%29 scale%281.1%29' d='M2 4h16v12H2zM2 4l8 7 8-7'/%3E%3Cpath transform='translate%2810 206%29 rotate%2815 10 10%29 scale%281%29' d='M8 15V3l9-2v12M8 15a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM17 13a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'/%3E%3Cpath transform='translate%2865 205%29 rotate%280 10 10%29 scale%281.1%29' d='M5 15a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1A4 4 0 0 1 15 15z'/%3E%3Cpath transform='translate%28103 199%29 rotate%2825 10 10%29 scale%281%29' d='M1 9l18-7-6 16-3-7zM10 11l9-9'/%3E%3Cpath transform='translate%28152 210%29 rotate%280 10 10%29 scale%280.9%29' d='M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2zM12.5 12.5L18 18'/%3E%3Cpath transform='translate%28205 204%29 rotate%28-25 10 10%29 scale%281.1%29' d='M2 4h16v10H8l-5 4v-4H2z'/%3E%3C/g%3E%3C/svg%3E"); --bubble-in:#1f2c34; --bubble-out:#005c4b;
     --aviso-bg:#3a2f0b; --aviso-line:#5c4a12; --aviso-text:#fde68a;
     --chip-bg:#3a2f0b; --chip-text:#fde68a;
     --adj-bg:linear-gradient(180deg,#132443 0%,#10263a 100%); --adj-line:#1e3a5f;
@@ -63,7 +67,8 @@
     --shadow-sm:none; --shadow:0 10px 30px rgba(0,0,0,.5);
     --tab-active-bg:#e2e8f0; --tab-active-text:#0f172a;
     --fondo-modal:rgba(0,0,0,.6);
-    --marco:#080e1a; --ficha-bg:#101a2c;
+    --marco:#080e1a; --ficha-bg:#111b2e;
+    --wa-barra:#141f35; --wa-borde:#1e2a40; --wa-hover:#131d31; --wa-sel:#1a2742; --wa-acento:#22c55e;
   }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}
@@ -82,13 +87,13 @@
   /* ── Encabezado ── */
   header{
     height:57px; padding:0 22px; display:flex; align-items:center; justify-content:space-between; gap:14px;
-    border-bottom:1px solid var(--line); background:var(--panel); flex-shrink:0;
+    border-bottom:1px solid var(--wa-borde); background:var(--wa-barra); flex-shrink:0;
   }
   .header-title{display:flex;align-items:baseline;gap:14px;min-width:0;white-space:nowrap;}
   header h1{font-size:18px;font-weight:800;margin:0;letter-spacing:-.01em;}
   .header-sub{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;}
   .header-tools{display:flex;align-items:center;gap:14px;}
-  .wa-search{display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;height:32px;padding:0 10px;width:300px;}
+  .wa-search{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--wa-borde);border-radius:8px;height:32px;padding:0 10px;width:300px;}
   .wa-search span{font-size:12px;}
   .wa-search input{background:none;border:none;outline:none;color:var(--text);font-size:13px;width:100%;}
   .wa-search input::placeholder{color:var(--faint);}
@@ -98,33 +103,58 @@
   .btn:disabled{opacity:.55;cursor:default;}
   .btn-verde{background:var(--green);border-color:var(--green);color:#fff;font-weight:700;}
   .btn-verde:hover{background:var(--green-hover);border-color:var(--green-hover);}
+  .btn-peligro{background:var(--red);border-color:var(--red);color:#fff;font-weight:700;}
+  .btn-peligro:hover{background:var(--red-strong);border-color:var(--red-strong);}
+  :root[data-theme="dark"] .btn-peligro{background:#dc2626;border-color:#dc2626;}
+  :root[data-theme="dark"] .btn-peligro:hover{background:#b91c1c;border-color:#b91c1c;}
 
   /* Las tres columnas van como tarjetas redondeadas sobre un fondo apenas
      más oscuro (como Whaticket), y la ficha de la derecha con un tono muy
      suave para que no se confunda con el chat. */
   .wa-crm{flex:1;display:flex;min-height:0;gap:10px;padding:10px;background:var(--marco);}
-  .wa-chats,.wa-conv,.wa-ficha{border:1px solid var(--line) !important;border-radius:14px;overflow:hidden;}
+  .wa-chats,.wa-conv,.wa-ficha{border:1px solid var(--wa-borde) !important;border-radius:14px;overflow:hidden;}
 
   /* ── Lista de chats ── */
   .wa-chats{width:340px;flex-shrink:0;border-right:1px solid var(--line);display:flex;flex-direction:column;background:var(--panel);}
-  .wa-chats-head{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:12px;}
+  .wa-chats-head{padding:12px 14px;border-bottom:1px solid var(--wa-borde);display:flex;flex-direction:column;gap:12px;background:var(--wa-barra);}
   .filtros{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
   /* Como en el render: "Etapa: Todas ▾" con la flechita pegada al texto.
      El <select> real queda invisible encima, así el desplegable sigue
      siendo el nativo (anda con teclado y en el celular). */
-  .filtro-pill{position:relative;display:flex;align-items:center;height:31px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;cursor:pointer;}
+  .filtro-pill{position:relative;display:flex;align-items:center;height:31px;padding:0 12px;border:1px solid var(--wa-borde);border-radius:8px;background:var(--panel);font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;cursor:pointer;}
   .filtro-pill:hover{border-color:var(--faint);}
   .filtro-pill .txt{overflow:hidden;text-overflow:ellipsis;}
   .filtro-pill .flecha{margin-left:3px;font-size:11px;}
   .filtro-pill select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:13px;}
   .filtro-pill.activo{border-color:var(--blue);color:var(--blue);}
   .wa-tabs{display:flex;gap:6px;flex-wrap:wrap;}
-  .wa-tabs button{background:var(--line-2);border:none;color:var(--text-2);border-radius:6px;height:22px;padding:0 8px;font-size:12px;font-weight:600;cursor:pointer;}
+  .wa-tabs button{background:var(--panel);border:1px solid var(--wa-borde);color:var(--text-2);border-radius:6px;height:22px;padding:0 8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;}
+  .wa-tabs button:hover{border-color:var(--faint);}
+  .wa-tabs button.active{border-color:var(--tab-active-bg);}
+  /* Archivados: cuántos chats archivados tienen mensajes sin leer (siguen
+     archivados aunque llegue algo nuevo, como en WhatsApp). */
+  .wa-tabs .n-arch-noleidos{background:var(--green);color:#fff;border-radius:8px;min-width:16px;height:16px;padding:0 4px;font-size:10.5px;line-height:16px;text-align:center;}
+  .wa-tabs .n-arch-noleidos:empty{display:none;}
   .wa-tabs button.active{background:var(--tab-active-bg);color:var(--tab-active-text);}
   #chatList{flex:1;overflow-y:auto;}
-  .chat-item{padding:11px 14px 11px 11px;border-bottom:1px solid var(--line-2);display:flex;gap:10px;cursor:pointer;align-items:flex-start;border-left:3px solid transparent;}
-  .chat-item:hover{background:var(--panel-2);}
-  .chat-item.active{background:var(--blue-50);border-left-color:var(--blue);}
+  .chat-item{position:relative;padding:11px 14px 11px 11px;border-bottom:1px solid var(--line-2);display:flex;gap:10px;cursor:pointer;align-items:flex-start;border-left:3px solid transparent;}
+  .chat-item:hover{background:var(--wa-hover);}
+  .chat-item.active{background:var(--wa-sel);border-left-color:var(--wa-acento);}
+  /* Flechita "⌄" que aparece al pasar el mouse (como en WhatsApp Web): abre
+     el mismo menú que el clic derecho. */
+  .chat-menu-btn{position:absolute;right:10px;top:30px;width:24px;height:22px;border:none;border-radius:6px;background:var(--wa-sel);color:var(--muted);font-size:14px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;}
+  .chat-item:hover .chat-menu-btn, .chat-menu-btn.abierto{display:flex;}
+  .chat-item:hover .chat-info .row2 .no-leidos{margin-right:28px;}
+  .chat-menu-btn:hover{color:var(--text);}
+  /* Menú de un chat (clic derecho / ⌄ en la lista, ⋯ en el encabezado). */
+  .menu-chat{position:fixed;z-index:40;min-width:200px;background:var(--panel);border:1px solid var(--wa-borde);border-radius:10px;box-shadow:var(--shadow);padding:6px 0;}
+  .menu-chat button{display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;text-align:left;padding:9px 16px;font-size:13.5px;color:var(--text);cursor:pointer;font-family:inherit;}
+  .menu-chat button:hover, .menu-chat button:focus-visible{background:var(--wa-hover);outline:none;}
+  .menu-chat button.peligro{color:var(--red);}
+  .menu-chat hr{border:none;border-top:1px solid var(--line-2);margin:5px 0;}
+  .menu-chat .ico{width:18px;text-align:center;flex-shrink:0;}
+  .aviso-borrar{background:var(--aviso-bg);border:1px solid var(--aviso-line);color:var(--aviso-text);border-radius:8px;padding:9px 12px;font-size:12.5px;line-height:1.45;margin:2px 0 10px;}
+  .lista-borrar{margin:0 0 6px;padding-left:18px;font-size:13px;line-height:1.55;color:var(--text-2);}
   .avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;flex-shrink:0;margin-top:1px;}
   .chat-info{flex:1;min-width:0;}
   .chat-info .row1{display:flex;justify-content:space-between;gap:8px;align-items:baseline;}
@@ -150,7 +180,7 @@
 
   /* ── Conversación ── */
   .wa-conv{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--panel);}
-  .conv-head{height:58px;flex-shrink:0;padding:0 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--panel);}
+  .conv-head{height:58px;flex-shrink:0;padding:0 18px;border-bottom:1px solid var(--wa-borde);display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--wa-barra);}
   .conv-head-id{display:flex;align-items:center;gap:12px;min-width:0;}
   .conv-head .avatar{width:38px;height:38px;margin:0;}
   .conv-head .nombre{font-weight:700;font-size:15px;line-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -201,9 +231,9 @@
   .ver-anteriores button{background:var(--panel,#fff);border:1px solid var(--line,#e2e8f0);color:var(--text-2,#334155);border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:600;box-shadow:0 1px 2px rgba(15,23,42,.08);cursor:pointer;}
   .ver-anteriores button:disabled{opacity:.6;cursor:default;}
   .dia-divisor span{display:inline-block;font-size:12.5px;font-weight:500;color:var(--chip-text);background:var(--chip-bg);border-radius:6px;padding:4px 12px;line-height:16px;box-shadow:var(--shadow-sm);}
-  .wa-compose{border-top:1px solid var(--line);padding:10px 16px 10px;display:flex;flex-direction:column;gap:8px;position:relative;background:var(--panel);}
+  .wa-compose{border-top:1px solid var(--wa-borde);padding:10px 16px 10px;display:flex;flex-direction:column;gap:8px;position:relative;background:var(--wa-barra);}
   .plantilla-chips{display:flex;gap:6px;flex-wrap:wrap;}
-  .plantilla-chips button{background:var(--line-2);border:1px solid var(--line);color:var(--text-2);border-radius:999px;height:22px;padding:0 10px;font-size:12px;font-weight:500;cursor:pointer;}
+  .plantilla-chips button{background:var(--panel);border:1px solid var(--wa-borde);color:var(--text-2);border-radius:999px;height:22px;padding:0 10px;font-size:12px;font-weight:500;cursor:pointer;}
   .plantilla-chips button:hover{border-color:var(--blue);color:var(--blue);}
   #plantillasPopup, #emojiPopup{position:absolute;bottom:100%;left:16px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);display:none;z-index:5;}
   #plantillasPopup{right:16px;max-height:220px;overflow-y:auto;}
@@ -214,20 +244,20 @@
   #emojiPopup button:hover{background:var(--line-2);}
   .compose-row{display:flex;gap:10px;align-items:center;}
   .btn-icono{background:none;border:none;font-size:20px;width:26px;height:38px;padding:0;cursor:pointer;flex-shrink:0;line-height:1;}
-  .compose-row textarea{flex:1;resize:none;background:var(--panel-2);border:1px solid var(--line);border-radius:20px;color:var(--text);padding:9px 16px;font-size:14px;line-height:18px;max-height:110px;outline:none;min-height:38px;}
+  .compose-row textarea{flex:1;resize:none;background:var(--panel);border:1px solid var(--wa-borde);border-radius:20px;color:var(--text);padding:9px 16px;font-size:14px;line-height:18px;max-height:110px;outline:none;min-height:38px;}
   .compose-row textarea::placeholder{color:var(--faint);}
   .compose-row textarea:focus{border-color:var(--blue);}
   .btn-enviar{background:var(--green);border:none;color:#fff;font-weight:700;border-radius:50%;width:40px;height:40px;cursor:pointer;flex-shrink:0;font-size:15px;display:flex;align-items:center;justify-content:center;}
   .btn-enviar:hover{background:var(--green-hover);}
   /* 🎤 Nota de voz: mientras graba, la fila de escribir se cambia por la
      barra con el tiempo, Cancelar y Enviar (como en WhatsApp). */
-  .btn-microfono{background:var(--panel-2);border:1px solid var(--line);color:var(--text-2);border-radius:50%;width:40px;height:40px;cursor:pointer;flex-shrink:0;font-size:17px;display:flex;align-items:center;justify-content:center;}
+  .btn-microfono{background:var(--panel);border:1px solid var(--wa-borde);color:var(--text-2);border-radius:50%;width:40px;height:40px;cursor:pointer;flex-shrink:0;font-size:17px;display:flex;align-items:center;justify-content:center;}
   .btn-microfono:hover{border-color:var(--green);background:var(--blue-50);}
   .btn-microfono:disabled{opacity:.5;cursor:wait;}
   .grabando-row{display:none;gap:10px;align-items:center;}
   .wa-compose.grabando .compose-row, .wa-compose.grabando .plantilla-chips{display:none;}
   .wa-compose.grabando .grabando-row{display:flex;}
-  .grabando-estado{flex:1;display:flex;align-items:center;gap:10px;background:var(--panel-2);border:1px solid var(--line);border-radius:20px;min-height:38px;padding:0 16px;font-size:14px;color:var(--text-2);}
+  .grabando-estado{flex:1;display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--wa-borde);border-radius:20px;min-height:38px;padding:0 16px;font-size:14px;color:var(--text-2);}
   .grabando-punto{width:10px;height:10px;border-radius:50%;background:var(--red);flex-shrink:0;animation:latido 1.1s ease-in-out infinite;}
   @keyframes latido{0%,100%{opacity:1;}50%{opacity:.25;}}
   .grabando-tiempo{font-variant-numeric:tabular-nums;font-weight:700;color:var(--text);min-width:38px;}
@@ -238,7 +268,7 @@
   /* ── Ficha lateral ── */
   .wa-ficha{width:330px;flex-shrink:0;background:var(--ficha-bg);overflow-y:auto;padding:16px 17px;display:none;flex-direction:column;gap:12px;}
   .wa-ficha.open{display:flex;}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 12px 13px;}
+  .card{background:var(--panel);border:1px solid var(--wa-borde);border-radius:12px;padding:12px 12px 13px;}
   .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;gap:8px;}
   .card-titulo{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
   .card-link{font-size:12px;font-weight:700;color:var(--blue);background:none;border:none;cursor:pointer;padding:0;}
@@ -337,7 +367,7 @@
   :root[data-theme="dark"] ::-webkit-scrollbar-thumb{background:#334155;}
 
   /* Modo cuadro: solo la conversación (encabezado, mensajes y caja de escribir). */
-  html.modo-modal header, html.modo-modal .wa-chats, html.modo-modal .wa-ficha, html.modo-modal #btnToggleFicha{display:none !important;}
+  html.modo-modal header, html.modo-modal .wa-chats, html.modo-modal .wa-ficha, html.modo-modal #btnMenuChat{display:none !important;}
   html.modo-modal .wa-conv{border:none;}
 
   @media (max-width:1150px){ .wa-ficha{width:300px;} .wa-search{width:230px;} .wa-chats{width:310px;} }
@@ -374,6 +404,7 @@
         <button class="active" data-filtro="todos">Todos <span id="nTodos"></span></button>
         <button data-filtro="sinleer">Sin leer <span id="nSinLeer"></span></button>
         <button data-filtro="sinvincular">Sin vincular <span id="nSinVincular"></span></button>
+        <button data-filtro="archivados" title="Chats archivados: siguen archivados aunque llegue un mensaje nuevo (como en WhatsApp)">🗄️ Archivados <span id="nArchivados"></span><span class="n-arch-noleidos" id="nArchNoLeidos" title="Chats archivados con mensajes sin leer"></span></button>
       </div>
     </div>
     <div id="chatList"></div>
@@ -603,20 +634,29 @@ function pasaFiltroBase(c){
   return nombre.includes(q) || dni.includes(q) || (nro && nro.includes(q))
     || (qDig.length >= 3 && ((c.telefono||'').includes(qDig) || dni.replace(/\D/g,'').includes(qDig)));
 }
+// Los archivados solo se ven en "Archivados" (como en WhatsApp).
 function pasaFiltro(c){
+  if(filtroActivo === 'archivados') return !!c.archivada && pasaFiltroBase(c);
+  if(c.archivada) return false;
   if(filtroActivo === 'sinleer' && !(c.no_leidos > 0)) return false;
   if(filtroActivo === 'sinvincular' && !sinVincularReal(c)) return false;
   return pasaFiltroBase(c);
 }
 
 function actualizarContadores(){
-  const sinLeer = conversaciones.filter(c => c.no_leidos > 0).length;
-  const sinVincular = conversaciones.filter(sinVincularReal).length;
+  const activas = conversaciones.filter(c => !c.archivada);
+  const sinLeer = activas.filter(c => c.no_leidos > 0).length;
+  const sinVincular = activas.filter(sinVincularReal).length;
   document.getElementById('headerSub').textContent = `${sinLeer} chats sin leer · ${sinVincular} sin vincular`;
   const base = conversaciones.filter(pasaFiltroBase);
-  document.getElementById('nTodos').textContent = base.length;
-  document.getElementById('nSinLeer').textContent = base.filter(c => c.no_leidos > 0).length;
-  document.getElementById('nSinVincular').textContent = base.filter(sinVincularReal).length;
+  const baseActivas = base.filter(c => !c.archivada);
+  const archivadas = base.filter(c => c.archivada);
+  document.getElementById('nTodos').textContent = baseActivas.length;
+  document.getElementById('nSinLeer').textContent = baseActivas.filter(c => c.no_leidos > 0).length;
+  document.getElementById('nSinVincular').textContent = baseActivas.filter(sinVincularReal).length;
+  document.getElementById('nArchivados').textContent = archivadas.length;
+  const archNoLeidos = archivadas.filter(c => c.no_leidos > 0).length;
+  document.getElementById('nArchNoLeidos').textContent = archNoLeidos || '';
 }
 
 function renderChatList(){
@@ -627,9 +667,12 @@ function renderChatList(){
   const posFijado = id => { const i = chatsFijados.indexOf(id); return i < 0 ? Infinity : i; };
   lista.sort((a, b) => posFijado(a.id) - posFijado(b.id));
   if(!lista.length){
-    cont.innerHTML = `<div class="empty-state" style="height:160px;">Sin chats${filtroActivo==='sinleer'?' sin leer':filtroActivo==='sinvincular'?' sin vincular':''}.</div>`;
+    cont.innerHTML = filtroActivo === 'archivados'
+      ? `<div class="empty-state" style="height:160px;">No hay chats archivados.<br><span style="font-size:12.5px;">Archivá un chat con clic derecho (o ⌄) en la lista, o desde el menú ··· del chat.</span></div>`
+      : `<div class="empty-state" style="height:160px;">Sin chats${filtroActivo==='sinleer'?' sin leer':filtroActivo==='sinvincular'?' sin vincular':''}.</div>`;
     return;
   }
+  const ro = soloLectura();
   cont.innerHTML = lista.map(c=>{
     const nombre = nombreConversacion(c);
     return `<div class="chat-item ${conversacionActual && conversacionActual.id===c.id?'active':''}" data-id="${escapeHtml(c.id)}">
@@ -642,12 +685,21 @@ function renderChatList(){
         </div>
         <div class="chat-tags">${tagsDeChat(c)}</div>
       </div>
+      ${ro ? '' : `<button class="chat-menu-btn" data-menu-chat="${escapeHtml(c.id)}" title="Más opciones" aria-label="Más opciones del chat">⌄</button>`}
     </div>`;
   }).join('');
 }
 // Un solo listener para toda la lista (con 1000 chats, uno por fila
 // se notaba en cada recarga).
 document.getElementById('chatList').addEventListener('click', e=>{
+  const btnMenu = e.target.closest('[data-menu-chat]');
+  if(btnMenu){
+    e.stopPropagation();
+    const r = btnMenu.getBoundingClientRect();
+    btnMenu.classList.add('abierto');
+    abrirMenuChat(btnMenu.dataset.menuChat, r.left, r.bottom + 4, ()=> btnMenu.classList.remove('abierto'));
+    return;
+  }
   const item = e.target.closest('.chat-item');
   if(item) abrirConversacion(item.dataset.id);
 });
@@ -666,16 +718,22 @@ document.addEventListener('keydown', e=>{
     window.parent.postMessage({ type: 'cm-cerrar-chat-modal' }, '*');
     return;
   }
+  if(document.querySelector('.menu-chat')){ cerrarMenuChat(); return; }
   if(!conversacionActual) return;
   if(document.querySelector('.modal-fondo')) return;
   const abierto = id => { const p = document.getElementById(id); return p && p.style.display === 'block'; };
   if(abierto('plantillasPopup') || abierto('emojiPopup')){ ['plantillasPopup','emojiPopup'].forEach(id => { const p = document.getElementById(id); if(p) p.style.display = 'none'; }); return; }
+  cerrarChatAbierto();
+});
+function cerrarChatAbierto(){
   conversacionActual = null;
+  cargaActual++;
+  if(canalMensajes){ window.sb.removeChannel(canalMensajes); canalMensajes = null; }
   document.getElementById('wacConv').innerHTML = `<div class="empty-state" id="convEmpty"><div style="font-size:34px;">💬</div><div>Elegí un chat de la izquierda para ver la conversación</div></div>`;
   const ficha = document.getElementById('fichaLateral');
   if(ficha) ficha.innerHTML = '';
   renderChatList();
-});
+}
 
 // ── Chats fijados (📌): se guardan en la base para verlos igual en cualquier PC ──
 var chatsFijados = [];
@@ -684,19 +742,170 @@ appReady.then(async ()=>{
 });
 function alternarFijado(id){
   const ya = chatsFijados.includes(id);
+  // Como en WhatsApp: un chat archivado no se fija (primero se desarchiva).
+  const conv = conversaciones.find(c => c.id === id);
+  if(!ya && conv && conv.archivada){ toast('Los chats archivados no se pueden fijar: desarchivalo primero.'); return; }
   chatsFijados = ya ? chatsFijados.filter(x => x !== id) : [...chatsFijados, id];
   kvSet('chats_fijados', chatsFijados).catch(e => console.error('chats_fijados', e));
   renderChatList();
   if(conversacionActual && conversacionActual.id === id){ const b = document.getElementById('btnFijar'); if(b) b.textContent = ya ? '📌 Fijar' : '📌 Desfijar'; }
   toast(ya ? 'Chat desfijado' : '📌 Chat fijado arriba de todo');
 }
-// Clic derecho sobre un chat de la lista = fijar / desfijar.
+// Clic derecho sobre un chat de la lista = menú (fijar, archivar, eliminar).
 document.getElementById('chatList').addEventListener('contextmenu', e=>{
   const item = e.target.closest('.chat-item');
   if(!item) return;
   e.preventDefault();
-  alternarFijado(item.dataset.id);
+  if(soloLectura()){ if(window.cmAvisarSoloLectura) window.cmAvisarSoloLectura(); return; }
+  abrirMenuChat(item.dataset.id, e.clientX, e.clientY);
 });
+
+function soloLectura(){ return !!(window.cmSoloLectura && window.cmSoloLectura()); }
+
+// ── Menú de un chat: ⌄ / clic derecho en la lista y ··· en el encabezado ──
+// conFicha: el del encabezado suma "Mostrar / ocultar la ficha" (lo que
+// hacía antes el botón ···). Mirando como supervisor solo queda eso.
+let menuChatAbierto = null;
+function cerrarMenuChat(){
+  if(!menuChatAbierto) return;
+  const { el, alCerrar } = menuChatAbierto;
+  menuChatAbierto = null;
+  el.remove();
+  document.removeEventListener('mousedown', cerrarMenuSiAfuera, true);
+  window.removeEventListener('resize', cerrarMenuChat);
+  document.getElementById('chatList').removeEventListener('scroll', cerrarMenuChat);
+  if(alCerrar) alCerrar();
+}
+function cerrarMenuSiAfuera(e){
+  if(!menuChatAbierto || menuChatAbierto.el.contains(e.target)) return;
+  // El mismo botón que lo abrió lo cierra con su click (si no, se reabría).
+  if(e.target.closest && e.target.closest('#btnMenuChat')) return;
+  cerrarMenuChat();
+}
+function abrirMenuChat(id, x, y, alCerrar, { conFicha = false, alinearDerecha = false } = {}){
+  cerrarMenuChat();
+  const c = conversaciones.find(cv => cv.id === id);
+  if(!c) return;
+  const ro = soloLectura();
+  const fijado = chatsFijados.includes(id);
+  const items = [];
+  if(conFicha){
+    const abierta = document.getElementById('fichaLateral').classList.contains('open');
+    items.push(`<button data-acc="ficha" role="menuitem"><span class="ico">🗂️</span>${abierta ? 'Ocultar la ficha' : 'Mostrar la ficha'}</button>`);
+  }
+  if(!ro){
+    if(conFicha) items.push('<hr>');
+    if(!c.archivada) items.push(`<button data-acc="fijar" role="menuitem"><span class="ico">📌</span>${fijado ? 'Desfijar chat' : 'Fijar chat'}</button>`);
+    items.push(`<button data-acc="archivar" role="menuitem"><span class="ico">🗄️</span>${c.archivada ? 'Desarchivar chat' : 'Archivar chat'}</button>`);
+    items.push('<hr>');
+    items.push(`<button data-acc="eliminar" role="menuitem" class="peligro"><span class="ico">🗑️</span>Eliminar chat</button>`);
+  }
+  if(!items.length){ if(alCerrar) alCerrar(); return; }
+  const el = document.createElement('div');
+  el.className = 'menu-chat';
+  el.setAttribute('role', 'menu');
+  el.innerHTML = items.join('');
+  document.body.appendChild(el);
+  // Que no se salga de la pantalla.
+  const w = el.offsetWidth, h = el.offsetHeight;
+  let left = alinearDerecha ? x - w : x;
+  left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
+  let top = y;
+  if(top + h > window.innerHeight - 8) top = Math.max(8, y - h - 8);
+  el.style.left = left + 'px';
+  el.style.top = top + 'px';
+  menuChatAbierto = { el, alCerrar };
+  el.addEventListener('click', e=>{
+    const b = e.target.closest('[data-acc]');
+    if(!b) return;
+    const acc = b.dataset.acc;
+    cerrarMenuChat();
+    if(acc === 'ficha') document.getElementById('fichaLateral').classList.toggle('open');
+    if(acc === 'fijar') alternarFijado(id);
+    if(acc === 'archivar') alternarArchivado(id);
+    if(acc === 'eliminar') confirmarEliminarChat(id);
+  });
+  setTimeout(()=>{
+    document.addEventListener('mousedown', cerrarMenuSiAfuera, true);
+    window.addEventListener('resize', cerrarMenuChat);
+    document.getElementById('chatList').addEventListener('scroll', cerrarMenuChat);
+  }, 0);
+}
+
+// Archivar / desarchivar. Archivar lo desfija (como en WhatsApp). Si el chat
+// está abierto, queda abierto.
+async function alternarArchivado(id){
+  if(soloLectura()){ if(window.cmAvisarSoloLectura) window.cmAvisarSoloLectura(); return; }
+  const c = conversaciones.find(cv => cv.id === id);
+  if(!c) return;
+  const archivar = !c.archivada;
+  try{
+    await crmArchivarConversacion(id, archivar);
+  }catch(e){
+    toast(/archivada/.test(e && e.message || '') ? 'Falta correr supabase/014_archivar_chats.sql en Supabase para poder archivar.' : 'No se pudo ' + (archivar ? 'archivar' : 'desarchivar') + ' el chat.', 'error');
+    return;
+  }
+  c.archivada = archivar;
+  c.archivada_at = archivar ? new Date().toISOString() : null;
+  if(archivar && chatsFijados.includes(id)){
+    chatsFijados = chatsFijados.filter(x => x !== id);
+    kvSet('chats_fijados', chatsFijados).catch(e => console.error('chats_fijados', e));
+    const b = document.getElementById('btnFijar');
+    if(b && conversacionActual && conversacionActual.id === id) b.textContent = '📌 Fijar';
+  }
+  if(conversacionActual && conversacionActual.id === id) pintarEncabezadoArchivado();
+  renderChatList();
+  toast(archivar ? '🗄️ Chat archivado: lo ves en "Archivados". Si escribe de nuevo, sigue archivado.' : 'Chat desarchivado');
+}
+
+// "Eliminar chat": solo del CRM. En el celular / WhatsApp sigue estando, y
+// si el contacto vuelve a escribir aparece un chat nuevo. Se borran la
+// conversación y sus mensajes (cascade); el cliente no se toca.
+function confirmarEliminarChat(id){
+  if(soloLectura()){ if(window.cmAvisarSoloLectura) window.cmAvisarSoloLectura(); return; }
+  const c = conversaciones.find(cv => cv.id === id);
+  if(!c) return;
+  const nombre = nombreConversacion(c);
+  const m = abrirModal(`
+    <div class="modal-head"><div><h2>🗑️ ¿Eliminar este chat?</h2><div class="sub">${escapeHtml(nombre)}${c.es_grupo ? ' · Grupo' : ''}</div></div><button class="modal-x" data-cerrar>✕</button></div>
+    <div class="modal-body">
+      <div class="aviso-borrar">Se borra <b>solo del CRM</b>. En el celular y en WhatsApp el chat sigue estando igual.</div>
+      <ul class="lista-borrar">
+        <li>Se borran la conversación y todos sus mensajes del CRM (también los que estaban en la cola sin salir).</li>
+        <li>${c.es_grupo ? 'No salís del grupo.' : c.cliente_id ? 'El cliente y su ficha <b>no</b> se tocan.' : 'No se borra ningún cliente.'}</li>
+        <li>Si ${c.es_grupo ? 'alguien escribe en el grupo' : 'el contacto vuelve a escribir'}, aparece un chat nuevo (solo con lo nuevo).</li>
+      </ul>
+    </div>
+    <div class="modal-pie"><span class="error" id="elError"></span><button class="btn" data-cerrar>Cancelar</button><button class="btn btn-peligro" id="elConfirmar">Eliminar chat</button></div>`, 440);
+  const btn = m.el.querySelector('#elConfirmar');
+  btn.focus();
+  btn.addEventListener('click', async ()=>{
+    btn.disabled = true;
+    try{
+      await crmEliminarConversacion(id);
+    }catch(e){
+      btn.disabled = false;
+      m.el.querySelector('#elError').textContent = 'No se pudo eliminar. Probá de nuevo.';
+      return;
+    }
+    m.cerrar();
+    conversaciones = conversaciones.filter(cv => cv.id !== id);
+    noGuardados.delete(id);
+    if(chatsFijados.includes(id)){
+      chatsFijados = chatsFijados.filter(x => x !== id);
+      kvSet('chats_fijados', chatsFijados).catch(e => console.error('chats_fijados', e));
+    }
+    if(conversacionActual && conversacionActual.id === id) cerrarChatAbierto();
+    else renderChatList();
+    toast('Chat eliminado del CRM');
+  });
+}
+
+// "· 🗄️ Archivado" en el encabezado del chat abierto.
+function pintarEncabezadoArchivado(){
+  const marca = document.getElementById('convArchivado');
+  if(marca) marca.style.display = conversacionActual && conversacionActual.archivada ? '' : 'none';
+}
 
 // Cobradores distintos de los clientes con chat, para el filtro "Cobrador".
 function actualizarFiltroCobrador(){
@@ -768,6 +977,7 @@ async function abrirConversacion(id){
   renderConversacionShell();
   renderFicha();
   document.getElementById('fichaLateral').classList.add('open');
+  enfocarCompose();
 
   const [mensajes, eventos] = await Promise.all([
     crmListMensajes(id),
@@ -780,7 +990,9 @@ async function abrirConversacion(id){
   eventosActuales = eventos;
   await renderMensajes(true);
 
-  crmMarcarConversacionLeida(id).then(() => {
+  // Si tenía sin leer, también se marca como leído en el celular (lo hace
+  // el worker; el contacto ve los tildes azules, como al abrirlo en WhatsApp).
+  crmMarcarConversacionLeida(id, { enCelular: (conversacionActual.no_leidos || 0) > 0 }).then(() => {
     if (miCarga !== cargaActual) return;
     conversacionActual.no_leidos = 0;
     renderChatList();
@@ -811,6 +1023,18 @@ async function abrirConversacion(id){
       renderMensajes();
     }, 250);
   });
+}
+
+// Al abrir un chat, el cursor queda en la caja de escribir (como en
+// WhatsApp Web). No mirando como supervisor, ni con un cuadro abierto, ni
+// en pantallas táctiles chicas (abriría el teclado tapando el chat).
+function enfocarCompose(){
+  if(soloLectura()) return;
+  if(document.querySelector('.modal-fondo')) return;
+  const tactil = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  if(tactil && window.innerWidth < 900) return;
+  const t = document.getElementById('composeTexto');
+  if(t) t.focus({ preventScroll: true });
 }
 
 async function recargarFicha(miCarga){
@@ -1018,7 +1242,7 @@ function renderConversacionShell(){
         <div class="avatar" style="background:${colorParaNombre(nombre)}">${escapeHtml(iniciales(nombre))}</div>
         <div style="min-width:0;">
           <div class="nombre">${escapeHtml(nombre)}</div>
-          <div class="sub">${subLinea}</div>
+          <div class="sub">${subLinea}<span id="convArchivado" style="${c.archivada ? '' : 'display:none'}"> · 🗄️ Archivado</span></div>
         </div>
       </div>
       <div class="conv-head-tools">
@@ -1028,7 +1252,7 @@ function renderConversacionShell(){
         ${sinAgendar ? '' : (nombreUsuarioCache ? `<span class="btn pill-usuario" title="Estás atendiendo como ${escapeHtml(nombreUsuarioCache)}">👤 ${escapeHtml(nombreUsuarioCache)}</span>` : '')}
         ${!c.es_grupo && c.telefono ? `<button class="btn btn-cuadrado" id="btnLlamar" title="Llamar: abre este chat en WhatsApp Desktop y la llamada se hace desde ahí" aria-label="Llamar por WhatsApp">📞</button>` : ''}
         <button class="btn" id="btnFijar" title="Fijar este chat arriba de todo (también: clic derecho en la lista)">📌 ${chatsFijados.includes(c.id) ? 'Desfijar' : 'Fijar'}</button>
-        <button id="btnToggleFicha" class="btn btn-cuadrado" title="Mostrar / ocultar la ficha">···</button>
+        <button id="btnMenuChat" class="btn btn-cuadrado" title="Más opciones: ficha, archivar, eliminar" aria-haspopup="menu">···</button>
       </div>
     </div>
     <div id="convMessages"><div class="empty-state">Cargando mensajes...</div></div>
@@ -1059,8 +1283,12 @@ function renderConversacionShell(){
   document.getElementById('btnFijar').addEventListener('click', ()=> alternarFijado(c.id));
   const btnLlamar = document.getElementById('btnLlamar');
   if(btnLlamar) btnLlamar.addEventListener('click', ()=> llamarPorWhatsApp(c.telefono));
-  document.getElementById('btnToggleFicha').addEventListener('click', ()=>{
-    document.getElementById('fichaLateral').classList.toggle('open');
+  const btnMenu = document.getElementById('btnMenuChat');
+  btnMenu.addEventListener('click', e=>{
+    e.stopPropagation();
+    if(menuChatAbierto){ cerrarMenuChat(); return; }
+    const r = btnMenu.getBoundingClientRect();
+    abrirMenuChat(c.id, r.right, r.bottom + 6, null, { conFicha: true, alinearDerecha: true });
   });
   const textarea = document.getElementById('composeTexto');
   textarea.addEventListener('input', ()=>{
