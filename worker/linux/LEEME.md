@@ -31,7 +31,8 @@ Si algo falla en el servidor, vuelve a dejar el worker andando en la PC. Si
 el servidor ya tiene el worker corriendo, no copia nada (para no pisar su
 sesión con la de la PC).
 
-`instalar.sh` instala Node.js si falta, las dependencias, pone el servidor
+`instalar.sh` instala Node.js si falta, ffmpeg (convierte las notas de voz
+🎤 que se graban desde el panel), las dependencias, pone el servidor
 en hora argentina (los horarios de envío usan la hora local) y registra el
 servicio `cash-market-worker`, que arranca solo y se relanza si se cae.
 

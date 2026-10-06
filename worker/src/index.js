@@ -124,7 +124,7 @@ async function main() {
     onReady: (sock) => { sockActual = sock; },
   });
 
-  iniciarColaEnvios({ supabase, userId: WORKER_USER_ID, getSock: () => sockActual });
+  iniciarColaEnvios({ supabase, userId: WORKER_USER_ID, getSock: () => sockActual, bucket: BUCKET });
   iniciarLatido(() => sockActual, (s) => { sockActual = s; });
   // No depende de WhatsApp: recalcula cuotas vencidas y días de atraso
   // aunque el celular esté desconectado (ver mora-diaria.js).

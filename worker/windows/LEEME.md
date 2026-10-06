@@ -45,3 +45,10 @@ corre `instalar.cmd` en esa copia y queda con su propia tarea.
 
 Nota: el worker corre mientras la sesión de Windows esté iniciada (puede
 estar bloqueada). Si la PC se reinicia y nadie inicia sesión, no arranca.
+
+Notas de voz (🎤 en el chat): Chrome las graba en WebM y WhatsApp las
+quiere en OGG, así que el worker las convierte con **ffmpeg**. Si el worker
+corre en la PC, hay que instalarlo una vez (`winget install Gyan.FFmpeg` en
+una consola, y después `detener.cmd` / `iniciar.cmd`). Sin ffmpeg la nota de
+voz queda en el chat con "⚠️ No se envió" (los textos salen igual). En el
+servidor Linux lo instala `linux/instalar.sh`.

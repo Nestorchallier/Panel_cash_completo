@@ -7,6 +7,7 @@
 const pino = require('pino');
 const { generateMessageIDV2 } = require('@whiskeysockets/baileys');
 const { aplicarPromesaConfirmada } = require('./aplicar-reglas');
+const { MIMETYPE_NOTA_DE_VOZ, audioParaNotaDeVoz } = require('./audio');
 // En 'info' queda en el log cada envío ("Mensaje enviado"), para poder
 // auditar si un mensaje salió o no.
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
@@ -49,9 +50,26 @@ async function resetearContadorSiCambioDeDia(supabase, userId, sesion) {
   return sesion;
 }
 
+// Lo que se le pasa a sock.sendMessage. Las notas de voz grabadas en el
+// panel (tipo 'audio') quedan en Storage (media_path): se bajan, se pasan a
+// OGG/Opus si hace falta (audio.js) y salen con ptt: true, así le llegan al
+// cliente como nota de voz y no como archivo.
+async function contenidoParaEnviar(supabase, bucket, mensaje, { convertirAudio } = {}) {
+  if (mensaje.tipo === 'audio' && mensaje.media_path) {
+    const { data, error } = await supabase.storage.from(bucket).download(mensaje.media_path);
+    if (error || !data) throw error || new Error('No se encontró la nota de voz en Storage: ' + mensaje.media_path);
+    const original = Buffer.isBuffer(data) ? data : Buffer.from(await data.arrayBuffer());
+    const audio = await audioParaNotaDeVoz(original, convertirAudio ? { convertir: convertirAudio } : {});
+    return { audio, ptt: true, mimetype: MIMETYPE_NOTA_DE_VOZ };
+  }
+  return { text: mensaje.texto || '' };
+}
+
 // soloRespuesta: durante el intervalo anti-bloqueo solo se mandan respuestas
 // a chats activos. Devuelve false si no mandó nada, o { respuesta } si mandó.
-async function enviarUno(sock, supabase, userId, sesion, { soloRespuesta = false } = {}) {
+// bucket / convertirAudio: para las notas de voz (las pruebas pasan un
+// convertidor de mentira).
+async function enviarUno(sock, supabase, userId, sesion, { soloRespuesta = false, bucket = 'comprobantes', convertirAudio } = {}) {
   const { data: pendiente } = await supabase
     .from('mensajes')
     .select('*, conversaciones!inner(id, jid, user_id, cliente_id)')
@@ -87,14 +105,15 @@ async function enviarUno(sock, supabase, userId, sesion, { soloRespuesta = false
   if (!reservado || !reservado.length) return false;
 
   try {
-    const resultado = await sock.sendMessage(pendiente.conversaciones.jid, { text: pendiente.texto || '' }, { messageId: waId });
+    const contenido = await contenidoParaEnviar(supabase, bucket, pendiente, { convertirAudio });
+    const resultado = await sock.sendMessage(pendiente.conversaciones.jid, contenido, { messageId: waId });
     const idFinal = resultado?.key?.id || waId;
     // Solo pasa de 'pendiente' a 'enviado': si en el medio ya llegó el
     // tilde de entregado/leído (WhatsApp es rápido), no se lo pisa.
     await supabase.from('mensajes').update({ estado: 'enviado', ...(idFinal !== waId ? { wa_id: idFinal } : {}) })
       .eq('id', pendiente.id).eq('estado', 'pendiente');
     await supabase.from('wa_sesion').update({ enviados_hoy: (sesion.enviados_hoy || 0) + 1 }).eq('user_id', userId);
-    logger.info({ a: pendiente.conversaciones.jid }, 'Mensaje enviado');
+    logger.info({ a: pendiente.conversaciones.jid, tipo: pendiente.tipo || 'texto' }, 'Mensaje enviado');
     // "Dale, el 5" contestando a "¿te puedo pagar el 5?": queda la promesa.
     await aplicarPromesaConfirmada(supabase, userId, pendiente.conversaciones, pendiente.texto, new Date().toISOString())
       .catch(e => logger.error({ err: e }, 'Error aplicando promesa confirmada'));
@@ -105,7 +124,7 @@ async function enviarUno(sock, supabase, userId, sesion, { soloRespuesta = false
   return { respuesta };
 }
 
-function iniciarColaEnvios({ supabase, userId, getSock }) {
+function iniciarColaEnvios({ supabase, userId, getSock, bucket = 'comprobantes' }) {
   let enviandoAhora = false;
   let proximoEnvioPermitidoEn = 0;
   let ultimoEnvio = 0;
@@ -127,7 +146,7 @@ function iniciarColaEnvios({ supabase, userId, getSock }) {
       if (!horaActualEntre(sesion.horario_desde, sesion.horario_hasta)) return;
       if ((sesion.enviados_hoy || 0) >= (sesion.limite_diario || 250)) return;
 
-      const envio = await enviarUno(sock, supabase, userId, sesion, { soloRespuesta: enIntervalo });
+      const envio = await enviarUno(sock, supabase, userId, sesion, { soloRespuesta: enIntervalo, bucket });
       if (envio) {
         ultimoEnvio = Date.now();
         // Solo los envíos "en frío" (sin charla reciente) abren el intervalo
@@ -146,4 +165,4 @@ function iniciarColaEnvios({ supabase, userId, getSock }) {
   }, POLL_MS);
 }
 
-module.exports = { iniciarColaEnvios };
+module.exports = { iniciarColaEnvios, enviarUno, contenidoParaEnviar };
